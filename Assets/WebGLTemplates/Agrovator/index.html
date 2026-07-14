@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="theme-color" content="#0e171f">
+    <title>{{{ PRODUCT_NAME }}}</title>
+    <link rel="stylesheet" href="TemplateData/style.css">
+  </head>
+  <body>
+    <main id="unity-shell" aria-label="AGROVATOR Pitch Simulator">
+      <div id="unity-stage">
+        <canvas id="unity-canvas" width={{{ WIDTH }}} height={{{ HEIGHT }}} tabindex="0"
+                aria-label="Pitch Simulator game"></canvas>
+        <div id="unity-loading" role="status" aria-live="polite">
+          <p id="unity-status">Loading Pitch Simulator&hellip;</p>
+          <div id="unity-progress-track" aria-hidden="true">
+            <div id="unity-progress-bar"></div>
+          </div>
+        </div>
+        <div id="unity-warning" role="alert" aria-live="assertive"></div>
+      </div>
+      <button id="unity-fullscreen" type="button" disabled>Enter fullscreen</button>
+    </main>
+
+    <script>
+      "use strict";
+
+      const shell = document.querySelector("#unity-shell");
+      const stage = document.querySelector("#unity-stage");
+      const canvas = document.querySelector("#unity-canvas");
+      const loading = document.querySelector("#unity-loading");
+      const status = document.querySelector("#unity-status");
+      const progressBar = document.querySelector("#unity-progress-bar");
+      const warning = document.querySelector("#unity-warning");
+      const fullscreen = document.querySelector("#unity-fullscreen");
+
+      function fitCanvas() {
+        const availableWidth = Math.max(1, shell.clientWidth);
+        const controlsHeight = fullscreen.offsetHeight + 20;
+        const availableHeight = Math.max(1, window.innerHeight - controlsHeight);
+        const width = Math.min(availableWidth, availableHeight * 16 / 9);
+        stage.style.width = `${Math.floor(width)}px`;
+      }
+
+      function showBanner(message, type) {
+        warning.textContent = message;
+        warning.dataset.type = type || "warning";
+        warning.hidden = false;
+        if (type !== "error") {
+          window.setTimeout(() => {
+            warning.hidden = true;
+            warning.textContent = "";
+          }, 5000);
+        }
+      }
+
+      window.addEventListener("resize", fitCanvas, { passive: true });
+      window.addEventListener("orientationchange", fitCanvas, { passive: true });
+      const resizeObserver = new ResizeObserver(fitCanvas);
+      resizeObserver.observe(shell);
+      fitCanvas();
+
+      const buildUrl = "Build";
+      const loaderUrl = `${buildUrl}/{{{ LOADER_FILENAME }}}`;
+      const config = {
+        arguments: [],
+        dataUrl: `${buildUrl}/{{{ DATA_FILENAME }}}`,
+        frameworkUrl: `${buildUrl}/{{{ FRAMEWORK_FILENAME }}}`,
+#if USE_WASM
+        codeUrl: `${buildUrl}/{{{ CODE_FILENAME }}}`,
+#endif
+#if SYMBOLS_FILENAME
+        symbolsUrl: `${buildUrl}/{{{ SYMBOLS_FILENAME }}}`,
+#endif
+        streamingAssetsUrl: "StreamingAssets",
+        companyName: {{{ JSON.stringify(COMPANY_NAME) }}},
+        productName: {{{ JSON.stringify(PRODUCT_NAME) }}},
+        productVersion: {{{ JSON.stringify(PRODUCT_VERSION) }}},
+        showBanner,
+      };
+
+#if BACKGROUND_FILENAME
+      canvas.style.background = "url('" + buildUrl + "/{{{ BACKGROUND_FILENAME.replace(/'/g, '%27') }}}') center / cover";
+#endif
+
+      const loader = document.createElement("script");
+      loader.src = loaderUrl;
+      loader.onload = () => {
+        createUnityInstance(canvas, config, (progress) => {
+          const percentage = Math.round(progress * 100);
+          progressBar.style.width = `${percentage}%`;
+          status.textContent = `Loading Pitch Simulator: ${percentage}%`;
+        }).then((unityInstance) => {
+          loading.hidden = true;
+          fullscreen.disabled = false;
+          fullscreen.addEventListener("click", () => unityInstance.SetFullscreen(1));
+          canvas.focus();
+        }).catch(() => {
+          status.textContent = "Pitch Simulator could not be loaded.";
+          showBanner("The game could not be loaded. Please refresh or contact support.", "error");
+        });
+      };
+      loader.onerror = () => {
+        status.textContent = "Pitch Simulator loader could not be downloaded.";
+        showBanner("The game loader is unavailable. Check the server and try again.", "error");
+      };
+      document.body.appendChild(loader);
+    </script>
+  </body>
+</html>
