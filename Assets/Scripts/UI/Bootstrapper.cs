@@ -7,7 +7,9 @@ using Agrovator.PitchSimulator.Dialogue;
 using Agrovator.PitchSimulator.LMS;
 using Agrovator.PitchSimulator.Scoring;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.SceneManagement;
+using UnityEngine.UI;
 
 namespace Agrovator.PitchSimulator.UI
 {
@@ -58,19 +60,25 @@ namespace Agrovator.PitchSimulator.UI
                 gameScene = SceneManager.GetSceneByName(GameSceneName);
             }
 
-            if (!TryCreateController(out controller))
+            var roots = gameScene.GetRootGameObjects();
+            var routers = FindInRoots<GameScreenRouter>(roots);
+            var canvases = FindInRoots<Canvas>(roots);
+            var eventSystems = FindInRoots<EventSystem>(roots);
+            if (routers.Length != 1 || canvases.Length != 1 || eventSystems.Length != 1)
             {
+                Debug.LogError(
+                    $"Game scene contract requires one Canvas, EventSystem and router; found " +
+                    $"{canvases.Length}/{eventSystems.Length}/{routers.Length}.", this);
+                yield break;
+            }
+            if (!routers[0].ValidateContract(out var contractError))
+            {
+                Debug.LogError($"Game router contract is invalid: {contractError}", this);
                 yield break;
             }
 
-            var routers = gameScene.GetRootGameObjects()
-                .SelectMany(root => root.GetComponentsInChildren<GameScreenRouter>(true))
-                .ToArray();
-            if (routers.Length != 1)
+            if (!TryCreateController(out controller))
             {
-                Debug.LogError($"Game scene contract requires one router; found {routers.Length}.", this);
-                controller.Dispose();
-                controller = null;
                 yield break;
             }
 
@@ -153,6 +161,11 @@ namespace Agrovator.PitchSimulator.UI
                 Debug.LogError($"Bootstrap composition failed: {exception.GetType().Name}.", this);
                 return false;
             }
+        }
+
+        private static T[] FindInRoots<T>(GameObject[] roots) where T : Component
+        {
+            return roots.SelectMany(root => root.GetComponentsInChildren<T>(true)).ToArray();
         }
     }
 }

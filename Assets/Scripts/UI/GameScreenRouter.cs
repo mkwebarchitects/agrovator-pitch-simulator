@@ -1,6 +1,9 @@
 using System;
+using System.Collections.Generic;
 using Agrovator.PitchSimulator.Core;
 using UnityEngine;
+using UnityEngine.EventSystems;
+using UnityEngine.UI;
 
 namespace Agrovator.PitchSimulator.UI
 {
@@ -16,6 +19,11 @@ namespace Agrovator.PitchSimulator.UI
         [SerializeField] private PitchRoomPresenter pitchRoomPresenter;
         [SerializeField] private ResultsPresenter resultsPresenter;
         [SerializeField] private SettingsPresenter settingsPresenter;
+        [SerializeField] private Selectable titleDefault;
+        [SerializeField] private Selectable briefingDefault;
+        [SerializeField] private Selectable pitchRoomDefault;
+        [SerializeField] private Selectable resultsDefault;
+        [SerializeField] private Selectable settingsDefault;
 
         private PitchSessionController controller;
         private GameObject panelBeforeSettings;
@@ -27,6 +35,10 @@ namespace Agrovator.PitchSimulator.UI
             if (sessionController == null)
             {
                 throw new ArgumentNullException(nameof(sessionController));
+            }
+            if (!ValidateContract(out var reason))
+            {
+                throw new InvalidOperationException(reason);
             }
 
             if (controller != null)
@@ -43,6 +55,51 @@ namespace Agrovator.PitchSimulator.UI
             controller.EventPublished += HandleSessionEvent;
             IsInitialized = true;
             Refresh();
+        }
+
+        public bool ValidateContract(out string reason)
+        {
+            var panels = new[] { titlePanel, briefingPanel, pitchRoomPanel, resultsPanel, settingsPanel };
+            var presenters = new MonoBehaviour[]
+            {
+                titlePresenter,
+                briefingPresenter,
+                pitchRoomPresenter,
+                resultsPresenter,
+                settingsPresenter,
+            };
+            var defaults = new[]
+            {
+                titleDefault,
+                briefingDefault,
+                pitchRoomDefault,
+                resultsDefault,
+                settingsDefault,
+            };
+
+            for (var index = 0; index < panels.Length; index++)
+            {
+                if (panels[index] == null || presenters[index] == null || defaults[index] == null)
+                {
+                    reason = $"Router contract reference {index} is incomplete.";
+                    return false;
+                }
+                if (!presenters[index].transform.IsChildOf(panels[index].transform) ||
+                    !defaults[index].transform.IsChildOf(panels[index].transform))
+                {
+                    reason = $"Router contract reference {index} is assigned outside its screen.";
+                    return false;
+                }
+            }
+
+            if (new HashSet<GameObject>(panels).Count != panels.Length)
+            {
+                reason = "Router screen panels must be distinct.";
+                return false;
+            }
+
+            reason = null;
+            return true;
         }
 
         public void Refresh()
@@ -125,6 +182,24 @@ namespace Agrovator.PitchSimulator.UI
                     panel.SetActive(panel == selected);
                 }
             }
+
+            var eventSystem = EventSystem.current;
+            var selectable = GetDefault(selected);
+            if (eventSystem != null && selectable != null && selectable.gameObject.activeInHierarchy)
+            {
+                eventSystem.SetSelectedGameObject(null);
+                eventSystem.SetSelectedGameObject(selectable.gameObject);
+            }
+        }
+
+        private Selectable GetDefault(GameObject panel)
+        {
+            if (panel == titlePanel) return titleDefault;
+            if (panel == briefingPanel) return briefingDefault;
+            if (panel == pitchRoomPanel) return pitchRoomDefault;
+            if (panel == resultsPanel) return resultsDefault;
+            if (panel == settingsPanel) return settingsDefault;
+            return null;
         }
     }
 }

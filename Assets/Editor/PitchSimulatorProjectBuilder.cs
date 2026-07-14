@@ -19,88 +19,182 @@ namespace Agrovator.PitchSimulator.Editor
         [MenuItem("Pitch Simulator/Build Project Foundation")]
         public static void BuildProjectFoundation()
         {
-            EnsureFolder("Assets/Scenes");
-            BuildBootstrapScene();
-            BuildGameScene();
-            BuildWebIntegrationTestScene();
-            EditorBuildSettings.scenes = new[]
+            if (!EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo())
             {
-                new EditorBuildSettingsScene(BootstrapPath, true),
-                new EditorBuildSettingsScene(GamePath, true),
-            };
-            AssetDatabase.SaveAssets();
-            AssetDatabase.Refresh();
-            Debug.Log("Pitch Simulator project foundation built successfully.");
+                Debug.Log("Pitch Simulator project foundation build cancelled.");
+                return;
+            }
+
+            BuildProjectFoundationBatch();
+        }
+
+        public static void BuildProjectFoundationBatch()
+        {
+            EnsureFolder("Assets/Scenes");
+            var originalActive = SceneManager.GetActiveScene();
+            try
+            {
+                BuildBootstrapScene();
+                BuildGameScene();
+                BuildWebIntegrationTestScene();
+                EditorBuildSettings.scenes = new[]
+                {
+                    new EditorBuildSettingsScene(BootstrapPath, true),
+                    new EditorBuildSettingsScene(GamePath, true),
+                };
+                AssetDatabase.SaveAssets();
+                AssetDatabase.Refresh();
+                Debug.Log("Pitch Simulator project foundation built successfully.");
+            }
+            finally
+            {
+                if (originalActive.IsValid() && originalActive.isLoaded)
+                {
+                    SceneManager.SetActiveScene(originalActive);
+                }
+            }
         }
 
         private static void BuildBootstrapScene()
         {
-            var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
-            var root = new GameObject("Generated Bootstrap");
-            var bootstrapObject = new GameObject("Bootstrapper");
-            bootstrapObject.transform.SetParent(root.transform, false);
-            var bootstrapper = bootstrapObject.AddComponent<Bootstrapper>();
-            SetReference(bootstrapper, "scenarioJson",
-                AssetDatabase.LoadAssetAtPath<TextAsset>("Assets/Content/Scenarios/smart-school-garden.en.json"));
-            SetReference(bootstrapper, "englishCatalogJson",
-                AssetDatabase.LoadAssetAtPath<TextAsset>("Assets/Content/Localization/en.json"));
-            SetReference(bootstrapper, "malayCatalogJson",
-                AssetDatabase.LoadAssetAtPath<TextAsset>("Assets/Content/Localization/ms.json"));
-            EditorSceneManager.SaveScene(scene, BootstrapPath);
+            var scene = OpenTarget(BootstrapPath, out var closeAfter);
+            try
+            {
+                var root = ReplaceOwnedRoot(scene, "Generated Bootstrap");
+                var bootstrapObject = new GameObject("Bootstrapper");
+                bootstrapObject.transform.SetParent(root.transform, false);
+                var bootstrapper = bootstrapObject.AddComponent<Bootstrapper>();
+                SetReference(bootstrapper, "scenarioJson",
+                    AssetDatabase.LoadAssetAtPath<TextAsset>("Assets/Content/Scenarios/smart-school-garden.en.json"));
+                SetReference(bootstrapper, "englishCatalogJson",
+                    AssetDatabase.LoadAssetAtPath<TextAsset>("Assets/Content/Localization/en.json"));
+                SetReference(bootstrapper, "malayCatalogJson",
+                    AssetDatabase.LoadAssetAtPath<TextAsset>("Assets/Content/Localization/ms.json"));
+                EditorSceneManager.SaveScene(scene, BootstrapPath);
+            }
+            finally
+            {
+                CloseIfOwned(scene, closeAfter);
+            }
         }
 
         private static void BuildGameScene()
         {
-            var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
-            var root = new GameObject("Generated UI");
+            var scene = OpenTarget(GamePath, out var closeAfter);
+            try
+            {
+                var root = ReplaceOwnedRoot(scene, "Generated UI");
 
-            var eventSystemObject = new GameObject("EventSystem", typeof(EventSystem), typeof(StandaloneInputModule));
-            eventSystemObject.transform.SetParent(root.transform, false);
+                var eventSystemObject = new GameObject("EventSystem", typeof(EventSystem), typeof(StandaloneInputModule));
+                eventSystemObject.transform.SetParent(root.transform, false);
+                var eventSystem = eventSystemObject.GetComponent<EventSystem>();
 
-            var canvasObject = new GameObject("Canvas", typeof(RectTransform), typeof(Canvas),
-                typeof(CanvasScaler), typeof(GraphicRaycaster));
-            canvasObject.transform.SetParent(root.transform, false);
-            var canvas = canvasObject.GetComponent<Canvas>();
-            canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-            var scaler = canvasObject.GetComponent<CanvasScaler>();
-            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-            scaler.referenceResolution = new Vector2(1280f, 720f);
-            scaler.screenMatchMode = CanvasScaler.ScreenMatchMode.MatchWidthOrHeight;
-            scaler.matchWidthOrHeight = 0.5f;
+                var canvasObject = new GameObject("Canvas", typeof(RectTransform), typeof(Canvas),
+                    typeof(CanvasScaler), typeof(GraphicRaycaster));
+                canvasObject.transform.SetParent(root.transform, false);
+                var canvas = canvasObject.GetComponent<Canvas>();
+                canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+                var scaler = canvasObject.GetComponent<CanvasScaler>();
+                scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+                scaler.referenceResolution = new Vector2(1280f, 720f);
+                scaler.screenMatchMode = CanvasScaler.ScreenMatchMode.MatchWidthOrHeight;
+                scaler.matchWidthOrHeight = 0.5f;
 
-            var router = canvasObject.AddComponent<GameScreenRouter>();
-            var title = CreateTitleScreen(canvasObject.transform, out var titlePresenter);
-            var briefing = CreateBriefingScreen(canvasObject.transform, out var briefingPresenter);
-            var pitch = CreatePitchRoomScreen(canvasObject.transform, out var pitchPresenter);
-            var results = CreateResultsScreen(canvasObject.transform, out var resultsPresenter);
-            var settings = CreateSettingsScreen(canvasObject.transform, out var settingsPresenter);
+                var router = canvasObject.AddComponent<GameScreenRouter>();
+                var title = CreateTitleScreen(canvasObject.transform, out var titlePresenter);
+                var briefing = CreateBriefingScreen(canvasObject.transform, out var briefingPresenter);
+                var pitch = CreatePitchRoomScreen(canvasObject.transform, out var pitchPresenter);
+                var results = CreateResultsScreen(canvasObject.transform, out var resultsPresenter);
+                var settings = CreateSettingsScreen(canvasObject.transform, out var settingsPresenter);
 
-            SetReference(router, "titlePanel", title);
-            SetReference(router, "briefingPanel", briefing);
-            SetReference(router, "pitchRoomPanel", pitch);
-            SetReference(router, "resultsPanel", results);
-            SetReference(router, "settingsPanel", settings);
-            SetReference(router, "titlePresenter", titlePresenter);
-            SetReference(router, "briefingPresenter", briefingPresenter);
-            SetReference(router, "pitchRoomPresenter", pitchPresenter);
-            SetReference(router, "resultsPresenter", resultsPresenter);
-            SetReference(router, "settingsPresenter", settingsPresenter);
+                var titleDefault = title.transform.Find("Start Button").GetComponent<Button>();
+                var briefingDefault = briefing.transform.Find("Continue Button").GetComponent<Button>();
+                var pitchDefault = pitch.transform.Find("Response 1").GetComponent<Button>();
+                var resultsDefault = results.transform.Find("Submit Button").GetComponent<Button>();
+                var settingsDefault = settings.transform.Find("Close Button").GetComponent<Button>();
 
-            title.SetActive(true);
-            briefing.SetActive(false);
-            pitch.SetActive(false);
-            results.SetActive(false);
-            settings.SetActive(false);
-            EditorSceneManager.SaveScene(scene, GamePath);
+                SetReference(router, "titlePanel", title);
+                SetReference(router, "briefingPanel", briefing);
+                SetReference(router, "pitchRoomPanel", pitch);
+                SetReference(router, "resultsPanel", results);
+                SetReference(router, "settingsPanel", settings);
+                SetReference(router, "titlePresenter", titlePresenter);
+                SetReference(router, "briefingPresenter", briefingPresenter);
+                SetReference(router, "pitchRoomPresenter", pitchPresenter);
+                SetReference(router, "resultsPresenter", resultsPresenter);
+                SetReference(router, "settingsPresenter", settingsPresenter);
+                SetReference(router, "titleDefault", titleDefault);
+                SetReference(router, "briefingDefault", briefingDefault);
+                SetReference(router, "pitchRoomDefault", pitchDefault);
+                SetReference(router, "resultsDefault", resultsDefault);
+                SetReference(router, "settingsDefault", settingsDefault);
+                eventSystem.firstSelectedGameObject = titleDefault.gameObject;
+
+                title.SetActive(true);
+                briefing.SetActive(false);
+                pitch.SetActive(false);
+                results.SetActive(false);
+                settings.SetActive(false);
+                EditorSceneManager.SaveScene(scene, GamePath);
+            }
+            finally
+            {
+                CloseIfOwned(scene, closeAfter);
+            }
         }
 
         private static void BuildWebIntegrationTestScene()
         {
-            var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
-            var root = new GameObject("Generated Web Integration Test");
-            var label = new GameObject("Diagnostics Note");
-            label.transform.SetParent(root.transform, false);
-            EditorSceneManager.SaveScene(scene, WebTestPath);
+            var scene = OpenTarget(WebTestPath, out var closeAfter);
+            try
+            {
+                var root = ReplaceOwnedRoot(scene, "Generated Web Integration Test");
+                var label = new GameObject("Diagnostics Note");
+                label.transform.SetParent(root.transform, false);
+                EditorSceneManager.SaveScene(scene, WebTestPath);
+            }
+            finally
+            {
+                CloseIfOwned(scene, closeAfter);
+            }
+        }
+
+        private static Scene OpenTarget(string path, out bool closeAfter)
+        {
+            var loaded = SceneManager.GetSceneByPath(path);
+            if (loaded.IsValid() && loaded.isLoaded)
+            {
+                closeAfter = false;
+                return loaded;
+            }
+
+            closeAfter = true;
+            return AssetDatabase.LoadAssetAtPath<SceneAsset>(path) != null
+                ? EditorSceneManager.OpenScene(path, OpenSceneMode.Additive)
+                : EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Additive);
+        }
+
+        private static GameObject ReplaceOwnedRoot(Scene scene, string rootName)
+        {
+            foreach (var existing in scene.GetRootGameObjects())
+            {
+                if (string.Equals(existing.name, rootName, StringComparison.Ordinal))
+                {
+                    UnityEngine.Object.DestroyImmediate(existing);
+                }
+            }
+
+            var root = new GameObject(rootName);
+            SceneManager.MoveGameObjectToScene(root, scene);
+            return root;
+        }
+
+        private static void CloseIfOwned(Scene scene, bool closeAfter)
+        {
+            if (closeAfter && scene.IsValid() && scene.isLoaded)
+            {
+                EditorSceneManager.CloseScene(scene, true);
+            }
         }
 
         private static GameObject CreateTitleScreen(Transform parent, out TitlePresenter presenter)
