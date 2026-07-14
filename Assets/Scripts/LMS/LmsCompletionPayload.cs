@@ -43,12 +43,20 @@ namespace Agrovator.PitchSimulator.LMS
                 throw new ArgumentNullException(nameof(payload));
             }
 
+            if (LmsPayloadValidator.ValidateCompletion(payload).Count > 0)
+            {
+                throw new ArgumentException("LMS completion payload is invalid.", nameof(payload));
+            }
+
             return JsonUtility.ToJson(payload);
         }
 
         public static LmsCompletionPayload DeserializeCompletion(string json)
         {
-            return Deserialize<LmsCompletionPayload>(json);
+            var payload = Deserialize<LmsCompletionPayload>(json);
+            payload.CompetencyScores ??= Array.Empty<LmsCompetencyScore>();
+            payload.SelectedResponseIds ??= Array.Empty<string>();
+            return payload;
         }
 
         public static string SerializeLaunchConfig(LmsLaunchConfig config)
@@ -56,6 +64,11 @@ namespace Agrovator.PitchSimulator.LMS
             if (config == null)
             {
                 throw new ArgumentNullException(nameof(config));
+            }
+
+            if (LmsPayloadValidator.ValidateLaunch(config).Count > 0)
+            {
+                throw new ArgumentException("LMS launch configuration is invalid.", nameof(config));
             }
 
             return JsonUtility.ToJson(config);

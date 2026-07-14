@@ -49,13 +49,73 @@ namespace Agrovator.PitchSimulator.Tests.EditMode.LMS
 
             Assert.That(copy.PseudonymousLearnerId, Is.EqualTo(source.PseudonymousLearnerId));
             Assert.That(copy.SessionId, Is.EqualTo(source.SessionId));
+            Assert.That(copy.CourseId, Is.EqualTo(source.CourseId));
+            Assert.That(copy.ModuleId, Is.EqualTo(source.ModuleId));
+            Assert.That(copy.LessonId, Is.EqualTo(source.LessonId));
             Assert.That(copy.ScenarioId, Is.EqualTo(source.ScenarioId));
             Assert.That(copy.Language, Is.EqualTo(source.Language));
             Assert.That(copy.AttemptNumber, Is.EqualTo(source.AttemptNumber));
             Assert.That(copy.TimerMode, Is.EqualTo(source.TimerMode));
             Assert.That(copy.ReducedMotion, Is.EqualTo(source.ReducedMotion));
+            Assert.That(copy.MusicVolume, Is.EqualTo(source.MusicVolume));
+            Assert.That(copy.SfxVolume, Is.EqualTo(source.SfxVolume));
             Assert.That(copy.ContentVersion, Is.EqualTo(source.ContentVersion));
             Assert.That(copy.LaunchReference, Is.EqualTo(source.LaunchReference));
+        }
+
+        [TestCase(double.NaN)]
+        [TestCase(double.NegativeInfinity)]
+        [TestCase(double.PositiveInfinity)]
+        public void SerializeCompletion_RejectsNonFiniteDurationBeforeProducingJson(double durationSeconds)
+        {
+            var payload = ValidPayload();
+            payload.DurationSeconds = durationSeconds;
+
+            Assert.Throws<ArgumentException>(() => LmsPayloadJson.SerializeCompletion(payload));
+        }
+
+        [Test]
+        public void SerializeCompletion_RejectsAnyInvalidPayloadBeforeProducingJson()
+        {
+            var payload = ValidPayload();
+            payload.ScenarioId = "";
+
+            Assert.Throws<ArgumentException>(() => LmsPayloadJson.SerializeCompletion(payload));
+        }
+
+        [TestCase(float.NaN)]
+        [TestCase(float.NegativeInfinity)]
+        [TestCase(float.PositiveInfinity)]
+        [TestCase(-0.01f)]
+        [TestCase(1.01f)]
+        public void SerializeLaunchConfig_RejectsInvalidMusicVolumeBeforeProducingJson(float volume)
+        {
+            var config = ValidLaunchConfig();
+            config.MusicVolume = volume;
+
+            Assert.Throws<ArgumentException>(() => LmsPayloadJson.SerializeLaunchConfig(config));
+        }
+
+        [TestCase(float.NaN)]
+        [TestCase(float.NegativeInfinity)]
+        [TestCase(float.PositiveInfinity)]
+        [TestCase(-0.01f)]
+        [TestCase(1.01f)]
+        public void SerializeLaunchConfig_RejectsInvalidSfxVolumeBeforeProducingJson(float volume)
+        {
+            var config = ValidLaunchConfig();
+            config.SfxVolume = volume;
+
+            Assert.Throws<ArgumentException>(() => LmsPayloadJson.SerializeLaunchConfig(config));
+        }
+
+        [Test]
+        public void SerializeLaunchConfig_RejectsAnyInvalidConfigBeforeProducingJson()
+        {
+            var config = ValidLaunchConfig();
+            config.SessionId = "";
+
+            Assert.Throws<ArgumentException>(() => LmsPayloadJson.SerializeLaunchConfig(config));
         }
 
         [Test]
@@ -154,6 +214,33 @@ namespace Agrovator.PitchSimulator.Tests.EditMode.LMS
             AssertIssue(payload, "lms.timestamp.utc", path);
         }
 
+        [TestCase("2024-02-29T23:59:59Z")]
+        [TestCase("2026-07-14T02:00:00.1Z")]
+        [TestCase("2026-07-14T02:00:00.1234567Z")]
+        public void ValidateCompletion_AcceptsCanonicalRfc3339UtcTimestamp(string timestamp)
+        {
+            var payload = ValidPayload();
+            payload.StartedAtUtc = timestamp;
+            payload.CompletedAtUtc = timestamp;
+
+            Assert.That(LmsPayloadValidator.ValidateCompletion(payload), Is.Empty);
+        }
+
+        [TestCase("2026-07-14")]
+        [TestCase("2026-07-14 02:00:00Z")]
+        [TestCase("2026-07-14T02:00:00z")]
+        [TestCase("14/07/2026T02:00:00Z")]
+        [TestCase("2026-07-14T02:00Z")]
+        [TestCase("2026-07-14T02:00:00.12345678Z")]
+        [TestCase("2026-07-14T02:00:00+00:00")]
+        public void ValidateCompletion_RejectsNonCanonicalUtcTimestamp(string timestamp)
+        {
+            var payload = ValidPayload();
+            payload.StartedAtUtc = timestamp;
+
+            AssertIssue(payload, "lms.timestamp.utc", "StartedAtUtc");
+        }
+
         [TestCase(-1d)]
         [TestCase(double.NaN)]
         [TestCase(double.NegativeInfinity)]
@@ -209,6 +296,76 @@ namespace Agrovator.PitchSimulator.Tests.EditMode.LMS
         }
 
         [Test]
+        public void LaunchConfig_ContainsOnlyApprovedFields()
+        {
+            var approvedFields = new[]
+            {
+                "PseudonymousLearnerId", "SessionId", "CourseId", "ModuleId", "LessonId",
+                "ScenarioId", "Language", "AttemptNumber", "TimerMode", "ReducedMotion",
+                "MusicVolume", "SfxVolume", "ContentVersion", "LaunchReference",
+            };
+            var actualFields = typeof(LmsLaunchConfig).GetFields().Select(field => field.Name);
+
+            Assert.That(actualFields, Is.EquivalentTo(approvedFields));
+        }
+
+        [TestCase(float.NaN, "lms.music_volume.range", "MusicVolume")]
+        [TestCase(float.NegativeInfinity, "lms.music_volume.range", "MusicVolume")]
+        [TestCase(float.PositiveInfinity, "lms.music_volume.range", "MusicVolume")]
+        [TestCase(-0.01f, "lms.music_volume.range", "MusicVolume")]
+        [TestCase(1.01f, "lms.music_volume.range", "MusicVolume")]
+        public void ValidateLaunch_RejectsInvalidMusicVolume(float volume, string code, string path)
+        {
+            var config = ValidLaunchConfig();
+            config.MusicVolume = volume;
+
+            AssertLaunchIssue(config, code, path);
+        }
+
+        [TestCase(float.NaN, "lms.sfx_volume.range", "SfxVolume")]
+        [TestCase(float.NegativeInfinity, "lms.sfx_volume.range", "SfxVolume")]
+        [TestCase(float.PositiveInfinity, "lms.sfx_volume.range", "SfxVolume")]
+        [TestCase(-0.01f, "lms.sfx_volume.range", "SfxVolume")]
+        [TestCase(1.01f, "lms.sfx_volume.range", "SfxVolume")]
+        public void ValidateLaunch_RejectsInvalidSfxVolume(float volume, string code, string path)
+        {
+            var config = ValidLaunchConfig();
+            config.SfxVolume = volume;
+
+            AssertLaunchIssue(config, code, path);
+        }
+
+        [TestCase(null)]
+        [TestCase("")]
+        [TestCase("   ")]
+        [TestCase("lref_short")]
+        [TestCase("lref_abcdefghijkl.")]
+        [TestCase("lref_abcdef ghijkl")]
+        [TestCase("Bearer abcdefghijklmnop")]
+        [TestCase("eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxIn0.signature")]
+        [TestCase("raw-token-abcdefghijklmnop")]
+        [TestCase("lref_abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ123456789")]
+        public void ValidateLaunch_RejectsMissingOrMalformedLaunchReference(string launchReference)
+        {
+            var config = ValidLaunchConfig();
+            config.LaunchReference = launchReference;
+
+            AssertLaunchIssue(config, "lms.launch_reference.invalid", "LaunchReference");
+        }
+
+        [TestCase("lref_abcdefghijkl")]
+        [TestCase("lref_ABCDEFGHIJKL")]
+        [TestCase("lref_abcDEF123_-x")]
+        [TestCase("lref_abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ12345678")]
+        public void ValidateLaunch_AcceptsConstrainedOpaqueLaunchReference(string launchReference)
+        {
+            var config = ValidLaunchConfig();
+            config.LaunchReference = launchReference;
+
+            Assert.That(LmsPayloadValidator.ValidateLaunch(config), Is.Empty);
+        }
+
+        [Test]
         public void ValidateLaunch_RejectsMissingIdentifiersUnsupportedVersionAndNegativeAttempt()
         {
             var config = ValidLaunchConfig();
@@ -226,6 +383,17 @@ namespace Agrovator.PitchSimulator.Tests.EditMode.LMS
                 "lms.content_version.unsupported",
                 "lms.attempt.invalid",
             }));
+        }
+
+        [TestCase("{}")]
+        [TestCase("{\"CompetencyScores\":null,\"SelectedResponseIds\":null}")]
+        [TestCase("{\"CompetencyScores\":[],\"SelectedResponseIds\":[]}")]
+        public void DeserializeCompletion_NormalizesMissingNullAndEmptyArrays(string json)
+        {
+            var payload = LmsPayloadJson.DeserializeCompletion(json);
+
+            Assert.That(payload.CompetencyScores, Is.Not.Null.And.Empty);
+            Assert.That(payload.SelectedResponseIds, Is.Not.Null.And.Empty);
         }
 
         [Test]
@@ -308,6 +476,14 @@ namespace Agrovator.PitchSimulator.Tests.EditMode.LMS
                 $"Expected issue {code} at {path}.");
         }
 
+        private static void AssertLaunchIssue(LmsLaunchConfig config, string code, string path)
+        {
+            var issues = LmsPayloadValidator.ValidateLaunch(config);
+
+            Assert.That(issues.Any(issue => issue.Code == code && issue.Path == path), Is.True,
+                $"Expected issue {code} at {path}.");
+        }
+
         private static LmsLaunchConfig ValidLaunchConfig()
         {
             return new LmsLaunchConfig
@@ -325,7 +501,7 @@ namespace Agrovator.PitchSimulator.Tests.EditMode.LMS
                 MusicVolume = 0.75f,
                 SfxVolume = 0.8f,
                 ContentVersion = LmsPayloadValidator.SupportedContentVersion,
-                LaunchReference = "launch-ref-opaque-17",
+                LaunchReference = "lref_opaque_ref_17",
             };
         }
 

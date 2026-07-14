@@ -30,6 +30,12 @@ namespace Agrovator.PitchSimulator.LMS
     {
         public const int SupportedContentVersion = 1;
 
+        private static readonly string[] CanonicalUtcTimestampFormats =
+        {
+            "yyyy-MM-dd'T'HH:mm:ss'Z'",
+            "yyyy-MM-dd'T'HH:mm:ss.FFFFFFF'Z'",
+        };
+
         private static readonly string[] ForbiddenCompletionFieldFragments =
         {
             "name",
@@ -58,6 +64,14 @@ namespace Agrovator.PitchSimulator.LMS
                 config.ContentVersion,
                 config.AttemptNumber,
                 issues);
+
+            ValidateVolume(config.MusicVolume, "lms.music_volume.range", "MusicVolume", issues);
+            ValidateVolume(config.SfxVolume, "lms.sfx_volume.range", "SfxVolume", issues);
+            if (!IsValidLaunchReference(config.LaunchReference))
+            {
+                Add(issues, "lms.launch_reference.invalid", "LaunchReference");
+            }
+
             return issues;
         }
 
@@ -199,18 +213,62 @@ namespace Agrovator.PitchSimulator.LMS
 
         private static bool TryParseUtc(string value, out DateTimeOffset timestamp)
         {
-            timestamp = default;
-            if (string.IsNullOrWhiteSpace(value) ||
-                !value.EndsWith("Z", StringComparison.Ordinal))
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                timestamp = default;
+                return false;
+            }
+
+            return DateTimeOffset.TryParseExact(
+                value,
+                CanonicalUtcTimestampFormats,
+                CultureInfo.InvariantCulture,
+                DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal,
+                out timestamp);
+        }
+
+        private static void ValidateVolume(
+            float volume,
+            string code,
+            string path,
+            ICollection<LmsValidationIssue> issues)
+        {
+            if (float.IsNaN(volume) || float.IsInfinity(volume) || volume < 0f || volume > 1f)
+            {
+                Add(issues, code, path);
+            }
+        }
+
+        private static bool IsValidLaunchReference(string value)
+        {
+            const string prefix = "lref_";
+            if (string.IsNullOrEmpty(value) ||
+                !value.StartsWith(prefix, StringComparison.Ordinal))
             {
                 return false;
             }
 
-            return DateTimeOffset.TryParse(
-                value,
-                CultureInfo.InvariantCulture,
-                DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal,
-                out timestamp);
+            var identifierLength = value.Length - prefix.Length;
+            if (identifierLength < 12 || identifierLength > 60)
+            {
+                return false;
+            }
+
+            for (var index = prefix.Length; index < value.Length; index++)
+            {
+                var character = value[index];
+                var isUrlSafe = character >= 'A' && character <= 'Z' ||
+                                character >= 'a' && character <= 'z' ||
+                                character >= '0' && character <= '9' ||
+                                character == '_' ||
+                                character == '-';
+                if (!isUrlSafe)
+                {
+                    return false;
+                }
+            }
+
+            return true;
         }
 
         private static void Add(
