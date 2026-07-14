@@ -1,1 +1,39 @@
 worktrees/
+
+# Unity-generated state
+[Ll]ibrary/
+[Tt]emp/
+[Oo]bj/
+[Ll]ogs/
+[Uu]ser[Ss]ettings/
+[Mm]emoryCaptures/
+[Rr]ecordings/
+
+# Local build and verification outputs
+[Bb]uild/
+[Bb]uilds/
+artifacts/
+
+# IDE and generated project files
+.vs/
+.idea/
+.vscode/
+*.csproj
+*.sln
+*.suo
+*.tmp
+*.user
+*.userprefs
+*.pidb
+*.booproj
+*.svd
+*.pdb
+*.mdb
+*.opendb
+*.VC.db
+*.unityproj
+
+# OS junk
+.DS_Store
+Thumbs.db
+Desktop.ini

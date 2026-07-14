@@ -1,0 +1,10 @@
+* text=auto
+*.cs text eol=lf
+*.json text eol=lf
+*.md text eol=lf
+*.unity text eol=lf
+*.prefab text eol=lf
+*.asset text eol=lf
+*.png binary
+*.wav binary
+*.ogg binary
