@@ -13,7 +13,7 @@
 - `Agrovator.PitchSimulator.Session`: orchestration across the above and LMS; engine-free.
 - `Agrovator.PitchSimulator.Dialogue.Unity`: ScriptableObject import boundary.
 - `Agrovator.PitchSimulator.LMS`: Unity JSON and WebGL/native bridge boundary.
-- `Agrovator.PitchSimulator.Audio`: plain service plus Unity audio adapters.
+- `Agrovator.PitchSimulator.Audio`: plain service plus Unity audio adapters; the UI assembly's `AudioCueDirector` maps user gestures, session events, and the final-five timer threshold onto the nine cue slots.
 - `Agrovator.PitchSimulator.UI`: thin uGUI presenters and composition.
 
 The `PitchSessionController` owns game rules and emits immutable snapshots/events. `Bootstrapper` is the sole production unscaled clock bridge. Presenters render snapshots and forward commands; they do not duplicate session rules.

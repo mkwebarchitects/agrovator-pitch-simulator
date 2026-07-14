@@ -30,20 +30,20 @@ The seven emitted files total exactly `92,357,339` bytes:
 
 The development configuration intentionally selects Gzip plus decompression fallback as a same-origin local-harness setting, but this Development build emitted plain `.js`, `.data` and `.wasm` files. Uncompressed payload bytes are `92,349,401`; no `.gz`, `.br` or `.unityweb` artifact was produced, so a compressed-byte total is not applicable. Production compression and hosting headers remain a later deployment decision.
 
-## Fresh Task 20 development evidence
+## Fresh post-review Task 20 evidence
 
-On 2026-07-15 (`Asia/Kuala_Lumpur`), the fresh wrapper exited `0` in approximately `50 s`. Unity's `BuildReport` reported `Succeeded`, `92,357,339` bytes in `00:00:03.7963558`, zero build warnings, and zero build errors. It emitted the same seven-file inventory and exact byte sizes shown above; the plain payload remained `92,349,401` bytes.
+On 2026-07-15 (`Asia/Kuala_Lumpur`), the post-review wrapper exited `0` in `81.1 s`. Unity's `BuildReport` reported `Succeeded`, `92,361,436` bytes in `00:00:53.9826352`, zero build warnings, and zero build errors. It emitted seven files: `index.html` `5,367`; `style.css` `2,571`; `layout.js` `1,083`; loader `58,622`; framework `711,897`; data `9,289,560`; and wasm `82,292,336` bytes. The plain player payload is `92,352,415` bytes; no `.gz`, `.br`, or `.unityweb` artifact was emitted.
 
-The Task 20 browser matrix was generated at `2026-07-14T16:27:06.205Z` (`2026-07-15 00:27:06.205` in `Asia/Kuala_Lumpur`) with Playwright `1.61.1`:
+The final Task 20 browser matrix was generated at `2026-07-14T23:33:03.670Z` (`2026-07-15 07:33:03.670` in `Asia/Kuala_Lumpur`) with Playwright `1.61.1`:
 
 | Browser | Version | Result | Load time | Errors |
 | --- | --- | --- | ---: | --- |
-| Chrome | `150.0.7871.115` | Passed | `7,462 ms` | Zero console and page errors |
-| Edge | `150.0.4078.65` | Passed | `7,172 ms` | Zero console and page errors |
+| Chrome | `150.0.7871.116` | Passed | `6,566 ms` | Zero console and page errors |
+| Edge | `150.0.4078.65` | Passed | `6,316 ms` | Zero console and page errors |
 | Firefox | Not found at standard Windows paths | Unavailable | - | Not run |
 | Safari | Unavailable on Windows | Unverified | - | Not run |
 
-Both passing runs observed launch and the Success, Failure, and Missing Configuration paths, and the smoke server stopped cleanly (`server stopped=true`, zero server stderr). The warning boundary remains unchanged: the intentional null `ButtonPress` clip and existing non-root `DontDestroyOnLoad` diagnostic are known; final audible content is absent. This matrix does not establish Firefox, Safari, native touch, unrestricted fullscreen, real LMS submission, classroom usability, or human accessibility approval.
+Both passing runs observed launch, Success, Failure, Missing Configuration, and successful-completion Retry through a fresh Question 1 reveal. Pointer presses were held for `120 ms` so Unity's frame-polled WebGL input observed down/up across frames; the initial instantaneous-click run failed at the tutorial reveal and was retained as RED evidence before this correction. The smoke server stopped cleanly with zero stderr. Expected development warnings covered the non-root `DontDestroyOnLoad` diagnostic and null cue slots reached by the fast path; `TimerWarning` is covered by EditMode because the smoke selects responses before five seconds. Final audible content is absent. This matrix does not establish Firefox, Safari, native touch, unrestricted fullscreen, real LMS submission, classroom usability, or human accessibility approval.
 
 ## Hosting requirements to confirm
 

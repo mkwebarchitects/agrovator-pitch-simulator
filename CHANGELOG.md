@@ -15,6 +15,7 @@ The Task 20 audit records the completed standalone vertical-slice implementation
 - Validated local LMS DTOs/mock modes, version-1 same-origin WebGL `postMessage` bridge, four-mode local harness, bounded callbacks, and sanitized status display.
 - Complete numbered production handoff documents, four architecture decisions, 16-phase roadmap, and constrained Codex/Claude prompt library.
 - Deterministic Task 18 WebGL build automation and Task 19 loopback/browser smoke coverage, followed by the Task 20 acceptance, privacy, asset-provenance, and release-record audit.
+- Final-review regressions for localized pitch feedback/explanations, successful-completion Retry, all nine gameplay audio hooks, and frame-held WebGL pointer smoke actions.
 
 ### Security and privacy
 

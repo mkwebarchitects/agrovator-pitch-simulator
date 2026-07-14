@@ -8,7 +8,7 @@ Commands are `FinishBooting`, `StartScenario`, `Continue`, `SelectResponse`, `Fi
 
 ## Ownership
 
-`Bootstrapper` loads localization and calls `ScenarioJsonLoader.Load`, which parses, validates, and compiles authored JSON into a runtime scenario. `PitchSessionController` receives that compiled scenario, starts questions, accepts one response, advances reaction/feedback, tracks timer expiration, scoring, confidence, flags, and immutable review entries, then builds and submits the LMS completion. Submission failure retains the completed attempt. Retry resets the attempt, history, scoring, flags, timer, and submission state.
+`Bootstrapper` loads localization and calls `ScenarioJsonLoader.Load`, which parses, validates, and compiles authored JSON into a runtime scenario. `PitchSessionController` receives that compiled scenario, starts questions, accepts one response, advances reaction/feedback, tracks timer expiration, scoring, confidence, flags, and immutable review entries, then builds and submits the LMS completion. Submission failure retains the completed attempt. Retry from Results or successful Complete resets the attempt, history, scoring, flags, timer, and submission state.
 
 `GameScreenRouter` maps initialized session states to Title, Briefing, Pitch Room, or Results and restores a serialized default selectable. The three response views lock synchronously after a selection; Continue receives focus for post-response states.
 

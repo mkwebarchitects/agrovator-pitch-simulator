@@ -2,7 +2,7 @@
 
 ## Consolidated asset inventory
 
-The 2026-07-15 (`Asia/Kuala_Lumpur`) Task 20 audit enumerated `246` files under `Assets`: `105` logical files and `141` `.meta` sidecars. The sidecars reconcile to `105` file metas plus `36` folder metas, with no missing or orphaned meta. Of the logical files, `92` are first-party source/configuration files and the following `13` are non-code data, media, scene, or provenance records.
+The 2026-07-15 (`Asia/Kuala_Lumpur`) post-review Task 20 audit enumerated `250` files under `Assets`: `107` logical files and `143` `.meta` sidecars. The sidecars reconcile to `107` file metas plus `36` folder metas, with no missing or orphaned meta. Of the logical files, `94` are first-party source/configuration files and the following `13` are non-code data, media, scene, or provenance records.
 
 | Asset | Provenance/licence record | Audit disposition |
 | --- | --- | --- |
