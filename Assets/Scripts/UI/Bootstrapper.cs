@@ -24,6 +24,7 @@ namespace Agrovator.PitchSimulator.UI
 
         private static Bootstrapper instance;
         private PitchSessionController controller;
+        private Func<string, string> localize;
 
         public bool IsInitialized { get; private set; }
 
@@ -90,7 +91,7 @@ namespace Agrovator.PitchSimulator.UI
                 yield break;
             }
 
-            routers[0].Initialize(controller);
+            routers[0].Initialize(controller, localize);
             IsInitialized = true;
         }
 
@@ -146,6 +147,7 @@ namespace Agrovator.PitchSimulator.UI
                     ContentVersion = scenario.Version,
                     LaunchReference = "lref_localLaunch01",
                 };
+                localize = key => catalog.Resolve(launch.Language, key);
                 result = new PitchSessionController(
                     scenario,
                     new ScoreAccumulator(),

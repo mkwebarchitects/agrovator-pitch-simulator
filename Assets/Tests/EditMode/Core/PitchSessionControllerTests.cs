@@ -107,6 +107,23 @@ namespace Agrovator.PitchSimulator.Tests.EditMode.Core
         }
 
         [Test]
+        public void Snapshot_ExposesControllerOwnedTimerPresentationWithoutAllowingUiExpiryDecisions()
+        {
+            var fixture = CreateStartedFixture();
+            AdvancePastTutorial(fixture.Controller);
+
+            Assert.That(fixture.Controller.Snapshot.TimerTotalSeconds, Is.EqualTo(5d));
+            Assert.That(fixture.Controller.Snapshot.TimerRemainingSeconds, Is.EqualTo(5d));
+            Assert.That(fixture.Controller.Snapshot.ReducedMotion, Is.False);
+
+            fixture.Controller.Tick(1.25d);
+
+            Assert.That(fixture.Controller.Snapshot.TimerTotalSeconds, Is.EqualTo(5d));
+            Assert.That(fixture.Controller.Snapshot.TimerRemainingSeconds, Is.EqualTo(3.75d));
+            Assert.That(fixture.Controller.Snapshot.State, Is.EqualTo(GameState.AwaitingResponse));
+        }
+
+        [Test]
         public void TimerExpiry_WithoutNeutralTraversalStillReactsThenReturnsToAnswerableSameNode()
         {
             var bridge = new MockLmsBridge(MockLmsBridgeMode.Success, ValidLaunch());

@@ -32,6 +32,7 @@ namespace Agrovator.PitchSimulator.Core
         private LmsSubmissionError submissionError;
         private DateTimeOffset startedAt;
         private double durationSeconds;
+        private double timerTotalSeconds;
         private int timeoutCount;
         private int attemptNumber;
         private long submissionGeneration;
@@ -141,6 +142,7 @@ namespace Agrovator.PitchSimulator.Core
                 var isTutorial = string.Equals(dialogue.CurrentNode.NodeType, "Tutorial", StringComparison.Ordinal);
                 var duration = accessibility.GetEffectiveDuration(dialogue.CurrentNode.TimerSeconds, isTutorial);
                 timer.Reset(duration);
+                timerTotalSeconds = duration;
             }
 
             RefreshSnapshot();
@@ -343,6 +345,7 @@ namespace Agrovator.PitchSimulator.Core
             submissionError = null;
             startedAt = utcNow().ToUniversalTime();
             timer.Reset(0d);
+            timerTotalSeconds = 0d;
             ClearPresentationOutcome();
         }
 
@@ -449,6 +452,9 @@ namespace Agrovator.PitchSimulator.Core
                 available,
                 scores.OverallScore,
                 confidence.Value,
+                timer.RemainingSeconds,
+                timerTotalSeconds,
+                accessibility.ReducedMotion,
                 timeoutCount,
                 attemptNumber,
                 selectedResponseIds.AsReadOnly(),

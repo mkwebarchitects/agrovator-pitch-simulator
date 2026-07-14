@@ -16,6 +16,9 @@ namespace Agrovator.PitchSimulator.Core
             IReadOnlyList<RuntimeResponseOption> availableResponses,
             int overallScore,
             int confidence,
+            double timerRemainingSeconds,
+            double timerTotalSeconds,
+            bool reducedMotion,
             int timeoutCount,
             int attemptNumber,
             IReadOnlyList<string> selectedResponseIds,
@@ -32,6 +35,9 @@ namespace Agrovator.PitchSimulator.Core
             AvailableResponses = Copy(availableResponses);
             OverallScore = overallScore;
             Confidence = confidence;
+            TimerRemainingSeconds = timerRemainingSeconds;
+            TimerTotalSeconds = timerTotalSeconds;
+            ReducedMotion = reducedMotion;
             TimeoutCount = timeoutCount;
             AttemptNumber = attemptNumber;
             SelectedResponseIds = Copy(selectedResponseIds);
@@ -55,6 +61,12 @@ namespace Agrovator.PitchSimulator.Core
         public int OverallScore { get; }
 
         public int Confidence { get; }
+
+        public double TimerRemainingSeconds { get; }
+
+        public double TimerTotalSeconds { get; }
+
+        public bool ReducedMotion { get; }
 
         public int TimeoutCount { get; }
 

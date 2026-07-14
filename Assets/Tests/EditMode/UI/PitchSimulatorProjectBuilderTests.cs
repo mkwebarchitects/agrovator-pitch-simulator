@@ -1,7 +1,10 @@
+using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using Agrovator.PitchSimulator.Editor;
 using Agrovator.PitchSimulator.UI;
 using NUnit.Framework;
+using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -14,10 +17,21 @@ namespace Agrovator.PitchSimulator.Tests.EditMode.UI
     {
         private const string GamePath = "Assets/Scenes/Game.unity";
         private const string SentinelName = "Review Sentinel - Preserve Me";
+        private static readonly string[] GeneratedScenePaths =
+        {
+            "Assets/Scenes/Bootstrap.unity",
+            GamePath,
+            "Assets/Scenes/WebIntegrationTest.unity",
+        };
 
         [Test]
         public void BatchBuild_Twice_PreservesUnownedRootAndKeepsContractSingular()
         {
+            var originalSceneBytes = new Dictionary<string, byte[]>();
+            foreach (var path in GeneratedScenePaths)
+            {
+                originalSceneBytes.Add(path, File.ReadAllBytes(path));
+            }
             var scene = EditorSceneManager.OpenScene(GamePath, OpenSceneMode.Single);
             var sentinel = new GameObject(SentinelName);
             SceneManager.MoveGameObjectToScene(sentinel, scene);
@@ -32,12 +46,12 @@ namespace Agrovator.PitchSimulator.Tests.EditMode.UI
             }
             finally
             {
-                var preserved = scene.GetRootGameObjects().FirstOrDefault(root => root.name == SentinelName);
-                if (preserved != null)
+                EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+                foreach (var pair in originalSceneBytes)
                 {
-                    Object.DestroyImmediate(preserved);
+                    File.WriteAllBytes(pair.Key, pair.Value);
                 }
-                EditorSceneManager.SaveScene(scene);
+                AssetDatabase.Refresh(ImportAssetOptions.ForceSynchronousImport | ImportAssetOptions.ForceUpdate);
             }
         }
 

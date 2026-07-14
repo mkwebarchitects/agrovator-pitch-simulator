@@ -109,7 +109,7 @@ namespace Agrovator.PitchSimulator.Editor
 
                 var titleDefault = title.transform.Find("Start Button").GetComponent<Button>();
                 var briefingDefault = briefing.transform.Find("Continue Button").GetComponent<Button>();
-                var pitchDefault = pitch.transform.Find("Response 1").GetComponent<Button>();
+                var pitchDefault = pitch.transform.Find("Responses/Response 1").GetComponent<Button>();
                 var resultsDefault = results.transform.Find("Submit Button").GetComponent<Button>();
                 var settingsDefault = settings.transform.Find("Close Button").GetComponent<Button>();
 
@@ -227,23 +227,88 @@ namespace Agrovator.PitchSimulator.Editor
         {
             var panel = CreateScreen("PitchRoom", parent);
             presenter = panel.AddComponent<PitchRoomPresenter>();
-            var status = CreateLabel("Status", panel.transform, "Score 0   Confidence 50", 22);
+            var status = CreateLabel("Status", panel.transform, "Score 0", 22);
             var prompt = CreateLabel("Prompt", panel.transform, "Preparing your pitch…", 30, FontStyle.Bold);
-            var buttons = new Button[3];
-            var labels = new Text[3];
-            for (var index = 0; index < buttons.Length; index++)
+            var confidenceRoot = CreateIndicatorRoot("Confidence", panel.transform);
+            var confidenceIcon = CreateLabel("Icon", confidenceRoot.transform, "[:]", 22, FontStyle.Bold);
+            var confidenceLabel = CreateLabel("Label", confidenceRoot.transform, "Curious", 22, FontStyle.Bold);
+            var confidenceFill = CreateFilledBar("Fill", confidenceRoot.transform);
+            var confidenceView = confidenceRoot.AddComponent<ConfidenceView>();
+            SetReference(confidenceView, "stateLabel", confidenceLabel);
+            SetReference(confidenceView, "iconLabel", confidenceIcon);
+            SetReference(confidenceView, "fillImage", confidenceFill);
+
+            var timerRoot = CreateIndicatorRoot("Timer", panel.transform);
+            var timerSeconds = CreateLabel("Seconds", timerRoot.transform, "0", 22, FontStyle.Bold);
+            var timerFill = CreateFilledBar("Fill", timerRoot.transform);
+            var timerView = timerRoot.AddComponent<TimerView>();
+            SetReference(timerView, "secondsLabel", timerSeconds);
+            SetReference(timerView, "fillImage", timerFill);
+            SetReference(timerView, "pulseTarget", timerRoot.GetComponent<RectTransform>());
+
+            var responseRoot = new GameObject("Responses", typeof(RectTransform),
+                typeof(VerticalLayoutGroup), typeof(LayoutElement), typeof(ResponseListView));
+            responseRoot.transform.SetParent(panel.transform, false);
+            var responseLayout = responseRoot.GetComponent<VerticalLayoutGroup>();
+            responseLayout.spacing = 12f;
+            responseLayout.childAlignment = TextAnchor.MiddleCenter;
+            responseLayout.childControlWidth = true;
+            responseLayout.childControlHeight = true;
+            responseLayout.childForceExpandWidth = true;
+            responseLayout.childForceExpandHeight = false;
+            responseRoot.GetComponent<LayoutElement>().preferredHeight = 240f;
+            var slots = new ResponseButtonView[3];
+            for (var index = 0; index < slots.Length; index++)
             {
-                buttons[index] = CreateButton($"Response {index + 1}", panel.transform, $"Response {index + 1}");
-                labels[index] = buttons[index].GetComponentInChildren<Text>();
+                var button = CreateButton($"Response {index + 1}", responseRoot.transform,
+                    $"Response {index + 1}");
+                slots[index] = button.gameObject.AddComponent<ResponseButtonView>();
+                SetReference(slots[index], "button", button);
+                SetReference(slots[index], "label", button.GetComponentInChildren<Text>());
             }
+            var responseList = responseRoot.GetComponent<ResponseListView>();
+            SetReferenceArray(responseList, "slots", slots);
+
             var continueButton = CreateButton("Continue Button", panel.transform, "Continue");
-            ConfigureVerticalNavigation(buttons[0], buttons[1], buttons[2], continueButton);
             SetReference(presenter, "promptText", prompt);
             SetReference(presenter, "statusText", status);
-            SetReferenceArray(presenter, "responseButtons", buttons);
-            SetReferenceArray(presenter, "responseLabels", labels);
+            SetReference(presenter, "responseList", responseList);
+            SetReference(presenter, "timerView", timerView);
+            SetReference(presenter, "confidenceView", confidenceView);
             SetReference(presenter, "continueButton", continueButton);
             return panel;
+        }
+
+        private static GameObject CreateIndicatorRoot(string name, Transform parent)
+        {
+            var root = new GameObject(name, typeof(RectTransform), typeof(HorizontalLayoutGroup),
+                typeof(LayoutElement));
+            root.transform.SetParent(parent, false);
+            var layout = root.GetComponent<HorizontalLayoutGroup>();
+            layout.spacing = 12f;
+            layout.childAlignment = TextAnchor.MiddleCenter;
+            layout.childControlWidth = false;
+            layout.childControlHeight = true;
+            layout.childForceExpandWidth = false;
+            layout.childForceExpandHeight = false;
+            root.GetComponent<LayoutElement>().preferredHeight = 54f;
+            return root;
+        }
+
+        private static Image CreateFilledBar(string name, Transform parent)
+        {
+            var root = new GameObject(name, typeof(RectTransform), typeof(Image), typeof(LayoutElement));
+            root.transform.SetParent(parent, false);
+            var image = root.GetComponent<Image>();
+            image.color = new Color(0.93f, 0.76f, 0.2f, 1f);
+            image.type = Image.Type.Filled;
+            image.fillMethod = Image.FillMethod.Horizontal;
+            image.fillOrigin = 0;
+            image.fillAmount = 0.5f;
+            var layout = root.GetComponent<LayoutElement>();
+            layout.preferredWidth = 240f;
+            layout.preferredHeight = 22f;
+            return image;
         }
 
         private static GameObject CreateResultsScreen(Transform parent, out ResultsPresenter presenter)

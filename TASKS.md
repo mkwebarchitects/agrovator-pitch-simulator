@@ -113,4 +113,10 @@ This checklist mirrors `docs/plans/2026-07-14-pitch-simulator-vertical-slice.md`
 
 ## Next action
 
-Begin Task 12 by implementing state-driven pitch interaction presentation.
+Begin Task 13 by creating original pixel-art presentation and judge reactions.
+
+- 2026-07-14 Task 12 PlayMode RED: the interaction fixture reached the expected missing-production-type boundary with `CS0246` for `ResponseListView`, `TimerView` and `ConfidenceView`; no XML was produced and the log ended at `Scripts have compiler errors.`
+- 2026-07-14 Task 12 focused GREEN: `PitchInteractionPlayModeTests` reported `13/13` passed with zero failures, skips or inconclusive tests; the complete log contained zero compile/exception markers. It covers the fixed three-slot response pool, numbered display text, visible-only explicit navigation and focus, synchronous click/Submit one-shot locking, timer number/fill/pulse behavior, reduced-motion suppression, exact five-state confidence boundaries and controller-owned neutral timeout rendering.
+- 2026-07-14 Task 12 generated-scene GREEN: the project builder completed twice with exit `0` and zero failure markers. The generated PitchRoom owns exactly three serialized response views plus timer and confidence views, while `Bootstrapper` remains the sole production `controller.Tick(Time.unscaledDeltaTime)` bridge and UI views only render immutable snapshot data.
+- 2026-07-14 Task 12 full regression GREEN: canonical PlayMode reported `14/14` and canonical EditMode reported `280/280`, each with zero failures, skips, inconclusive tests or compile/exception markers. The Bootstrap PlayMode flow now traverses the tutorial into a real three-choice scored question and verifies localized English response text, numbering, focus, timer/confidence presence and duplicate-event locking in the generated scene. Five confidence-state keys preserve exact 114-key English/pending-Malay fallback parity.
+- 2026-07-14 Task 12 scene ownership hygiene: the Editor builder test snapshots and restores all three generated scene assets byte-for-byte in `finally`. SHA-256 values captured before and after the full EditMode run matched exactly for Bootstrap, Game and WebIntegrationTest; incidental Unity 6.5 ProjectSettings normalization and SceneTemplateSettings output were removed.

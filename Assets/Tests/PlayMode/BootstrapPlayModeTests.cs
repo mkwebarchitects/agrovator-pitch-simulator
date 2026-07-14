@@ -78,6 +78,49 @@ namespace Agrovator.PitchSimulator.Tests.PlayMode
             var briefing = canvasRoot.Find("Briefing");
             var briefingContinue = briefing.Find("Continue Button").GetComponent<Button>();
             Assert.That(EventSystem.current.currentSelectedGameObject, Is.EqualTo(briefingContinue.gameObject));
+
+            briefingContinue.onClick.Invoke();
+            yield return null;
+            var pitchRoom = canvasRoot.Find("PitchRoom");
+            Assert.That(pitchRoom.gameObject.activeInHierarchy, Is.True);
+            var pitchContinue = pitchRoom.Find("Continue Button").GetComponent<Button>();
+            for (var step = 0; step < 3; step++)
+            {
+                Assert.That(pitchContinue.gameObject.activeInHierarchy, Is.True);
+                pitchContinue.onClick.Invoke();
+                yield return null;
+            }
+
+            var responseList = pitchRoom.Find("Responses").GetComponent<ResponseListView>();
+            var responseViews = pitchRoom.Find("Responses").GetComponentsInChildren<ResponseButtonView>(true);
+            Assert.That(responseViews, Has.Length.EqualTo(3));
+            Assert.That(responseViews.Count(view => view.gameObject.activeSelf), Is.EqualTo(1));
+            responseViews[0].Button.onClick.Invoke();
+            Assert.That(responseList.IsSelectionLocked, Is.True);
+            for (var step = 0; step < 3; step++)
+            {
+                Assert.That(pitchContinue.gameObject.activeInHierarchy, Is.True);
+                pitchContinue.onClick.Invoke();
+                yield return null;
+            }
+
+            Assert.That(responseViews.All(view => view.gameObject.activeSelf), Is.True);
+            Assert.That(responseViews.Select(view => view.DisplayText),
+                Is.EqualTo(new[]
+                {
+                    "1. Our logs show dry beds after assembly, wet beds after rain, and students carrying watering cans, so the timing is inconsistent.",
+                    "2. We water on fixed schedules even when soil is wet, wasting water and weakening canteen crops.",
+                    "3. Our invention will cut the school's water bill by 90% and produce enough vegetables for everyone.",
+                }));
+            Assert.That(EventSystem.current.currentSelectedGameObject,
+                Is.EqualTo(responseViews[0].Button.gameObject));
+            Assert.That(pitchRoom.GetComponentInChildren<TimerView>(), Is.Not.Null);
+            Assert.That(pitchRoom.GetComponentInChildren<ConfidenceView>(), Is.Not.Null);
+
+            responseViews[0].Button.onClick.Invoke();
+            responseViews[0].Button.onClick.Invoke();
+            Assert.That(responseList.IsSelectionLocked, Is.True);
+            Assert.That(responseViews.All(view => !view.Button.interactable), Is.True);
         }
 
         [UnityTearDown]

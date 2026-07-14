@@ -2,6 +2,12 @@
     "name": "Agrovator.PitchSimulator.PlayModeTests",
     "rootNamespace": "Agrovator.PitchSimulator.Tests.PlayMode",
     "references": [
+        "Agrovator.PitchSimulator.Core",
+        "Agrovator.PitchSimulator.Session",
+        "Agrovator.PitchSimulator.Dialogue",
+        "Agrovator.PitchSimulator.Scoring",
+        "Agrovator.PitchSimulator.Accessibility",
+        "Agrovator.PitchSimulator.LMS",
         "Agrovator.PitchSimulator.UI"
     ],
     "includePlatforms": [],

@@ -1,7 +1,7 @@
 using System;
 using Agrovator.PitchSimulator.Core;
 using UnityEngine;
-using UnityEngine.Events;
+using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
 namespace Agrovator.PitchSimulator.UI
@@ -10,29 +10,27 @@ namespace Agrovator.PitchSimulator.UI
     {
         [SerializeField] private Text promptText;
         [SerializeField] private Text statusText;
-        [SerializeField] private Button[] responseButtons;
-        [SerializeField] private Text[] responseLabels;
+        [SerializeField] private ResponseListView responseList;
+        [SerializeField] private TimerView timerView;
+        [SerializeField] private ConfidenceView confidenceView;
         [SerializeField] private Button continueButton;
 
-        private readonly string[] responseIds = new string[3];
-        private UnityAction[] responseActions;
         private PitchSessionController controller;
         private Action changed;
+        private Func<string, string> resolveText;
         private bool initialized;
 
-        public void Initialize(PitchSessionController sessionController, Action onChanged)
+        public void Initialize(
+            PitchSessionController sessionController,
+            Action onChanged,
+            Func<string, string> localize = null)
         {
             if (sessionController == null) throw new ArgumentNullException(nameof(sessionController));
             RemoveListeners();
             controller = sessionController;
             changed = onChanged;
-            responseActions = new UnityAction[responseButtons.Length];
-            for (var index = 0; index < responseButtons.Length; index++)
-            {
-                var captured = index;
-                responseActions[index] = () => Select(captured);
-                responseButtons[index].onClick.AddListener(responseActions[index]);
-            }
+            resolveText = localize ?? (value => value);
+            responseList.Initialize(Select);
             continueButton.onClick.AddListener(Continue);
             initialized = true;
         }
@@ -40,19 +38,24 @@ namespace Agrovator.PitchSimulator.UI
         public void Refresh(PitchSessionSnapshot snapshot)
         {
             if (!initialized) return;
-            promptText.text = snapshot.CurrentNode?.TextKey ?? "Preparing your pitch…";
-            statusText.text = $"Score {snapshot.OverallScore}   Confidence {snapshot.Confidence}";
-            for (var index = 0; index < responseButtons.Length; index++)
-            {
-                var available = index < snapshot.AvailableResponses.Count;
-                responseIds[index] = available ? snapshot.AvailableResponses[index].Id : null;
-                responseLabels[index].text = available ? snapshot.AvailableResponses[index].TextKey : string.Empty;
-                responseButtons[index].gameObject.SetActive(available);
-                responseButtons[index].interactable = available && snapshot.State == GameState.AwaitingResponse;
-            }
+            promptText.text = snapshot.CurrentNode?.TextKey ?? "Preparing your pitch...";
+            statusText.text = $"Score {snapshot.OverallScore}";
+            responseList.Render(
+                snapshot.AvailableResponses,
+                snapshot.State == GameState.AwaitingResponse,
+                resolveText);
+            timerView.Render(
+                snapshot.TimerRemainingSeconds,
+                snapshot.TimerTotalSeconds,
+                snapshot.ReducedMotion);
+            confidenceView.Render(snapshot.Confidence, resolveText);
 
             continueButton.gameObject.SetActive(snapshot.State != GameState.AwaitingResponse);
             continueButton.interactable = snapshot.State != GameState.AwaitingResponse;
+            if (continueButton.gameObject.activeInHierarchy && EventSystem.current != null)
+            {
+                EventSystem.current.SetSelectedGameObject(continueButton.gameObject);
+            }
         }
 
         private void OnDestroy()
@@ -62,24 +65,13 @@ namespace Agrovator.PitchSimulator.UI
 
         private void RemoveListeners()
         {
-            if (responseButtons != null && responseActions != null)
-            {
-                for (var index = 0; index < responseButtons.Length && index < responseActions.Length; index++)
-                {
-                    if (responseButtons[index] != null && responseActions[index] != null)
-                    {
-                        responseButtons[index].onClick.RemoveListener(responseActions[index]);
-                    }
-                }
-            }
-            responseActions = null;
             if (continueButton != null) continueButton.onClick.RemoveListener(Continue);
         }
 
-        private void Select(int index)
+        private void Select(string responseId)
         {
-            if (!initialized || index < 0 || index >= responseIds.Length || responseIds[index] == null) return;
-            controller.SelectResponse(responseIds[index]);
+            if (!initialized || string.IsNullOrEmpty(responseId)) return;
+            controller.SelectResponse(responseId);
             changed?.Invoke();
         }
 
