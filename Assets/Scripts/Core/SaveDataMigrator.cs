@@ -3,6 +3,7 @@ using System.IO;
 using System.Runtime.Serialization;
 using System.Runtime.Serialization.Json;
 using System.Text;
+using System.Xml;
 
 namespace Agrovator.PitchSimulator.Core
 {
@@ -54,13 +55,24 @@ namespace Agrovator.PitchSimulator.Core
             SaveData data;
             try
             {
+                EnsureSingleJsonDocument(json, "Save JSON");
                 var serializer = new DataContractJsonSerializer(typeof(SaveData));
-                using (var stream = new MemoryStream(Encoding.UTF8.GetBytes(json)))
+                using (var reader = JsonReaderWriterFactory.CreateJsonReader(
+                    Encoding.UTF8.GetBytes(json),
+                    XmlDictionaryReaderQuotas.Max))
                 {
-                    data = serializer.ReadObject(stream) as SaveData;
+                    data = serializer.ReadObject(reader) as SaveData;
+                    if (reader.Read())
+                    {
+                        throw new FormatException("Save JSON must contain exactly one document.");
+                    }
                 }
             }
             catch (SerializationException exception)
+            {
+                throw new FormatException("Save JSON is malformed.", exception);
+            }
+            catch (XmlException exception)
             {
                 throw new FormatException("Save JSON is malformed.", exception);
             }
@@ -77,6 +89,75 @@ namespace Agrovator.PitchSimulator.Core
 
             ValidateCurrent(data);
             return data;
+        }
+
+        private static void EnsureSingleJsonDocument(string json, string description)
+        {
+            var index = 0;
+            while (index < json.Length && char.IsWhiteSpace(json[index]))
+            {
+                index++;
+            }
+
+            if (index == json.Length || json[index] != '{')
+            {
+                throw new FormatException($"{description} must contain one object.");
+            }
+
+            var depth = 0;
+            var inString = false;
+            var escaped = false;
+            for (; index < json.Length; index++)
+            {
+                var character = json[index];
+                if (inString)
+                {
+                    if (escaped)
+                    {
+                        escaped = false;
+                    }
+                    else if (character == '\\')
+                    {
+                        escaped = true;
+                    }
+                    else if (character == '"')
+                    {
+                        inString = false;
+                    }
+
+                    continue;
+                }
+
+                if (character == '"')
+                {
+                    inString = true;
+                }
+                else if (character == '{' || character == '[')
+                {
+                    depth++;
+                }
+                else if (character == '}' || character == ']')
+                {
+                    depth--;
+                    if (depth == 0)
+                    {
+                        index++;
+                        while (index < json.Length && char.IsWhiteSpace(json[index]))
+                        {
+                            index++;
+                        }
+
+                        if (index != json.Length)
+                        {
+                            throw new FormatException($"{description} must contain exactly one document.");
+                        }
+
+                        return;
+                    }
+                }
+            }
+
+            throw new FormatException($"{description} is incomplete.");
         }
 
         private static void ValidateCurrent(SaveData data)

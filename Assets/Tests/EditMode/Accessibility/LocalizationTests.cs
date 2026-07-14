@@ -91,6 +91,30 @@ namespace Agrovator.PitchSimulator.Tests.EditMode.Accessibility
             Assert.That(catalog.Resolve("ms", "ui.unknown"), Is.EqualTo("[[missing:ui.unknown]]"));
         }
 
+        [TestCase("close]]", "close\\u005D\\u005D")]
+        [TestCase("line\nbreak", "line\\u000Abreak")]
+        [TestCase("control\u0001", "control\\u0001")]
+        [TestCase("caf\u00e9", "caf\\u00E9")]
+        public void Resolve_MissingUnsafeKeyEscapesDelimiterControlNewlineAndNonAsciiCharacters(
+            string key,
+            string expectedSafeKey)
+        {
+            var token = LoadAuthoredCatalogs().Resolve("en", key);
+
+            Assert.That(token, Is.EqualTo($"[[missing:{expectedSafeKey}]]"));
+            Assert.That(token, Does.Not.Contain("\r").And.Not.Contain("\n"));
+            Assert.That(token.Count(character => character == '['), Is.EqualTo(2));
+            Assert.That(token.Count(character => character == ']'), Is.EqualTo(2));
+        }
+
+        [Test]
+        public void Resolve_NullKeyUsesStableEscapedPlaceholder()
+        {
+            Assert.That(
+                LoadAuthoredCatalogs().Resolve("en", null),
+                Is.EqualTo("[[missing:\\u003Cnull\\u003E]]"));
+        }
+
         [Test]
         public void Load_UsesOrdinalCaseSensitiveLocaleAndKeyIdentity()
         {
@@ -107,6 +131,49 @@ namespace Agrovator.PitchSimulator.Tests.EditMode.Accessibility
         public void Load_RejectsDuplicateKeysInsteadOfOverwriting()
         {
             var json = CatalogJson("en", "reviewed", ("ui.start", "Start"), ("ui.start", "Again"));
+
+            Assert.Throws<FormatException>(() => LocalizationCatalog.Load(json));
+        }
+
+        [TestCase("")]
+        [TestCase("   ")]
+        public void Load_RejectsEmptyOrWhitespaceEnglishValues(string value)
+        {
+            var english = CatalogJson("en", "reviewed", ("ui.start", value));
+
+            Assert.Throws<FormatException>(() => LocalizationCatalog.Load(english));
+        }
+
+        [TestCase("")]
+        [TestCase("   ")]
+        public void Load_RejectsEmptyOrWhitespaceLocalizedValues(string value)
+        {
+            var english = CatalogJson("en", "reviewed", ("ui.start", "Start"));
+            var localized = CatalogJson("ms", "pending_human_review", ("ui.start", value));
+
+            Assert.Throws<FormatException>(() => LocalizationCatalog.Load(english, localized));
+        }
+
+        [Test]
+        public void Load_AcceptsSingleCatalogFollowedByWhitespace()
+        {
+            var json = CatalogJson("en", "reviewed", ("ui.start", "Start")) + " \r\n\t";
+
+            Assert.That(LocalizationCatalog.Load(json).Resolve("en", "ui.start"), Is.EqualTo("Start"));
+        }
+
+        [Test]
+        public void Load_RejectsConcatenatedJsonDocument()
+        {
+            var json = CatalogJson("en", "reviewed", ("ui.start", "Start")) + "{}";
+
+            Assert.Throws<FormatException>(() => LocalizationCatalog.Load(json));
+        }
+
+        [Test]
+        public void Load_RejectsTrailingNonWhitespace()
+        {
+            var json = CatalogJson("en", "reviewed", ("ui.start", "Start")) + "junk";
 
             Assert.Throws<FormatException>(() => LocalizationCatalog.Load(json));
         }

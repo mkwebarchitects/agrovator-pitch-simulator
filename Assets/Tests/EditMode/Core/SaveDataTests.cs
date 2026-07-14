@@ -53,6 +53,32 @@ namespace Agrovator.PitchSimulator.Tests.EditMode.Core
         }
 
         [Test]
+        public void DeserializeAndMigrate_AcceptsSingleDocumentFollowedByWhitespace()
+        {
+            var json = SaveDataMigrator.Serialize(SaveDataMigrator.CreateDefault()) + " \r\n\t";
+
+            Assert.That(
+                SaveDataMigrator.DeserializeAndMigrate(json).Version,
+                Is.EqualTo(SaveDataMigrator.CurrentVersion));
+        }
+
+        [Test]
+        public void DeserializeAndMigrate_RejectsConcatenatedJsonDocument()
+        {
+            var json = SaveDataMigrator.Serialize(SaveDataMigrator.CreateDefault()) + "{}";
+
+            Assert.Throws<FormatException>(() => SaveDataMigrator.DeserializeAndMigrate(json));
+        }
+
+        [Test]
+        public void DeserializeAndMigrate_RejectsTrailingNonWhitespace()
+        {
+            var json = SaveDataMigrator.Serialize(SaveDataMigrator.CreateDefault()) + "junk";
+
+            Assert.Throws<FormatException>(() => SaveDataMigrator.DeserializeAndMigrate(json));
+        }
+
+        [Test]
         public void SaveData_ContainsOnlyApprovedSettingsFields()
         {
             var approvedFields = new[]

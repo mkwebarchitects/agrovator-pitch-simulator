@@ -1,9 +1,10 @@
 using System;
 using System.Collections.Generic;
-using System.IO;
+using System.Globalization;
 using System.Runtime.Serialization;
 using System.Runtime.Serialization.Json;
 using System.Text;
+using System.Xml;
 
 namespace Agrovator.PitchSimulator.Accessibility
 {
@@ -53,7 +54,7 @@ namespace Agrovator.PitchSimulator.Accessibility
                 return value;
             }
 
-            return $"[[missing:{key ?? "<null>"}]]";
+            return $"[[missing:{EscapeDiagnosticKey(key)}]]";
         }
 
         public IReadOnlyCollection<string> GetKeys(string locale)
@@ -93,13 +94,24 @@ namespace Agrovator.PitchSimulator.Accessibility
             CatalogDocument document;
             try
             {
+                EnsureSingleJsonDocument(json, "Catalog JSON");
                 var serializer = new DataContractJsonSerializer(typeof(CatalogDocument));
-                using (var stream = new MemoryStream(Encoding.UTF8.GetBytes(json)))
+                using (var reader = JsonReaderWriterFactory.CreateJsonReader(
+                    Encoding.UTF8.GetBytes(json),
+                    XmlDictionaryReaderQuotas.Max))
                 {
-                    document = serializer.ReadObject(stream) as CatalogDocument;
+                    document = serializer.ReadObject(reader) as CatalogDocument;
+                    if (reader.Read())
+                    {
+                        throw new FormatException("Catalog JSON must contain exactly one document.");
+                    }
                 }
             }
             catch (SerializationException exception)
+            {
+                throw new FormatException("Catalog JSON is malformed.", exception);
+            }
+            catch (XmlException exception)
             {
                 throw new FormatException("Catalog JSON is malformed.", exception);
             }
@@ -113,9 +125,10 @@ namespace Agrovator.PitchSimulator.Accessibility
             var entries = new Dictionary<string, string>(StringComparer.Ordinal);
             foreach (var entry in document.Entries)
             {
-                if (entry == null || string.IsNullOrWhiteSpace(entry.Key) || entry.Value == null)
+                if (entry == null || string.IsNullOrWhiteSpace(entry.Key) ||
+                    string.IsNullOrWhiteSpace(entry.Value))
                 {
-                    throw new FormatException("Catalog entries require non-null keys and values.");
+                    throw new FormatException("Catalog entries require non-empty keys and values.");
                 }
 
                 if (entries.ContainsKey(entry.Key))
@@ -127,6 +140,102 @@ namespace Agrovator.PitchSimulator.Accessibility
             }
 
             return new LocaleCatalog(document.Locale, document.TranslationStatus, entries);
+        }
+
+        private static void EnsureSingleJsonDocument(string json, string description)
+        {
+            var index = 0;
+            while (index < json.Length && char.IsWhiteSpace(json[index]))
+            {
+                index++;
+            }
+
+            if (index == json.Length || json[index] != '{')
+            {
+                throw new FormatException($"{description} must contain one object.");
+            }
+
+            var depth = 0;
+            var inString = false;
+            var escaped = false;
+            for (; index < json.Length; index++)
+            {
+                var character = json[index];
+                if (inString)
+                {
+                    if (escaped)
+                    {
+                        escaped = false;
+                    }
+                    else if (character == '\\')
+                    {
+                        escaped = true;
+                    }
+                    else if (character == '"')
+                    {
+                        inString = false;
+                    }
+
+                    continue;
+                }
+
+                if (character == '"')
+                {
+                    inString = true;
+                }
+                else if (character == '{' || character == '[')
+                {
+                    depth++;
+                }
+                else if (character == '}' || character == ']')
+                {
+                    depth--;
+                    if (depth == 0)
+                    {
+                        index++;
+                        while (index < json.Length && char.IsWhiteSpace(json[index]))
+                        {
+                            index++;
+                        }
+
+                        if (index != json.Length)
+                        {
+                            throw new FormatException($"{description} must contain exactly one document.");
+                        }
+
+                        return;
+                    }
+                }
+            }
+
+            throw new FormatException($"{description} is incomplete.");
+        }
+
+        private static string EscapeDiagnosticKey(string key)
+        {
+            var source = key ?? "<null>";
+            var escaped = new StringBuilder(source.Length);
+            foreach (var character in source)
+            {
+                if (IsSafeKeyCharacter(character))
+                {
+                    escaped.Append(character);
+                    continue;
+                }
+
+                escaped.Append("\\u");
+                escaped.Append(((int)character).ToString("X4", CultureInfo.InvariantCulture));
+            }
+
+            return escaped.ToString();
+        }
+
+        private static bool IsSafeKeyCharacter(char character)
+        {
+            return (character >= 'a' && character <= 'z') ||
+                (character >= 'A' && character <= 'Z') ||
+                (character >= '0' && character <= '9') ||
+                character == '.' || character == '_' || character == '-';
         }
 
         [DataContract]
