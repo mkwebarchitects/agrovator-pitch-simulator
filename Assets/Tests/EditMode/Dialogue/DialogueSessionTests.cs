@@ -113,6 +113,28 @@ namespace Agrovator.PitchSimulator.Tests.EditMode.Dialogue
         }
 
         [Test]
+        public void CompleteSession_HidesAndRejectsAuthoredTerminalResponsesWithoutMutation()
+        {
+            var scenario = Scenario();
+            scenario.Nodes[1].Responses = new[]
+            {
+                Response("leave-terminal", "opening", setFlags: new[] { "left-terminal" }),
+            };
+            var session = Session(scenario);
+            session.Select("continue", 50);
+
+            var available = session.GetAvailableResponses(50);
+            var result = session.Select("leave-terminal", 50);
+
+            Assert.That(available, Is.Empty);
+            Assert.That(result.IsAccepted, Is.False);
+            Assert.That(result.SelectedResponse, Is.Null);
+            Assert.That(result.NewNode, Is.Null);
+            Assert.That(session.CurrentNode.Id, Is.EqualTo("terminal"));
+            Assert.That(session.HasFlag("left-terminal"), Is.False);
+        }
+
+        [Test]
         public void Select_UnknownResponseIsRejectedWithoutMutation()
         {
             var scenario = Scenario();
@@ -124,6 +146,20 @@ namespace Agrovator.PitchSimulator.Tests.EditMode.Dialogue
             Assert.That(result.IsAccepted, Is.False);
             Assert.That(result.SelectedResponse, Is.Null);
             Assert.That(result.NewNode, Is.Null);
+            Assert.That(session.CurrentNode.Id, Is.EqualTo("opening"));
+            Assert.That(session.HasFlag("selected"), Is.False);
+        }
+
+        [Test]
+        public void Select_NullResponseIdIsRejectedWithoutMutation()
+        {
+            var scenario = Scenario();
+            scenario.Nodes[0].Responses[0].SetFlags = new[] { "selected" };
+            var session = Session(scenario);
+
+            var result = session.Select(null, 50);
+
+            Assert.That(result.IsAccepted, Is.False);
             Assert.That(session.CurrentNode.Id, Is.EqualTo("opening"));
             Assert.That(session.HasFlag("selected"), Is.False);
         }
@@ -200,6 +236,74 @@ namespace Agrovator.PitchSimulator.Tests.EditMode.Dialogue
             Assert.That(
                 runtime.OpeningNode.Responses.Single().SetFlags,
                 Is.EqualTo(new[] { "original-response-flag" }));
+        }
+
+        [TestCase(null)]
+        [TestCase("")]
+        public void Compile_RejectsMissingResponseId(string responseId)
+        {
+            var scenario = Scenario();
+            scenario.Nodes[0].Responses[0].Id = responseId;
+
+            Assert.Throws<InvalidOperationException>(() => RuntimeScenario.Compile(scenario));
+        }
+
+        [Test]
+        public void Compile_RejectsDuplicateResponseIdsWithinNode()
+        {
+            var scenario = Scenario(
+                Response("duplicate", "terminal"),
+                Response("duplicate", "terminal"));
+
+            Assert.Throws<InvalidOperationException>(() => RuntimeScenario.Compile(scenario));
+        }
+
+        [Test]
+        public void Compile_ResponseIdIdentityIsOrdinalCaseSensitive()
+        {
+            var scenario = Scenario(
+                Response("answer", "terminal"),
+                Response("Answer", "terminal"));
+
+            var runtime = RuntimeScenario.Compile(scenario);
+
+            Assert.That(
+                runtime.OpeningNode.Responses.Select(response => response.Id),
+                Is.EqualTo(new[] { "answer", "Answer" }));
+        }
+
+        [Test]
+        public void Select_ResponseSetFlagCanUnlockDestination()
+        {
+            var scenario = Scenario(Response(
+                "unlock",
+                "terminal",
+                setFlags: new[] { "destination-unlocked" }));
+            scenario.Nodes[1].RequiredFlags = new[] { "destination-unlocked" };
+            var session = Session(scenario);
+
+            var result = session.Select("unlock", 50);
+
+            Assert.That(result.IsAccepted, Is.True);
+            Assert.That(session.CurrentNode.Id, Is.EqualTo("terminal"));
+            Assert.That(session.HasFlag("destination-unlocked"), Is.True);
+        }
+
+        [Test]
+        public void Select_ResponseSetFlagBlockedByDestinationIsRejectedWithoutMutation()
+        {
+            var scenario = Scenario(Response(
+                "block",
+                "terminal",
+                setFlags: new[] { "destination-blocked" }));
+            scenario.Nodes[1].BlockedFlags = new[] { "destination-blocked" };
+            var session = Session(scenario);
+
+            var result = session.Select("block", 50);
+
+            Assert.That(result.IsAccepted, Is.False);
+            Assert.That(session.CurrentNode.Id, Is.EqualTo("opening"));
+            Assert.That(session.HasFlag("destination-blocked"), Is.False);
         }
 
         [Test]

@@ -160,11 +160,24 @@ namespace Agrovator.PitchSimulator.Dialogue
 
             var sourceResponses = source.Responses ?? Array.Empty<ResponseOptionDto>();
             var responses = new RuntimeResponseOption[sourceResponses.Length];
+            var responseIds = new HashSet<string>(StringComparer.Ordinal);
             for (var index = 0; index < sourceResponses.Length; index++)
             {
                 if (sourceResponses[index] == null)
                 {
                     throw new InvalidOperationException($"Node '{source.Id}' contains a null response.");
+                }
+
+                var responseId = sourceResponses[index].Id;
+                if (string.IsNullOrEmpty(responseId))
+                {
+                    throw new InvalidOperationException($"Node '{source.Id}' contains a response without an ID.");
+                }
+
+                if (!responseIds.Add(responseId))
+                {
+                    throw new InvalidOperationException(
+                        $"Node '{source.Id}' contains duplicate response ID '{responseId}'.");
                 }
 
                 responses[index] = new RuntimeResponseOption(sourceResponses[index]);

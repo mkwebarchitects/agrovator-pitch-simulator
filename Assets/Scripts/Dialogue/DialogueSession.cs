@@ -27,6 +27,11 @@ namespace Agrovator.PitchSimulator.Dialogue
 
         public IReadOnlyList<RuntimeResponseOption> GetAvailableResponses(int confidence)
         {
+            if (IsComplete)
+            {
+                return Array.AsReadOnly(Array.Empty<RuntimeResponseOption>());
+            }
+
             var responses = new List<RuntimeResponseOption>();
             foreach (var response in CurrentNode.Responses)
             {
@@ -41,6 +46,11 @@ namespace Agrovator.PitchSimulator.Dialogue
 
         public DialogueSelectionResult Select(string responseId, int confidence)
         {
+            if (IsComplete || string.IsNullOrEmpty(responseId))
+            {
+                return DialogueSelectionResult.Rejected();
+            }
+
             RuntimeResponseOption selectedResponse = null;
             foreach (var response in CurrentNode.Responses)
             {

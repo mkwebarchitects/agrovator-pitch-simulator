@@ -49,6 +49,8 @@ This checklist mirrors `docs/plans/2026-07-14-pitch-simulator-vertical-slice.md`
 - 2026-07-14 Task 4 focused GREEN: `DialogueSessionTests` reported `11/11` passed with `0` failures, skips or inconclusive tests; the complete 402-line Unity log contained `0` matches for `error CS\d+|Compilation failed|Unhandled Exception`.
 - 2026-07-14 Task 4 all Edit Mode GREEN: the canonical wrapper reported `29/29` passed with `0` failures, skips or inconclusive tests; independent XML parsing confirmed `Passed`, and the complete 365-line log contained `0` failure-marker matches.
 - 2026-07-14 Task 4 structural checks: runtime scenario data is copied into get-only objects backed by read-only collections and an ordinal dictionary; session response IDs and flags use ordinal case-sensitive identity. Rejected unknown and unavailable selections preserve both current node and flags, and the recovery test proves the flag is authored by the weak-answer then evidence-response sequence. The Dialogue runtime and its Task 4 tests contain `0` `UnityEngine`, `MonoBehaviour` or `ScriptableObject` references.
+- 2026-07-14 Task 4 review RED: the focused fixture reported `15/19` passed and exactly four expected failures: terminal responses remained available, and compile accepted null, empty and exact-duplicate response IDs. The complete 386-line log contained `0` compile-failure markers.
+- 2026-07-14 Task 4 review GREEN: the focused fixture reported `19/19` passed and the canonical full Edit Mode suite reported `37/37` passed, both with `0` failures, skips or inconclusive tests. Independent XML parsing confirmed `Passed`; the complete focused/full logs were 381/365 lines with `0` matches for `error CS\d+|Compilation failed|Unhandled Exception`.
 
 ## Next action
 
