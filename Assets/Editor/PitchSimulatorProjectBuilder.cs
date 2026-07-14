@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Agrovator.PitchSimulator.UI;
 using Agrovator.PitchSimulator.Audio;
+using Agrovator.PitchSimulator.LMS;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
@@ -185,8 +186,24 @@ namespace Agrovator.PitchSimulator.Editor
             try
             {
                 var root = ReplaceOwnedRoot(scene, "Generated Web Integration Test");
-                var label = new GameObject("Diagnostics Note");
-                label.transform.SetParent(root.transform, false);
+                var bridgeObject = new GameObject("Bridge Host");
+                bridgeObject.transform.SetParent(root.transform, false);
+                var bridgeHost = bridgeObject.AddComponent<WebGlLmsBridgeHost>();
+
+                var canvasObject = new GameObject("Diagnostics Canvas", typeof(RectTransform),
+                    typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster));
+                canvasObject.transform.SetParent(root.transform, false);
+                var canvas = canvasObject.GetComponent<Canvas>();
+                canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+                var scaler = canvasObject.GetComponent<CanvasScaler>();
+                scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+                scaler.referenceResolution = new Vector2(1280f, 720f);
+
+                var panel = CreateScreen("Diagnostics", canvasObject.transform);
+                CreateLabel("Heading", panel.transform, "Web LMS Integration Test", 40, FontStyle.Bold);
+                var label = CreateLabel("Status", panel.transform,
+                    "LMS bridge waiting for launch configuration.", 28);
+                SetReference(bridgeHost, "diagnosticsLabel", label);
                 EditorSceneManager.SaveScene(scene, WebTestPath);
             }
             finally

@@ -18,6 +18,7 @@ namespace Agrovator.PitchSimulator.UI
     public sealed class Bootstrapper : MonoBehaviour
     {
         private const string GameSceneName = "Game";
+        private const float WebGlLaunchTimeoutSeconds = 10f;
 
         [SerializeField] private TextAsset scenarioJson;
         [SerializeField] private TextAsset englishCatalogJson;
@@ -84,7 +85,28 @@ namespace Agrovator.PitchSimulator.UI
                 yield break;
             }
 
-            if (!TryCreateController(out controller))
+            if (!TryLoadContent(out var scenario, out var catalog))
+            {
+                yield break;
+            }
+
+            var lmsBridge = CreateLmsBridge(scenario);
+            var launch = lmsBridge.GetLaunchConfig();
+#if UNITY_WEBGL && !UNITY_EDITOR
+            var launchDeadline = Time.realtimeSinceStartup + WebGlLaunchTimeoutSeconds;
+            while (launch == null && Time.realtimeSinceStartup < launchDeadline)
+            {
+                yield return null;
+                launch = lmsBridge.GetLaunchConfig();
+            }
+#endif
+            if (launch == null)
+            {
+                Debug.LogError("LMS launch configuration was not available.", this);
+                yield break;
+            }
+
+            if (!TryCreateController(scenario, catalog, lmsBridge, launch, out controller))
             {
                 yield break;
             }
@@ -97,7 +119,7 @@ namespace Agrovator.PitchSimulator.UI
                 yield break;
             }
 
-            ConfigureAudio();
+            ConfigureAudio(launch);
             router = routers[0];
             router.Initialize(controller, localize, HandleTitleUserGesture);
             IsInitialized = true;
@@ -126,7 +148,7 @@ namespace Agrovator.PitchSimulator.UI
             }
         }
 
-        private void ConfigureAudio()
+        private void ConfigureAudio(LmsLaunchConfig launch)
         {
             var music = musicSource == null
                 ? (IAudioPlaybackChannel)new SilentAudioPlaybackChannel()
@@ -140,8 +162,8 @@ namespace Agrovator.PitchSimulator.UI
                 audioCueBindings ?? Array.Empty<AudioCueBinding>(),
                 new UnityAudioDiagnostics(this),
                 Debug.isDebugBuild || Application.isEditor);
-            audioService.SetMusicVolume(0.8f);
-            audioService.SetSfxVolume(0.8f);
+            audioService.SetMusicVolume(launch.MusicVolume);
+            audioService.SetSfxVolume(launch.SfxVolume);
         }
 
         private void HandleTitleUserGesture()
@@ -151,9 +173,12 @@ namespace Agrovator.PitchSimulator.UI
             audioService.Play(AudioCue.ButtonPress);
         }
 
-        private bool TryCreateController(out PitchSessionController result)
+        private bool TryLoadContent(
+            out RuntimeScenario scenario,
+            out LocalizationCatalog catalog)
         {
-            result = null;
+            scenario = null;
+            catalog = null;
             if (scenarioJson == null || englishCatalogJson == null || malayCatalogJson == null)
             {
                 Debug.LogError("Bootstrap content references are incomplete.", this);
@@ -162,7 +187,7 @@ namespace Agrovator.PitchSimulator.UI
 
             try
             {
-                var catalog = LocalizationCatalog.Load(englishCatalogJson.text, malayCatalogJson.text);
+                catalog = LocalizationCatalog.Load(englishCatalogJson.text, malayCatalogJson.text);
                 var loaded = ScenarioJsonLoader.Load(scenarioJson.text, catalog.GetKeys("en"));
                 if (!loaded.IsSuccess)
                 {
@@ -170,33 +195,7 @@ namespace Agrovator.PitchSimulator.UI
                     return false;
                 }
 
-                var scenario = loaded.Scenario;
-                var launch = new LmsLaunchConfig
-                {
-                    PseudonymousLearnerId = "local_learner",
-                    SessionId = "local_session",
-                    CourseId = "local_course",
-                    ModuleId = "local_module",
-                    LessonId = "local_lesson",
-                    ScenarioId = scenario.Id,
-                    Language = "en",
-                    AttemptNumber = 1,
-                    TimerMode = "Normal",
-                    ReducedMotion = false,
-                    MusicVolume = 0.8f,
-                    SfxVolume = 0.8f,
-                    ContentVersion = scenario.Version,
-                    LaunchReference = "lref_localLaunch01",
-                };
-                localize = key => catalog.Resolve(launch.Language, key);
-                result = new PitchSessionController(
-                    scenario,
-                    new ScoreAccumulator(),
-                    new AccessibilitySettings(TimerMode.Normal, false, 0.8f, 0.8f, "en"),
-                    new QuestionTimer(0d),
-                    new MockLmsBridge(MockLmsBridgeMode.Success, launch),
-                    () => DateTimeOffset.UtcNow,
-                    Application.version);
+                scenario = loaded.Scenario;
                 return true;
             }
             catch (Exception exception)
@@ -204,6 +203,65 @@ namespace Agrovator.PitchSimulator.UI
                 Debug.LogError($"Bootstrap composition failed: {exception.GetType().Name}.", this);
                 return false;
             }
+        }
+
+        private static ILmsBridge CreateLmsBridge(RuntimeScenario scenario)
+        {
+#if UNITY_WEBGL && !UNITY_EDITOR
+            return new WebGlLmsBridge();
+#else
+            return new MockLmsBridge(MockLmsBridgeMode.Success, new LmsLaunchConfig
+            {
+                PseudonymousLearnerId = "local_learner",
+                SessionId = "local_session",
+                CourseId = "local_course",
+                ModuleId = "local_module",
+                LessonId = "local_lesson",
+                ScenarioId = scenario.Id,
+                Language = "en",
+                AttemptNumber = 1,
+                TimerMode = "Normal",
+                ReducedMotion = false,
+                MusicVolume = 0.8f,
+                SfxVolume = 0.8f,
+                ContentVersion = scenario.Version,
+                LaunchReference = "lref_localLaunch01",
+            });
+#endif
+        }
+
+        private bool TryCreateController(
+            RuntimeScenario scenario,
+            LocalizationCatalog catalog,
+            ILmsBridge lmsBridge,
+            LmsLaunchConfig launch,
+            out PitchSessionController result)
+        {
+            result = null;
+            if (LmsPayloadValidator.ValidateLaunch(launch).Count > 0 ||
+                !string.Equals(launch.ScenarioId, scenario.Id, StringComparison.Ordinal) ||
+                launch.ContentVersion != scenario.Version)
+            {
+                Debug.LogError("LMS launch configuration was rejected.", this);
+                return false;
+            }
+
+            Enum.TryParse(launch.TimerMode, true, out TimerMode timerMode);
+            localize = key => catalog.Resolve(launch.Language, key);
+            result = new PitchSessionController(
+                scenario,
+                new ScoreAccumulator(),
+                new AccessibilitySettings(
+                    timerMode,
+                    launch.ReducedMotion,
+                    launch.MusicVolume,
+                    launch.SfxVolume,
+                    launch.Language),
+                new QuestionTimer(0d),
+                lmsBridge,
+                () => DateTimeOffset.UtcNow,
+                Application.version);
+            return true;
         }
 
         private static T[] FindInRoots<T>(GameObject[] roots) where T : Component

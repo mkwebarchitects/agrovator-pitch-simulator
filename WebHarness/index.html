@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="referrer" content="no-referrer">
+  <title>Pitch Simulator LMS Harness</title>
+  <link rel="stylesheet" href="harness.css">
+</head>
+<body>
+  <header>
+    <p class="eyebrow">Local integration utility</p>
+    <h1>Pitch Simulator LMS Harness</h1>
+    <p>Run this page and the WebGL build from the same local HTTP origin.</p>
+  </header>
+
+  <main>
+    <section class="controls" aria-labelledby="controls-title">
+      <h2 id="controls-title">Launch controls</h2>
+      <label for="mode">Harness mode</label>
+      <select id="mode">
+        <option value="success">Success</option>
+        <option value="failure">Failure</option>
+        <option value="expired">Expired</option>
+        <option value="missing-config">Missing Config</option>
+      </select>
+      <button id="resend" type="button">Resend launch configuration</button>
+      <p id="connection" role="status">Waiting for the embedded build.</p>
+    </section>
+
+    <section class="player" aria-labelledby="player-title">
+      <h2 id="player-title">Embedded WebGL build</h2>
+      <iframe id="game" title="Pitch Simulator WebGL build" src="../Build/WebGL/index.html"></iframe>
+    </section>
+
+    <section class="events" aria-labelledby="progress-title">
+      <h2 id="progress-title">Sanitized progress</h2>
+      <ol id="progress" aria-live="polite"></ol>
+    </section>
+
+    <section class="events" aria-labelledby="completion-title">
+      <h2 id="completion-title">Sanitized completion</h2>
+      <dl id="completion">
+        <div><dt>Status</dt><dd id="completion-status">Not submitted</dd></div>
+        <div><dt>Overall score</dt><dd id="completion-score">—</dd></div>
+        <div><dt>Attempt</dt><dd id="completion-attempt">—</dd></div>
+        <div><dt>Competencies</dt><dd id="completion-competencies">—</dd></div>
+        <div><dt>Timeouts</dt><dd id="completion-timeouts">—</dd></div>
+      </dl>
+    </section>
+  </main>
+
+  <script src="harness.js" defer></script>
+</body>
+</html>

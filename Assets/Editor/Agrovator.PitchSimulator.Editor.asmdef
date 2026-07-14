@@ -3,7 +3,8 @@
     "rootNamespace": "Agrovator.PitchSimulator.Editor",
     "references": [
         "Agrovator.PitchSimulator.UI",
-        "Agrovator.PitchSimulator.Audio"
+        "Agrovator.PitchSimulator.Audio",
+        "Agrovator.PitchSimulator.LMS"
     ],
     "includePlatforms": [
         "Editor"
