@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Agrovator.PitchSimulator.UI;
 using UnityEditor;
 using UnityEditor.SceneManagement;
@@ -15,6 +16,10 @@ namespace Agrovator.PitchSimulator.Editor
         private const string BootstrapPath = "Assets/Scenes/Bootstrap.unity";
         private const string GamePath = "Assets/Scenes/Game.unity";
         private const string WebTestPath = "Assets/Scenes/WebIntegrationTest.unity";
+        private const string JudgeArtPath = "Assets/Art/Characters/judge-aya-sheet.png";
+        private const string EnvironmentArtPath = "Assets/Art/Environment/pitch-room.png";
+        private const string DialoguePanelArtPath = "Assets/Art/UI/dialogue-panel.png";
+        private const string ConfidenceArtPath = "Assets/Art/UI/confidence-icons.png";
 
         [MenuItem("Pitch Simulator/Build Project Foundation")]
         public static void BuildProjectFoundation()
@@ -229,18 +234,70 @@ namespace Agrovator.PitchSimulator.Editor
         {
             var panel = CreateScreen("PitchRoom", parent);
             presenter = panel.AddComponent<PitchRoomPresenter>();
+            var pitchLayout = panel.GetComponent<VerticalLayoutGroup>();
+            pitchLayout.padding = new RectOffset(18, 18, 18, 18);
+            pitchLayout.spacing = 6f;
+            var environmentObject = new GameObject("Environment", typeof(RectTransform),
+                typeof(Image), typeof(LayoutElement));
+            environmentObject.transform.SetParent(panel.transform, false);
+            environmentObject.transform.SetAsFirstSibling();
+            Stretch(environmentObject.GetComponent<RectTransform>());
+            environmentObject.GetComponent<LayoutElement>().ignoreLayout = true;
+            var environmentImage = environmentObject.GetComponent<Image>();
+            environmentImage.sprite = LoadSprite(EnvironmentArtPath);
+            environmentImage.color = Color.white;
+            environmentImage.raycastTarget = false;
+
             var status = CreateLabel("Status", panel.transform, "Score 0", 22);
-            var prompt = CreateLabel("Prompt", panel.transform, "Preparing your pitch…", 30, FontStyle.Bold);
+            var judgeObject = new GameObject("Judge Aya", typeof(RectTransform), typeof(Image),
+                typeof(LayoutElement), typeof(JudgeReactionView));
+            judgeObject.transform.SetParent(panel.transform, false);
+            var judgeLayout = judgeObject.GetComponent<LayoutElement>();
+            judgeLayout.preferredWidth = 240f;
+            judgeLayout.preferredHeight = 150f;
+            var judgeImage = judgeObject.GetComponent<Image>();
+            judgeImage.preserveAspect = true;
+            judgeImage.raycastTarget = false;
+            var judgeView = judgeObject.GetComponent<JudgeReactionView>();
+            SetReference(judgeView, "portraitImage", judgeImage);
+            SetJudgeSprites(judgeView);
+
+            var dialoguePanel = new GameObject("Dialogue Panel", typeof(RectTransform),
+                typeof(Image), typeof(LayoutElement));
+            dialoguePanel.transform.SetParent(panel.transform, false);
+            var dialogueImage = dialoguePanel.GetComponent<Image>();
+            dialogueImage.sprite = LoadSprite(DialoguePanelArtPath);
+            dialogueImage.type = Image.Type.Sliced;
+            dialogueImage.raycastTarget = false;
+            dialoguePanel.GetComponent<LayoutElement>().preferredHeight = 80f;
+            var prompt = CreateLabel("Prompt", dialoguePanel.transform,
+                "Preparing your pitch…", 30, FontStyle.Bold);
+            Stretch(prompt.GetComponent<RectTransform>());
+
             var confidenceRoot = CreateIndicatorRoot("Confidence", panel.transform);
             var confidenceIcon = CreateLabel("Icon", confidenceRoot.transform, "[:]", 22, FontStyle.Bold);
+            confidenceIcon.gameObject.SetActive(false);
+            var confidenceArtworkObject = new GameObject("Artwork Icon", typeof(RectTransform),
+                typeof(Image), typeof(LayoutElement));
+            confidenceArtworkObject.transform.SetParent(confidenceRoot.transform, false);
+            var confidenceArtwork = confidenceArtworkObject.GetComponent<Image>();
+            confidenceArtwork.preserveAspect = true;
+            confidenceArtwork.raycastTarget = false;
+            var confidenceArtworkLayout = confidenceArtworkObject.GetComponent<LayoutElement>();
+            confidenceArtworkLayout.preferredWidth = 48f;
+            confidenceArtworkLayout.preferredHeight = 48f;
             var confidenceLabel = CreateLabel("Label", confidenceRoot.transform, "Curious", 22, FontStyle.Bold);
             var confidenceFill = CreateFilledBar("Fill", confidenceRoot.transform);
             var confidenceView = confidenceRoot.AddComponent<ConfidenceView>();
+            confidenceRoot.GetComponent<LayoutElement>().preferredHeight = 42f;
             SetReference(confidenceView, "stateLabel", confidenceLabel);
             SetReference(confidenceView, "iconLabel", confidenceIcon);
+            SetReference(confidenceView, "iconImage", confidenceArtwork);
+            SetReferenceArray(confidenceView, "iconSprites", LoadSprites(ConfidenceArtPath));
             SetReference(confidenceView, "fillImage", confidenceFill);
 
             var timerRoot = CreateIndicatorRoot("Timer", panel.transform);
+            timerRoot.GetComponent<LayoutElement>().preferredHeight = 42f;
             var timerSeconds = CreateLabel("Seconds", timerRoot.transform, "0", 22, FontStyle.Bold);
             var timerFill = CreateFilledBar("Fill", timerRoot.transform);
             var timerView = timerRoot.AddComponent<TimerView>();
@@ -258,7 +315,7 @@ namespace Agrovator.PitchSimulator.Editor
             responseLayout.childControlHeight = true;
             responseLayout.childForceExpandWidth = true;
             responseLayout.childForceExpandHeight = false;
-            responseRoot.GetComponent<LayoutElement>().preferredHeight = 240f;
+            responseRoot.GetComponent<LayoutElement>().preferredHeight = 170f;
             var slots = new ResponseButtonView[3];
             for (var index = 0; index < slots.Length; index++)
             {
@@ -272,11 +329,13 @@ namespace Agrovator.PitchSimulator.Editor
             SetReferenceArray(responseList, "slots", slots);
 
             var continueButton = CreateButton("Continue Button", panel.transform, "Continue");
+            continueButton.GetComponent<LayoutElement>().preferredHeight = 64f;
             SetReference(presenter, "promptText", prompt);
             SetReference(presenter, "statusText", status);
             SetReference(presenter, "responseList", responseList);
             SetReference(presenter, "timerView", timerView);
             SetReference(presenter, "confidenceView", confidenceView);
+            SetReference(presenter, "judgeReactionView", judgeView);
             SetReference(presenter, "continueButton", continueButton);
             return panel;
         }
@@ -448,6 +507,54 @@ namespace Agrovator.PitchSimulator.Editor
             for (var index = 0; index < values.Count; index++)
             {
                 property.GetArrayElementAtIndex(index).objectReferenceValue = values[index];
+            }
+            serialized.ApplyModifiedPropertiesWithoutUndo();
+        }
+
+        private static Sprite LoadSprite(string path)
+        {
+            var sprite = AssetDatabase.LoadAssetAtPath<Sprite>(path);
+            if (sprite == null)
+            {
+                throw new InvalidOperationException($"Missing required sprite '{path}'.");
+            }
+            return sprite;
+        }
+
+        private static Sprite[] LoadSprites(string path)
+        {
+            var sprites = AssetDatabase.LoadAllAssetsAtPath(path)
+                .OfType<Sprite>()
+                .OrderBy(sprite => sprite.rect.x)
+                .ToArray();
+            if (sprites.Length == 0)
+            {
+                throw new InvalidOperationException($"Missing required sprite sheet '{path}'.");
+            }
+            return sprites;
+        }
+
+        private static void SetJudgeSprites(JudgeReactionView view)
+        {
+            var sprites = LoadSprites(JudgeArtPath);
+            var expected = (JudgeReaction[])Enum.GetValues(typeof(JudgeReaction));
+            if (sprites.Length != expected.Length)
+            {
+                throw new InvalidOperationException(
+                    $"Judge sprite sheet must contain {expected.Length} sprites, found {sprites.Length}.");
+            }
+
+            var byName = sprites.ToDictionary(sprite => sprite.name, StringComparer.Ordinal);
+            var serialized = new SerializedObject(view);
+            var spriteSet = serialized.FindProperty("sprites");
+            foreach (var reaction in expected)
+            {
+                if (!byName.TryGetValue(reaction.ToString(), out var sprite))
+                {
+                    throw new InvalidOperationException($"Missing judge reaction sprite '{reaction}'.");
+                }
+                spriteSet.FindPropertyRelative(reaction.ToString().ToLowerInvariant())
+                    .objectReferenceValue = sprite;
             }
             serialized.ApplyModifiedPropertiesWithoutUndo();
         }

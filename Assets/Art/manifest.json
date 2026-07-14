@@ -1,0 +1,52 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-07-14",
+  "sourceTool": "OpenAI built-in image generation",
+  "thirdPartyDerivatives": false,
+  "license": "Original generated output for this project; OpenAI output terms applicable to the generating account.",
+  "assets": [
+    {
+      "path": "Assets/Art/Characters/judge-aya-sheet.png",
+      "dimensions": [1408, 160],
+      "prompt": "Original 16-bit-inspired editorial pixel-art sprite sheet of a Malaysian youth innovation mentor named Judge Aya: modest smart-casual outfit, dark hair, warm brown skin, friendly professional bearing. Eleven equal horizontal cells in this order: Idle, Blink, Talk, Think, Smile, Interested, Confused, Concerned, Impressed, Encouraging, Celebrating. Consistent framing and scale; crisp 1px clusters; restrained shading; flat removable magenta background; AGROVATOR charcoal, green, warm gold, cream, leaf highlight, muted coral and cool-shadow palette. No text, logo, watermark, copyrighted character, branded interface or commercial sprite derivative.",
+      "processing": [
+        "selected from built-in image generation output",
+        "cropped and downscaled to an 11 by 1 equal-cell sheet",
+        "magenta chroma key removed to alpha",
+        "saved as lossless PNG"
+      ]
+    },
+    {
+      "path": "Assets/Art/Environment/pitch-room.png",
+      "dimensions": [1280, 720],
+      "prompt": "Original 16-bit-inspired editorial pixel-art Malaysian school innovation room with hydroponic seedlings, a water-sensor prototype, irrigation tubing, presentation screen and tropical daylight. Landscape composition with central-right judge staging and lower negative space for readable UI. Crisp pixel clusters, restrained shading and the AGROVATOR charcoal, green, warm gold, cream, leaf highlight, muted coral and cool-shadow palette. No text, logo, flag, watermark, copyrighted character, branded interface or commercial game derivative.",
+      "processing": [
+        "selected from built-in image generation output",
+        "cropped and downscaled to 1280 by 720",
+        "saved as lossless PNG"
+      ]
+    },
+    {
+      "path": "Assets/Art/UI/dialogue-panel.png",
+      "dimensions": [768, 384],
+      "prompt": "Original compact nine-slice-friendly 16-bit-inspired pixel-art dialogue frame using charcoal, AGROVATOR green, warm gold and cream. Empty high-contrast center, crisp corners and borders, restrained shading. No text, logo, watermark, character, branded interface or commercial UI derivative.",
+      "processing": [
+        "selected from built-in image generation output",
+        "cropped and downscaled to 768 by 384",
+        "background normalized for alpha where present",
+        "saved as lossless PNG"
+      ]
+    },
+    {
+      "path": "Assets/Art/UI/confidence-icons.png",
+      "dimensions": [480, 96],
+      "prompt": "Original 16-bit-inspired pixel-art icon strip with five equal horizontal cells and distinct non-colour silhouettes for Getting Started, Listening, Curious, Interested and Convinced. Simple readable forms, crisp 1px clusters and the AGROVATOR charcoal, green, warm gold and cream palette. No text, logo, watermark, copyrighted symbol, branded interface or commercial icon derivative.",
+      "processing": [
+        "selected from built-in image generation output",
+        "cropped and downscaled to a 5 by 1 equal-cell strip",
+        "background normalized for alpha where present",
+        "saved as lossless PNG"
+      ]
+    }
+  ]
+}

@@ -12,6 +12,7 @@ namespace Agrovator.PitchSimulator.UI
         [SerializeField] private ResponseListView responseList;
         [SerializeField] private TimerView timerView;
         [SerializeField] private ConfidenceView confidenceView;
+        [SerializeField] private JudgeReactionView judgeReactionView;
         [SerializeField] private Button continueButton;
 
         private PitchSessionController controller;
@@ -45,6 +46,16 @@ namespace Agrovator.PitchSimulator.UI
                 resolveText);
             RefreshTimer(snapshot);
             confidenceView.Render(snapshot.Confidence, resolveText);
+            if (judgeReactionView != null)
+            {
+                var questionVisible = snapshot.State == GameState.AskingQuestion ||
+                    snapshot.State == GameState.AwaitingResponse;
+                judgeReactionView.Render(
+                    snapshot.LastReactionCue,
+                    questionVisible,
+                    snapshot.State == GameState.ShowingReaction,
+                    snapshot.ReducedMotion);
+            }
 
             continueButton.gameObject.SetActive(snapshot.State != GameState.AwaitingResponse);
             continueButton.interactable = snapshot.State != GameState.AwaitingResponse;

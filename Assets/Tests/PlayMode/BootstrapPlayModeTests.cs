@@ -118,6 +118,12 @@ namespace Agrovator.PitchSimulator.Tests.PlayMode
                 Is.EqualTo(responseViews[0].Button.gameObject));
             Assert.That(pitchRoom.GetComponentInChildren<TimerView>(), Is.Not.Null);
             Assert.That(pitchRoom.GetComponentInChildren<ConfidenceView>(), Is.Not.Null);
+            Assert.That(pitchRoom.Find("Environment").GetComponent<Image>().sprite, Is.Not.Null);
+            Assert.That(pitchRoom.Find("Dialogue Panel").GetComponent<Image>().type,
+                Is.EqualTo(Image.Type.Sliced));
+            var judgeView = pitchRoom.Find("Judge Aya").GetComponent<JudgeReactionView>();
+            Assert.That(judgeView.IsConfigured, Is.True);
+            Assert.That(judgeView.IsTalkLoopActive, Is.True);
 
             responseViews[0].Button.onClick.Invoke();
             responseViews[0].Button.onClick.Invoke();
@@ -130,6 +136,8 @@ namespace Agrovator.PitchSimulator.Tests.PlayMode
 
             var controller = GetController(bootstrapper);
             Assert.That(controller.Snapshot.State, Is.EqualTo(GameState.ShowingReaction));
+            Assert.That(judgeView.CurrentReaction,
+                Is.EqualTo(JudgeReactionMapper.Parse(controller.Snapshot.LastReactionCue)));
             ExecuteEvents.Execute(
                 pitchContinue.gameObject,
                 new BaseEventData(EventSystem.current),

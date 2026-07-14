@@ -28,6 +28,8 @@ namespace Agrovator.PitchSimulator.UI
 
         [SerializeField] private Text stateLabel;
         [SerializeField] private Text iconLabel;
+        [SerializeField] private Image iconImage;
+        [SerializeField] private Sprite[] iconSprites = Array.Empty<Sprite>();
         [SerializeField] private Image fillImage;
 
         public void Configure(Text label, Text icon, Image fill)
@@ -35,6 +37,12 @@ namespace Agrovator.PitchSimulator.UI
             stateLabel = label ?? throw new ArgumentNullException(nameof(label));
             iconLabel = icon ?? throw new ArgumentNullException(nameof(icon));
             fillImage = fill ?? throw new ArgumentNullException(nameof(fill));
+        }
+
+        public void ConfigureArtwork(Image image, Sprite[] sprites)
+        {
+            iconImage = image;
+            iconSprites = sprites ?? Array.Empty<Sprite>();
         }
 
         public void Render(int confidence, Func<string, string> resolveText = null)
@@ -48,6 +56,11 @@ namespace Agrovator.PitchSimulator.UI
             var state = Math.Min(value / 20, Labels.Length - 1);
             stateLabel.text = resolveText == null ? Labels[state] : resolveText(LabelKeys[state]);
             iconLabel.text = Glyphs[state];
+            if (iconImage != null)
+            {
+                iconImage.sprite = state < iconSprites.Length ? iconSprites[state] : null;
+                iconImage.enabled = iconImage.sprite != null;
+            }
             fillImage.fillAmount = value / 100f;
         }
     }

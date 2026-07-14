@@ -62,6 +62,17 @@ namespace Agrovator.PitchSimulator.Tests.EditMode.UI
             Assert.That(FindInScene<Canvas>(scene), Has.Length.EqualTo(1));
             Assert.That(FindInScene<EventSystem>(scene), Has.Length.EqualTo(1));
             Assert.That(FindInScene<GameScreenRouter>(scene), Has.Length.EqualTo(1));
+            var generated = scene.GetRootGameObjects().Single(root => root.name == "Generated UI");
+            var pitchRoom = generated.transform.Find("Canvas/PitchRoom");
+            Assert.That(pitchRoom, Is.Not.Null);
+            Assert.That(pitchRoom.Find("Environment").GetComponent<Image>().sprite.name,
+                Is.EqualTo("pitch-room"));
+            Assert.That(pitchRoom.Find("Dialogue Panel").GetComponent<Image>().type,
+                Is.EqualTo(Image.Type.Sliced));
+            var judge = pitchRoom.Find("Judge Aya").GetComponent<JudgeReactionView>();
+            Assert.That(judge, Is.Not.Null);
+            Assert.That(judge.IsConfigured, Is.True);
+            Assert.That(pitchRoom.Find("Confidence/Artwork Icon").GetComponent<Image>(), Is.Not.Null);
         }
 
         private static T[] FindInScene<T>(Scene scene) where T : Component
