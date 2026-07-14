@@ -107,6 +107,39 @@ namespace Agrovator.PitchSimulator.Tests.EditMode.Core
         }
 
         [Test]
+        public void TimerExpiry_WithoutNeutralTraversalStillReactsThenReturnsToAnswerableSameNode()
+        {
+            var bridge = new MockLmsBridge(MockLmsBridgeMode.Success, ValidLaunch());
+            var controller = CreateController(bridge, new QuestionTimer(0d), BuildNoNeutralTraversalScenario());
+            StartAndAdvancePastTutorial(controller);
+            PitchSessionEvent timeoutEvent = null;
+            controller.EventPublished += value => timeoutEvent = value;
+
+            controller.Tick(5d);
+
+            Assert.That(controller.Snapshot.State, Is.EqualTo(GameState.ShowingReaction));
+            Assert.That(controller.Snapshot.CurrentNodeId, Is.EqualTo("question"));
+            Assert.That(controller.Snapshot.LastResponseId, Is.Null);
+            Assert.That(controller.Snapshot.TimeoutCount, Is.EqualTo(1));
+            Assert.That(timeoutEvent.Type, Is.EqualTo(PitchSessionEventType.TimeoutReactionReady));
+            Assert.That(timeoutEvent.ReactionCue, Is.EqualTo("Neutral"));
+
+            Assert.That(controller.Continue(), Is.True);
+            Assert.That(controller.Snapshot.State, Is.EqualTo(GameState.ShowingFeedback));
+            Assert.That(controller.Snapshot.CurrentNodeId, Is.EqualTo("question"));
+            Assert.That(controller.Continue(), Is.True);
+            Assert.That(controller.Snapshot.State, Is.EqualTo(GameState.AskingQuestion));
+            Assert.That(controller.Continue(), Is.True);
+            Assert.That(controller.Snapshot.State, Is.EqualTo(GameState.AwaitingResponse));
+            Assert.That(controller.Snapshot.CurrentNodeId, Is.EqualTo("question"));
+            Assert.That(controller.Snapshot.AvailableResponses.Select(value => value.Id),
+                Is.EqualTo(new[] { "question-gated" }));
+
+            Assert.That(controller.SelectResponse("question-gated"), Is.True);
+            Assert.That(controller.Snapshot.CurrentNodeId, Is.EqualTo("gated"));
+        }
+
+        [Test]
         public void ContinueAfterSelection_PublishesReactionBeforeFeedback()
         {
             var fixture = CreateStartedFixture();
@@ -163,6 +196,29 @@ namespace Agrovator.PitchSimulator.Tests.EditMode.Core
             Assert.That(controller.Snapshot.AttemptNumber, Is.EqualTo(3));
             Assert.That(controller.Snapshot.SubmissionError, Is.Null);
             Assert.That(events, Is.EqualTo(new[] { PitchSessionEventType.SubmissionFailed }));
+        }
+
+        [Test]
+        public void SubmissionFailure_NullErrorRemainsSanitizedFailureInResults()
+        {
+            var bridge = new DeferredLmsBridge(ValidLaunch());
+            var controller = CreateController(bridge, new QuestionTimer(0d));
+            MoveToResults(controller);
+            PitchSessionEvent published = null;
+            controller.EventPublished += value => published = value;
+            controller.SubmitResults();
+
+            bridge.Fail(null);
+
+            Assert.That(controller.Snapshot.State, Is.EqualTo(GameState.Results));
+            Assert.That(controller.Snapshot.SubmissionError, Is.Not.Null);
+            Assert.That(controller.Snapshot.SubmissionError.Code,
+                Is.EqualTo(LmsSubmissionErrorCode.SubmissionFailed));
+            Assert.That(controller.Snapshot.SubmissionError.MessageKey,
+                Is.EqualTo("lms.submission.failed"));
+            Assert.That(controller.Snapshot.SubmissionError.AttemptNumber, Is.EqualTo(2));
+            Assert.That(published.Type, Is.EqualTo(PitchSessionEventType.SubmissionFailed));
+            Assert.That(published.MessageKey, Is.EqualTo("lms.submission.failed"));
         }
 
         [Test]
@@ -341,16 +397,41 @@ namespace Agrovator.PitchSimulator.Tests.EditMode.Core
             return new Fixture(CreateController(bridge, new QuestionTimer(0d)), bridge);
         }
 
-        private static PitchSessionController CreateController(ILmsBridge bridge, QuestionTimer timer)
+        private static PitchSessionController CreateController(
+            ILmsBridge bridge,
+            QuestionTimer timer,
+            RuntimeScenario scenario = null)
         {
             return new PitchSessionController(
-                BuildScenario(),
+                scenario ?? BuildScenario(),
                 new ScoreAccumulator(),
                 new AccessibilitySettings(TimerMode.Normal, false, 0.75f, 0.8f, "en"),
                 timer,
                 bridge,
                 () => StartedAt,
                 "0.1.0");
+        }
+
+        private static RuntimeScenario BuildNoNeutralTraversalScenario()
+        {
+            var scenario = new ScenarioDefinitionDto
+            {
+                Id = "scenario",
+                Version = 1,
+                InitialConfidence = 50,
+                OpeningNodeId = "tutorial",
+                Nodes = new[]
+                {
+                    Node("tutorial", "Tutorial", 0, Response("tutorial-ready", "Strong", "question", 0, 0)),
+                    Node("question", "Question", 5,
+                        Response("question-gated", "Developing", "gated", 2, 1, flag: "gate")),
+                    Node("gated", "Question", 5,
+                        Response("gated-finish", "Strong", "complete", 2, 1)),
+                    Node("complete", "Terminal", 0),
+                },
+            };
+            scenario.Nodes[2].RequiredFlags = new[] { "gate" };
+            return RuntimeScenario.Compile(scenario);
         }
 
         private static RuntimeScenario BuildScenario()

@@ -232,8 +232,8 @@ namespace Agrovator.PitchSimulator.Core
             RefreshSnapshot();
             lmsBridge.SubmitCompletion(
                 completionPayload,
-                () => CompleteSubmission(generation, submittedAttempt, null),
-                error => CompleteSubmission(generation, submittedAttempt, error));
+                () => CompleteSubmissionSuccess(generation, submittedAttempt),
+                error => CompleteSubmissionFailure(generation, submittedAttempt, error));
             return true;
         }
 
@@ -291,7 +291,7 @@ namespace Agrovator.PitchSimulator.Core
                 selection = SelectTimeoutTraversal(preferDeveloping: false);
             }
 
-            if (selection == null || !stateMachine.TryApply(GameCommand.SelectResponse))
+            if (!stateMachine.TryApply(GameCommand.SelectResponse))
             {
                 return;
             }
@@ -346,34 +346,51 @@ namespace Agrovator.PitchSimulator.Core
             ClearPresentationOutcome();
         }
 
-        private void CompleteSubmission(
+        private void CompleteSubmissionSuccess(long generation, int submittedAttempt)
+        {
+            if (!TryAcceptSubmissionCallback(generation, submittedAttempt))
+            {
+                return;
+            }
+
+            stateMachine.TryApply(GameCommand.SubmissionSucceeded);
+            RefreshSnapshot();
+            Publish(new PitchSessionEvent(PitchSessionEventType.SubmissionSucceeded));
+        }
+
+        private void CompleteSubmissionFailure(
             long generation,
             int submittedAttempt,
             LmsSubmissionError error)
+        {
+            if (!TryAcceptSubmissionCallback(generation, submittedAttempt))
+            {
+                return;
+            }
+
+            submissionError = error ?? new LmsSubmissionError(
+                LmsSubmissionErrorCode.SubmissionFailed,
+                "lms.submission.failed",
+                submittedAttempt);
+            stateMachine.TryApply(GameCommand.SubmissionFailed);
+            RefreshSnapshot();
+            Publish(new PitchSessionEvent(
+                PitchSessionEventType.SubmissionFailed,
+                messageKey: submissionError.MessageKey));
+        }
+
+        private bool TryAcceptSubmissionCallback(long generation, int submittedAttempt)
         {
             if (activeSubmissionGeneration != generation ||
                 isDisposed ||
                 attemptNumber != submittedAttempt ||
                 stateMachine.Current != GameState.Submitting)
             {
-                return;
+                return false;
             }
 
             activeSubmissionGeneration = 0;
-            if (error == null)
-            {
-                stateMachine.TryApply(GameCommand.SubmissionSucceeded);
-                RefreshSnapshot();
-                Publish(new PitchSessionEvent(PitchSessionEventType.SubmissionSucceeded));
-                return;
-            }
-
-            submissionError = error;
-            stateMachine.TryApply(GameCommand.SubmissionFailed);
-            RefreshSnapshot();
-            Publish(new PitchSessionEvent(
-                PitchSessionEventType.SubmissionFailed,
-                messageKey: error.MessageKey));
+            return true;
         }
 
         private void ClearPresentationOutcome()
