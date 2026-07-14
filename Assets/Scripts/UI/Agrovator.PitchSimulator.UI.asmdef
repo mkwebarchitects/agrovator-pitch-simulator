@@ -1,0 +1,21 @@
+{
+    "name": "Agrovator.PitchSimulator.UI",
+    "rootNamespace": "Agrovator.PitchSimulator.UI",
+    "references": [
+        "Agrovator.PitchSimulator.Core",
+        "Agrovator.PitchSimulator.Session",
+        "Agrovator.PitchSimulator.Dialogue",
+        "Agrovator.PitchSimulator.Scoring",
+        "Agrovator.PitchSimulator.Accessibility",
+        "Agrovator.PitchSimulator.LMS"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
