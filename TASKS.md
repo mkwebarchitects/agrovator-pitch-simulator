@@ -9,7 +9,7 @@ This checklist mirrors `docs/plans/2026-07-14-pitch-simulator-vertical-slice.md`
 - [x] Task 3: Dialogue DTOs and structural validation
 - [x] Task 4: Runtime dialogue graph, flags and branches
 - [x] Task 5: Scoring, confidence and result feedback
-- [ ] Task 6: Timer and accessibility settings
+- [x] Task 6: Timer and accessibility settings
 - [ ] Task 7: LMS contracts, serialization and mock bridge
 - [ ] Task 8: Localization catalog and save-data versioning
 - [ ] Task 9: Smart School Garden content and JSON import
@@ -56,7 +56,11 @@ This checklist mirrors `docs/plans/2026-07-14-pitch-simulator-vertical-slice.md`
 - 2026-07-14 Task 5 focused GREEN: `ScoringTests` reported `31/31` passed with `0` failures, skips or inconclusive tests; independent XML parsing confirmed `Passed`, and the complete 392-line Unity log contained `0` matches for `error CS\d+|Compilation failed|Unhandled Exception`.
 - 2026-07-14 Task 5 all Edit Mode GREEN: the final canonical wrapper reported `68/68` passed with `0` failures, skips or inconclusive tests; independent XML parsing confirmed `Passed`, and the complete 393-line log contained `0` failure-marker matches.
 - 2026-07-14 Task 5 scoring checks: all seven authored deltas clamp to explicit 20/15/15/15/15/10/10 caps and floor at zero; overall caps at 100, confidence at 0…100, level boundaries are inclusive at 0/40/60/80, category strength thresholds are 12/9/9/9/9/6/6, and normalized strength/improvement ties use stable rubric order. Recovery produces the localized `result.strength.recovery` key; all result copy remains localization keys. Scoring declares `noEngineReferences: true` and the Scoring sources/tests contain `0` `UnityEngine`, `MonoBehaviour` or `ScriptableObject` references.
+- 2026-07-14 Task 6 RED: the focused timer/settings run produced no XML and reached the expected missing-production-types compiler boundary (`CS0234`/`CS0246`/`CS0103` for the absent Accessibility namespace, `AccessibilitySettings` and `TimerMode`); the 719-line log ended with `Scripts have compiler errors.`
+- 2026-07-14 Task 6 focused GREEN: the final post-refactor fixture run reported `35/35` passed with `0` failures, skips or inconclusive tests; independent XML parsing confirmed `Passed`, and the complete 388-line log contained `0` matches for `error CS\d+|Compilation failed|Unhandled Exception`.
+- 2026-07-14 Task 6 all Edit Mode GREEN: the canonical wrapper reported `103/103` passed with `0` failures, skips or inconclusive tests; independent XML parsing confirmed `Passed`, and the complete 365-line log contained `0` failure-marker matches.
+- 2026-07-14 Task 6 timer/accessibility checks: Core consumes only an effective duration and contains `0` Accessibility/`TimerMode` references; the Accessibility assembly points only to Core and both runtime assemblies declare `noEngineReferences: true`. Zero duration is an explicitly disabled timer that never expires, while positive timers clamp at zero and emit `Expired` once. Negative/non-finite deltas throw before mutation, and a 1,000-tick allocation test measured no managed allocation. Settings cover Normal/Extended/Off, tutorial zero duration, reduced motion, finite-safe `0…1` audio volumes and exact initial `en`/`ms` locale support with English fallback.
 
 ## Next action
 
-Begin Task 6 by writing the failing timer and accessibility settings tests.
+Begin Task 7 by writing the failing LMS contract, payload validation and mock bridge tests.

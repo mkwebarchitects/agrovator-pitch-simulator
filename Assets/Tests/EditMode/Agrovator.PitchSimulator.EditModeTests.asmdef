@@ -4,7 +4,8 @@
     "references": [
         "Agrovator.PitchSimulator.Core",
         "Agrovator.PitchSimulator.Dialogue",
-        "Agrovator.PitchSimulator.Scoring"
+        "Agrovator.PitchSimulator.Scoring",
+        "Agrovator.PitchSimulator.Accessibility"
     ],
     "includePlatforms": [
         "Editor"

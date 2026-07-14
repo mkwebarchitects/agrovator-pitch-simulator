@@ -1,0 +1,16 @@
+{
+    "name": "Agrovator.PitchSimulator.Accessibility",
+    "rootNamespace": "Agrovator.PitchSimulator.Accessibility",
+    "references": [
+        "Agrovator.PitchSimulator.Core"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": true
+}
