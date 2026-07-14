@@ -75,6 +75,32 @@ namespace Agrovator.PitchSimulator.Dialogue
             return DialogueSelectionResult.Accepted(selectedResponse, CurrentNode);
         }
 
+        public DialogueSelectionResult SelectForTimeout(string responseId, int confidence)
+        {
+            if (IsComplete || string.IsNullOrEmpty(responseId))
+            {
+                return DialogueSelectionResult.Rejected();
+            }
+
+            RuntimeResponseOption selectedResponse = null;
+            foreach (var response in CurrentNode.Responses)
+            {
+                if (string.Equals(response.Id, responseId, StringComparison.Ordinal))
+                {
+                    selectedResponse = response;
+                    break;
+                }
+            }
+
+            if (!CanSelectWithoutResponseFlags(selectedResponse, confidence))
+            {
+                return DialogueSelectionResult.Rejected();
+            }
+
+            CurrentNode = _scenario.Nodes[selectedResponse.NextNodeId];
+            return DialogueSelectionResult.Accepted(selectedResponse, CurrentNode);
+        }
+
         private bool CanSelect(RuntimeResponseOption response, int confidence)
         {
             if (!ResponseAvailability.IsAvailable(response, _flags, confidence))
@@ -90,6 +116,13 @@ namespace Agrovator.PitchSimulator.Dialogue
 
             return _scenario.Nodes.TryGetValue(response.NextNodeId, out var destination)
                 && ResponseAvailability.IsAvailable(destination, projectedFlags, confidence);
+        }
+
+        private bool CanSelectWithoutResponseFlags(RuntimeResponseOption response, int confidence)
+        {
+            return ResponseAvailability.IsAvailable(response, _flags, confidence)
+                && _scenario.Nodes.TryGetValue(response.NextNodeId, out var destination)
+                && ResponseAvailability.IsAvailable(destination, _flags, confidence);
         }
     }
 

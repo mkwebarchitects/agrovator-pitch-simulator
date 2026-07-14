@@ -8,7 +8,7 @@ using Agrovator.PitchSimulator.Scoring;
 
 namespace Agrovator.PitchSimulator.Core
 {
-    public sealed class PitchSessionController
+    public sealed class PitchSessionController : IDisposable
     {
         private const string TimeoutReactionCue = "Neutral";
         private const string TimeoutFeedbackKey = "session.timeout.feedback";
@@ -34,6 +34,9 @@ namespace Agrovator.PitchSimulator.Core
         private double durationSeconds;
         private int timeoutCount;
         private int attemptNumber;
+        private long submissionGeneration;
+        private long activeSubmissionGeneration;
+        private bool isDisposed;
         private string lastResponseId;
         private string lastReactionCue;
         private string lastFeedbackKey;
@@ -68,9 +71,22 @@ namespace Agrovator.PitchSimulator.Core
 
         public PitchSessionSnapshot Snapshot { get; private set; }
 
+        public void Dispose()
+        {
+            if (isDisposed)
+            {
+                return;
+            }
+
+            isDisposed = true;
+            activeSubmissionGeneration = 0;
+            timer.Expired -= HandleTimeout;
+            EventPublished = null;
+        }
+
         public bool FinishLaunch()
         {
-            if (stateMachine.Current != GameState.Booting)
+            if (isDisposed || stateMachine.Current != GameState.Booting)
             {
                 return false;
             }
@@ -92,7 +108,7 @@ namespace Agrovator.PitchSimulator.Core
 
         public bool StartScenario()
         {
-            if (!stateMachine.TryApply(GameCommand.StartScenario))
+            if (isDisposed || !stateMachine.TryApply(GameCommand.StartScenario))
             {
                 return false;
             }
@@ -104,6 +120,11 @@ namespace Agrovator.PitchSimulator.Core
 
         public bool Continue()
         {
+            if (isDisposed)
+            {
+                return false;
+            }
+
             var current = stateMachine.Current;
             if (current == GameState.ShowingFeedback)
             {
@@ -121,7 +142,9 @@ namespace Agrovator.PitchSimulator.Core
                 var duration = accessibility.GetEffectiveDuration(dialogue.CurrentNode.TimerSeconds, isTutorial);
                 timer.Reset(duration);
             }
-            else if (current == GameState.ShowingReaction)
+
+            RefreshSnapshot();
+            if (current == GameState.ShowingReaction)
             {
                 Publish(new PitchSessionEvent(
                     PitchSessionEventType.FeedbackReady,
@@ -130,14 +153,12 @@ namespace Agrovator.PitchSimulator.Core
                     lastFeedbackKey,
                     lastExplanationKey));
             }
-
-            RefreshSnapshot();
             return true;
         }
 
         public bool SelectResponse(string responseId)
         {
-            if (stateMachine.Current != GameState.AwaitingResponse)
+            if (isDisposed || stateMachine.Current != GameState.AwaitingResponse)
             {
                 return false;
             }
@@ -174,6 +195,11 @@ namespace Agrovator.PitchSimulator.Core
 
         public void Tick(double seconds)
         {
+            if (isDisposed)
+            {
+                return;
+            }
+
             if (seconds < 0d || double.IsNaN(seconds) || double.IsInfinity(seconds))
             {
                 throw new ArgumentOutOfRangeException(nameof(seconds));
@@ -194,36 +220,26 @@ namespace Agrovator.PitchSimulator.Core
 
         public bool SubmitResults()
         {
-            if (completionPayload == null || !stateMachine.TryApply(GameCommand.SubmitResults))
+            if (isDisposed || completionPayload == null || !stateMachine.TryApply(GameCommand.SubmitResults))
             {
                 return false;
             }
 
             submissionError = null;
+            var generation = ++submissionGeneration;
+            activeSubmissionGeneration = generation;
+            var submittedAttempt = attemptNumber;
             RefreshSnapshot();
             lmsBridge.SubmitCompletion(
                 completionPayload,
-                () =>
-                {
-                    stateMachine.TryApply(GameCommand.SubmissionSucceeded);
-                    RefreshSnapshot();
-                    Publish(new PitchSessionEvent(PitchSessionEventType.SubmissionSucceeded));
-                },
-                error =>
-                {
-                    submissionError = error;
-                    stateMachine.TryApply(GameCommand.SubmissionFailed);
-                    RefreshSnapshot();
-                    Publish(new PitchSessionEvent(
-                        PitchSessionEventType.SubmissionFailed,
-                        messageKey: error?.MessageKey));
-                });
+                () => CompleteSubmission(generation, submittedAttempt, null),
+                error => CompleteSubmission(generation, submittedAttempt, error));
             return true;
         }
 
         public bool Retry()
         {
-            if (!stateMachine.TryApply(GameCommand.Retry))
+            if (isDisposed || !stateMachine.TryApply(GameCommand.Retry))
             {
                 return false;
             }
@@ -264,29 +280,18 @@ namespace Agrovator.PitchSimulator.Core
 
         private void HandleTimeout()
         {
-            if (stateMachine.Current != GameState.AwaitingResponse)
+            if (isDisposed || stateMachine.Current != GameState.AwaitingResponse)
             {
                 return;
             }
 
-            var available = dialogue.GetAvailableResponses(confidence.Value);
-            if (available.Count == 0)
+            var selection = SelectTimeoutTraversal(preferDeveloping: true);
+            if (selection == null)
             {
-                return;
+                selection = SelectTimeoutTraversal(preferDeveloping: false);
             }
 
-            var traversal = available[0];
-            for (var index = 0; index < available.Count; index++)
-            {
-                if (string.Equals(available[index].QualityTier, "Developing", StringComparison.Ordinal))
-                {
-                    traversal = available[index];
-                    break;
-                }
-            }
-
-            var selection = dialogue.Select(traversal.Id, confidence.Value);
-            if (!selection.IsAccepted || !stateMachine.TryApply(GameCommand.SelectResponse))
+            if (selection == null || !stateMachine.TryApply(GameCommand.SelectResponse))
             {
                 return;
             }
@@ -304,8 +309,29 @@ namespace Agrovator.PitchSimulator.Core
                 explanationKey: TimeoutExplanationKey));
         }
 
+        private DialogueSelectionResult SelectTimeoutTraversal(bool preferDeveloping)
+        {
+            foreach (var response in dialogue.CurrentNode.Responses)
+            {
+                var isDeveloping = string.Equals(response.QualityTier, "Developing", StringComparison.Ordinal);
+                if (isDeveloping != preferDeveloping)
+                {
+                    continue;
+                }
+
+                var selection = dialogue.SelectForTimeout(response.Id, confidence.Value);
+                if (selection.IsAccepted)
+                {
+                    return selection;
+                }
+            }
+
+            return null;
+        }
+
         private void ResetRun()
         {
+            activeSubmissionGeneration = 0;
             scores.Reset();
             dialogue = new DialogueSession(scenario);
             confidence = new ConfidenceMeter(scenario.InitialConfidence);
@@ -318,6 +344,36 @@ namespace Agrovator.PitchSimulator.Core
             startedAt = utcNow().ToUniversalTime();
             timer.Reset(0d);
             ClearPresentationOutcome();
+        }
+
+        private void CompleteSubmission(
+            long generation,
+            int submittedAttempt,
+            LmsSubmissionError error)
+        {
+            if (activeSubmissionGeneration != generation ||
+                isDisposed ||
+                attemptNumber != submittedAttempt ||
+                stateMachine.Current != GameState.Submitting)
+            {
+                return;
+            }
+
+            activeSubmissionGeneration = 0;
+            if (error == null)
+            {
+                stateMachine.TryApply(GameCommand.SubmissionSucceeded);
+                RefreshSnapshot();
+                Publish(new PitchSessionEvent(PitchSessionEventType.SubmissionSucceeded));
+                return;
+            }
+
+            submissionError = error;
+            stateMachine.TryApply(GameCommand.SubmissionFailed);
+            RefreshSnapshot();
+            Publish(new PitchSessionEvent(
+                PitchSessionEventType.SubmissionFailed,
+                messageKey: error.MessageKey));
         }
 
         private void ClearPresentationOutcome()

@@ -90,8 +90,20 @@ namespace Agrovator.PitchSimulator.Tests.EditMode.Core
             Assert.That(fixture.Controller.Snapshot.TimeoutCount, Is.EqualTo(1));
             Assert.That(fixture.Controller.Snapshot.LastResponseId, Is.Null);
             Assert.That(fixture.Controller.Snapshot.SelectedResponseIds, Is.Empty);
+            Assert.That(fixture.Controller.Snapshot.AvailableResponses.Select(value => value.Id),
+                Is.EqualTo(new[] { "standard-finish" }));
             Assert.That(published.Type, Is.EqualTo(PitchSessionEventType.TimeoutReactionReady));
             Assert.That(published.ReactionCue, Is.EqualTo("Neutral"));
+
+            fixture.Controller.Continue();
+            fixture.Controller.Continue();
+            fixture.Controller.Continue();
+            fixture.Controller.SelectResponse("standard-finish");
+            fixture.Controller.Continue();
+            fixture.Controller.Continue();
+
+            Assert.That(fixture.Controller.Snapshot.Result.StrengthKeys,
+                Has.None.EqualTo("result.strength.recovery"));
         }
 
         [Test]
@@ -100,7 +112,15 @@ namespace Agrovator.PitchSimulator.Tests.EditMode.Core
             var fixture = CreateStartedFixture();
             AdvancePastTutorial(fixture.Controller);
             var eventTypes = new List<PitchSessionEventType>();
-            fixture.Controller.EventPublished += value => eventTypes.Add(value.Type);
+            GameState? stateObservedDuringFeedback = null;
+            fixture.Controller.EventPublished += value =>
+            {
+                eventTypes.Add(value.Type);
+                if (value.Type == PitchSessionEventType.FeedbackReady)
+                {
+                    stateObservedDuringFeedback = fixture.Controller.Snapshot.State;
+                }
+            };
 
             fixture.Controller.SelectResponse("question-strong");
             fixture.Controller.Continue();
@@ -111,7 +131,64 @@ namespace Agrovator.PitchSimulator.Tests.EditMode.Core
                 PitchSessionEventType.FeedbackReady,
             }));
             Assert.That(fixture.Controller.Snapshot.State, Is.EqualTo(GameState.ShowingFeedback));
+            Assert.That(stateObservedDuringFeedback, Is.EqualTo(GameState.ShowingFeedback));
             Assert.That(fixture.Controller.Snapshot.LastFeedbackKey, Is.EqualTo("feedback.strong"));
+        }
+
+        [Test]
+        public void SubmissionCallbacks_AreOneShotAndIgnoredAfterRetryStartsNewAttempt()
+        {
+            var bridge = new DeferredLmsBridge(ValidLaunch());
+            var controller = CreateController(bridge, new QuestionTimer(0d));
+            MoveToResults(controller);
+            var events = new List<PitchSessionEventType>();
+            controller.EventPublished += value => events.Add(value.Type);
+            controller.SubmitResults();
+
+            bridge.Fail(new LmsSubmissionError(
+                LmsSubmissionErrorCode.SubmissionFailed,
+                "lms.submission.failed",
+                2));
+            Assert.That(controller.Snapshot.State, Is.EqualTo(GameState.Results));
+            Assert.That(controller.Retry(), Is.True);
+            Assert.That(controller.Snapshot.SubmissionError, Is.Null);
+
+            bridge.Fail(new LmsSubmissionError(
+                LmsSubmissionErrorCode.SessionExpired,
+                "lms.session.expired",
+                2));
+            bridge.Succeed();
+
+            Assert.That(controller.Snapshot.State, Is.EqualTo(GameState.Briefing));
+            Assert.That(controller.Snapshot.AttemptNumber, Is.EqualTo(3));
+            Assert.That(controller.Snapshot.SubmissionError, Is.Null);
+            Assert.That(events, Is.EqualTo(new[] { PitchSessionEventType.SubmissionFailed }));
+        }
+
+        [Test]
+        public void Dispose_UnsubscribesSharedTimerAndRejectsFurtherCommands()
+        {
+            var timer = new QuestionTimer(0d);
+            var first = CreateController(new MockLmsBridge(MockLmsBridgeMode.Success, ValidLaunch()), timer);
+            var second = CreateController(new MockLmsBridge(MockLmsBridgeMode.Success, ValidLaunch()), timer);
+            StartAndAdvancePastTutorial(first);
+            StartAndAdvancePastTutorial(second);
+
+            first.Dispose();
+            first.Dispose();
+            second.Tick(5d);
+
+            Assert.That(first.Snapshot.State, Is.EqualTo(GameState.AwaitingResponse));
+            Assert.That(first.Snapshot.TimeoutCount, Is.Zero);
+            Assert.That(second.Snapshot.State, Is.EqualTo(GameState.ShowingReaction));
+            Assert.That(second.Snapshot.TimeoutCount, Is.EqualTo(1));
+            Assert.That(first.FinishLaunch(), Is.False);
+            Assert.That(first.StartScenario(), Is.False);
+            Assert.That(first.Continue(), Is.False);
+            Assert.That(first.SelectResponse("question-strong"), Is.False);
+            Assert.That(first.SubmitResults(), Is.False);
+            Assert.That(first.Retry(), Is.False);
+            Assert.DoesNotThrow(() => first.Tick(1d));
         }
 
         [Test]
@@ -206,6 +283,26 @@ namespace Agrovator.PitchSimulator.Tests.EditMode.Core
             return fixture;
         }
 
+        private static void MoveToResults(PitchSessionController controller)
+        {
+            controller.FinishLaunch();
+            controller.StartScenario();
+            AdvancePastTutorial(controller);
+            controller.SelectResponse("question-strong");
+            AdvanceFeedbackToNextQuestion(controller);
+            controller.SelectResponse("standard-finish");
+            controller.Continue();
+            controller.Continue();
+            Assert.That(controller.Snapshot.State, Is.EqualTo(GameState.Results));
+        }
+
+        private static void StartAndAdvancePastTutorial(PitchSessionController controller)
+        {
+            controller.FinishLaunch();
+            controller.StartScenario();
+            AdvancePastTutorial(controller);
+        }
+
         private static Fixture CreateStartedFixture()
         {
             var fixture = CreateFixture();
@@ -241,15 +338,19 @@ namespace Agrovator.PitchSimulator.Tests.EditMode.Core
         private static Fixture CreateFixture()
         {
             var bridge = new MockLmsBridge(MockLmsBridgeMode.Success, ValidLaunch());
-            var controller = new PitchSessionController(
+            return new Fixture(CreateController(bridge, new QuestionTimer(0d)), bridge);
+        }
+
+        private static PitchSessionController CreateController(ILmsBridge bridge, QuestionTimer timer)
+        {
+            return new PitchSessionController(
                 BuildScenario(),
                 new ScoreAccumulator(),
                 new AccessibilitySettings(TimerMode.Normal, false, 0.75f, 0.8f, "en"),
-                new QuestionTimer(0d),
+                timer,
                 bridge,
                 () => StartedAt,
                 "0.1.0");
-            return new Fixture(controller, bridge);
         }
 
         private static RuntimeScenario BuildScenario()
@@ -265,10 +366,11 @@ namespace Agrovator.PitchSimulator.Tests.EditMode.Core
                     Node("tutorial", "Tutorial", 0, Response("tutorial-ready", "Strong", "question", 9, 9)),
                     Node("question", "Question", 5,
                         Response("question-strong", "Strong", "standard", 3, 2, 4, "Impressed", "feedback.strong"),
-                        Response("question-neutral", "Developing", "standard", 2, 1, 1, "Curious", "feedback.neutral"),
+                        Response("question-neutral", "Developing", "standard", 2, 1, 1, "Curious", "feedback.neutral", "recovered_after_weak_answer"),
                         Response("question-weak", "NeedsWork", "recovery", 0, 0, -3, "Concerned", "feedback.weak", "weak")),
                     Node("standard", "Question", 5,
-                        Response("standard-finish", "Strong", "complete", 3, 2, 2)),
+                        Response("standard-finish", "Strong", "complete", 3, 2, 2, blockedFlag: "recovered_after_weak_answer"),
+                        Response("standard-flagged-finish", "Strong", "complete", 3, 2, 2, requiredFlag: "recovered_after_weak_answer")),
                     Node("recovery", "Question", 5,
                         Response("recovery-finish", "Strong", "complete", 3, 2, 3)),
                     Node("complete", "Terminal", 0),
@@ -301,7 +403,9 @@ namespace Agrovator.PitchSimulator.Tests.EditMode.Core
             int confidence = 0,
             string reaction = "Encouraging",
             string feedback = "feedback.default",
-            string flag = null)
+            string flag = null,
+            string requiredFlag = null,
+            string blockedFlag = null)
         {
             return new ResponseOptionDto
             {
@@ -320,6 +424,8 @@ namespace Agrovator.PitchSimulator.Tests.EditMode.Core
                 ExplanationKey = "explanation." + id,
                 NextNodeId = nextNodeId,
                 SetFlags = flag == null ? Array.Empty<string>() : new[] { flag },
+                RequiredFlags = requiredFlag == null ? Array.Empty<string>() : new[] { requiredFlag },
+                BlockedFlags = blockedFlag == null ? Array.Empty<string>() : new[] { blockedFlag },
             };
         }
 
@@ -355,6 +461,42 @@ namespace Agrovator.PitchSimulator.Tests.EditMode.Core
             public PitchSessionController Controller { get; }
 
             public MockLmsBridge Bridge { get; }
+        }
+
+        private sealed class DeferredLmsBridge : ILmsBridge
+        {
+            private readonly LmsLaunchConfig launch;
+            private Action success;
+            private Action<LmsSubmissionError> failure;
+
+            public DeferredLmsBridge(LmsLaunchConfig launch)
+            {
+                this.launch = launch;
+            }
+
+            public LmsLaunchConfig GetLaunchConfig()
+            {
+                return launch;
+            }
+
+            public void SubmitCompletion(
+                LmsCompletionPayload payload,
+                Action onSuccess,
+                Action<LmsSubmissionError> onFailure)
+            {
+                success = onSuccess;
+                failure = onFailure;
+            }
+
+            public void Succeed()
+            {
+                success?.Invoke();
+            }
+
+            public void Fail(LmsSubmissionError error)
+            {
+                failure?.Invoke(error);
+            }
         }
     }
 }
