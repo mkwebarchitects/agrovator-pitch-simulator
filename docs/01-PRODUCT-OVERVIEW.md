@@ -10,7 +10,7 @@ AGROVATOR Pitch Simulator is a standalone Unity WebGL learning game. A learner p
 - One tutorial, branching questions, a recovery route after an unsupported claim, and a terminal node.
 - Seven scoring categories, confidence from 0-100, four result levels, timeout handling, retry, and completion resubmission.
 - English is reviewed. Malay has exact key parity but is marked `pending_human_review` and currently falls back to reviewed English copy.
-- Keyboard navigation, Normal/Extended/Off timers, reduced motion, independent music/SFX volume, and visible focus are implemented.
+- Keyboard navigation and visible focus are implemented. Runtime settings support Normal/Extended/Off timers, reduced motion, language, and independent music/SFX volume, but the current Settings screen exposes only Back; values come from the launch configuration or the local mock defaults.
 - Default scenes are `Assets/Scenes/Bootstrap.unity` then `Assets/Scenes/Game.unity`.
 
 ## Not yet demonstrated

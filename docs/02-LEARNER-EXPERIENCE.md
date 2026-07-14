@@ -11,11 +11,13 @@ Use a keyboard or pointer in a supported desktop browser. For this repository ch
 3. At each question, choose one of the visible numbered responses. The response pool has at most three slots.
 4. Read Judge Aya's reaction, feedback, and explanation, then continue.
 5. On Results, review overall score, final confidence, competency rollups, strengths, improvements, and ordered answer history.
-6. Submit completion. If submission fails or expires, retain the result and retry submission. Use Retry Attempt to clear attempt state and begin again.
+6. Submit completion. If submission fails or expires, retain the result and retry submission. Use Retry to clear attempt state and begin again.
 
-## Accessibility settings
+## Launch-configured preferences
 
-Normal uses authored time. Extended multiplies positive authored time safely. Off disables expiration. Reduced motion preserves semantic reactions without talk/blink animation. English (`en`) and Malay (`ms`) can be selected, but Malay copy requires human review and currently uses English fallback text.
+Normal uses authored time. Extended multiplies positive authored time safely. Off disables expiration. Reduced motion preserves semantic reactions without talk/blink animation. English (`en`) and Malay (`ms`) are supported, but Malay copy requires human review and currently uses English fallback text.
+
+Learners cannot currently change timer mode, reduced motion, language, music volume, or SFX volume in the game UI. The current Settings screen provides only Back. These values come from the LMS launch configuration in WebGL or the default local mock configuration in Editor and non-WebGL players.
 
 ## Troubleshooting
 

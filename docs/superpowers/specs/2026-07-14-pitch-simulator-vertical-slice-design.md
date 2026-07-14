@@ -6,6 +6,8 @@
 **Unity:** 6000.5.3f1, WebGL module installed  
 **Project location:** `C:\Users\khidz\projects\pitch-simulator`
 
+> **As-built status note:** This file records the approved design target, not a complete statement of current behavior. In the Task 17 vertical slice, the Settings screen provides only Back; timer mode, reduced motion, language, and audio volumes come from launch data or local mock defaults. Initialization failures log and halt rather than transition to `SafeFallback`, and no bundled fallback scenario is selected. Use [`docs/06-STATE-SESSION-FLOW.md`](../../06-STATE-SESSION-FLOW.md) and [`docs/08-ACCESSIBILITY-LOCALIZATION.md`](../../08-ACCESSIBILITY-LOCALIZATION.md) for current behavior.
+
 ## 1. Purpose and boundaries
 
 Pitch Simulator is a landscape Unity WebGL educational game for AGROVATOR participants. A student presents a fictional agribusiness idea to a friendly judge, chooses responses under light time pressure, observes the judge's reactions, and receives constructive feedback about pitching and communication.

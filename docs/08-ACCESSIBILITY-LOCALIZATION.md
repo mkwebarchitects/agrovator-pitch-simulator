@@ -1,10 +1,12 @@
 # Operate Accessibility and Localization
 
-## Implemented controls
+## Implemented behavior and launch-configured preferences
 
 Timer modes are Normal, Extended, and Off. Zero duration means no expiry. Extended mode rejects non-finite overflow. Reduced motion keeps the meaning of Judge Aya's reaction while suppressing talk/blink loops. Keyboard focus, explicit navigation, visible countdown, confidence labels/artwork, and contrast backings are implemented for the 1280x720 reference layout.
 
 Music and SFX volumes are independent finite-safe 0-1 values. Browser playback is locked until the learner's Start or Settings action. All nine audio bindings are intentionally empty; silence is expected until licensed, reviewed clips are supplied.
+
+The current Settings screen provides only Back. Learners cannot yet edit timer mode, reduced motion, language, music volume, or SFX volume in the UI. `Bootstrapper` applies these values from validated LMS launch data in WebGL or from the local mock defaults in Editor/non-WebGL players.
 
 ## Localization status
 
