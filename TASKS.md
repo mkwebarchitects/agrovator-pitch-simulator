@@ -26,7 +26,7 @@ This checklist mirrors `docs/plans/2026-07-14-pitch-simulator-vertical-slice.md`
 
 ## P2 - Delivery and acceptance
 
-- [ ] Task 17: Required project documentation and AI handoffs
+- [x] Task 17: Required project documentation and AI handoffs
 - [ ] Task 18: WebGL build automation and development build
 - [ ] Task 19: Local HTTP and browser smoke tests
 - [ ] Task 20: Final acceptance audit
@@ -113,7 +113,7 @@ This checklist mirrors `docs/plans/2026-07-14-pitch-simulator-vertical-slice.md`
 
 ## Next action
 
-Begin Task 16 by completing the results, review and retry flow.
+Begin Task 18 by implementing WebGL build automation and producing a verified development build. Browser and manual smoke evidence remains Task 19 scope.
 
 - 2026-07-14 Task 14 RED: the focused `AudioServiceTests` run produced no XML and reached the expected missing-production-API boundary with `CS0234` for the absent Audio namespace plus `CS0246` for `AudioCueBinding`, `AudioService`, `AudioCue`, `IAudioPlaybackChannel` and `IAudioDiagnostics`; the complete log ended with `Scripts have compiler errors.`
 - 2026-07-14 Task 14 focused GREEN: the device-free audio fixture reported `7/7` passed and the Title user-gesture PlayMode assertion reported `1/1` passed, each with zero failures or compile/exception markers. The exact nine-cue inventory routes only `MusicLoop` to the looping music channel and the other eight cues to one-shot SFX. Pre-unlock calls are inert and unqueued; unlock is idempotent; mute preserves independent finite-safe clamped volumes; null, missing and unknown cues warn at most once through the injected development diagnostic seam.
@@ -151,3 +151,5 @@ Begin Task 16 by completing the results, review and retry flow.
 - 2026-07-14 Task 16 focused GREEN: `ResultsPlayModeTests` reported `4/4` passed with zero failures or compile/exception markers. Strong and recovery paths assert overall/final confidence, pitching/communications rollups, two strengths, two improvements and immutable ordered response/feedback/explanation review history. Retry clears the complete attempt state. Success, Submitting, generic Failure, Expired and Missing Configuration render localized statuses; failed submissions retain review and can be submitted again.
 - 2026-07-14 Task 16 generated-scene GREEN: the project builder completed twice with exit `0`; the strengthened Editor fixture reported `1/1`. The Results screen owns a fixed six-item review pool under a bounded vertical `ScrollRect`, explicit serialized presenter references, localized headings/action labels, explicit Submit/Retry navigation and 1280x720-contained non-scrolling chrome.
 - 2026-07-14 Task 16 full regression GREEN: canonical PlayMode reported `33/33` and EditMode `296/296`, both Passed with zero failures, skips, inconclusive tests or compile/exception markers. Bootstrap and WebIntegrationTest scene churn plus Unity ProjectSettings/SceneTemplate normalization were removed; only the required generated Game results hierarchy remains in scope.
+- 2026-07-14 Task 16 review-fix GREEN: focused Results PlayMode reported `6/6`, the builder contract reported `1/1` across two successful runs, and fresh canonical PlayMode/EditMode reported `35/35` and `296/296` with zero failures. Keyboard review scrolling, review focus, and retry focus contracts are covered.
+- 2026-07-14 Task 17 documentation scope: added the numbered `docs/00-...` through `docs/18-...` handoff set, four ADRs, ten constrained Claude prompts, two executable Codex prompts, a 16-phase production roadmap, and accurate README/CHANGELOG status. Documentation validation checks names/counts, required headings, placeholder markers, relative links, empty headings, roadmap phase field coverage, diff whitespace, and docs-only scope; Unity suites were not rerun because no runtime/project file changed.
