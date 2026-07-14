@@ -13,6 +13,8 @@ namespace Agrovator.PitchSimulator.UI
         [SerializeField] private Image fillImage;
         [SerializeField] private RectTransform pulseTarget;
 
+        private int lastRenderedSeconds = int.MinValue;
+
         public int DisplayedSeconds { get; private set; }
 
         public bool IsPulsing { get; private set; }
@@ -24,7 +26,11 @@ namespace Agrovator.PitchSimulator.UI
             pulseTarget = target ?? throw new ArgumentNullException(nameof(target));
         }
 
-        public void Render(double remainingSeconds, double totalSeconds, bool reducedMotion)
+        public void Render(
+            double remainingSeconds,
+            double totalSeconds,
+            bool reducedMotion,
+            bool allowPulse = true)
         {
             if (double.IsNaN(remainingSeconds) || double.IsInfinity(remainingSeconds) ||
                 double.IsNaN(totalSeconds) || double.IsInfinity(totalSeconds))
@@ -39,12 +45,16 @@ namespace Agrovator.PitchSimulator.UI
             var remaining = Math.Max(0d, remainingSeconds);
             var total = Math.Max(0d, totalSeconds);
             DisplayedSeconds = (int)Math.Ceiling(remaining);
-            secondsLabel.text = DisplayedSeconds.ToString();
+            if (DisplayedSeconds != lastRenderedSeconds)
+            {
+                secondsLabel.text = DisplayedSeconds.ToString();
+                lastRenderedSeconds = DisplayedSeconds;
+            }
             fillImage.fillAmount = total <= 0d
                 ? 0f
                 : Mathf.Clamp01((float)(remaining / total));
 
-            IsPulsing = !reducedMotion && total > 0d && remaining > 0d &&
+            IsPulsing = allowPulse && !reducedMotion && total > 0d && remaining > 0d &&
                 remaining <= PulseThresholdSeconds;
             if (!IsPulsing)
             {

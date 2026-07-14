@@ -1,7 +1,6 @@
 using System;
 using Agrovator.PitchSimulator.Core;
 using UnityEngine;
-using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
 namespace Agrovator.PitchSimulator.UI
@@ -44,18 +43,21 @@ namespace Agrovator.PitchSimulator.UI
                 snapshot.AvailableResponses,
                 snapshot.State == GameState.AwaitingResponse,
                 resolveText);
-            timerView.Render(
-                snapshot.TimerRemainingSeconds,
-                snapshot.TimerTotalSeconds,
-                snapshot.ReducedMotion);
+            RefreshTimer(snapshot);
             confidenceView.Render(snapshot.Confidence, resolveText);
 
             continueButton.gameObject.SetActive(snapshot.State != GameState.AwaitingResponse);
             continueButton.interactable = snapshot.State != GameState.AwaitingResponse;
-            if (continueButton.gameObject.activeInHierarchy && EventSystem.current != null)
-            {
-                EventSystem.current.SetSelectedGameObject(continueButton.gameObject);
-            }
+        }
+
+        public void RefreshTimer(PitchSessionSnapshot snapshot)
+        {
+            if (!initialized || snapshot == null) return;
+            timerView.Render(
+                snapshot.TimerRemainingSeconds,
+                snapshot.TimerTotalSeconds,
+                snapshot.ReducedMotion,
+                snapshot.State == GameState.AwaitingResponse);
         }
 
         private void OnDestroy()

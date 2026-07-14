@@ -4375,6 +4375,7 @@ MonoBehaviour:
   titleDefault: {fileID: 336787366}
   briefingDefault: {fileID: 67659928}
   pitchRoomDefault: {fileID: 1229492333}
+  pitchRoomContinueDefault: {fileID: 1225254165}
   resultsDefault: {fileID: 1621178359}
   settingsDefault: {fileID: 1202077625}
 --- !u!114 &1856976195

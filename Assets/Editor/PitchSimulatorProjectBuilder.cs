@@ -110,6 +110,7 @@ namespace Agrovator.PitchSimulator.Editor
                 var titleDefault = title.transform.Find("Start Button").GetComponent<Button>();
                 var briefingDefault = briefing.transform.Find("Continue Button").GetComponent<Button>();
                 var pitchDefault = pitch.transform.Find("Responses/Response 1").GetComponent<Button>();
+                var pitchContinueDefault = pitch.transform.Find("Continue Button").GetComponent<Button>();
                 var resultsDefault = results.transform.Find("Submit Button").GetComponent<Button>();
                 var settingsDefault = settings.transform.Find("Close Button").GetComponent<Button>();
 
@@ -126,6 +127,7 @@ namespace Agrovator.PitchSimulator.Editor
                 SetReference(router, "titleDefault", titleDefault);
                 SetReference(router, "briefingDefault", briefingDefault);
                 SetReference(router, "pitchRoomDefault", pitchDefault);
+                SetReference(router, "pitchRoomContinueDefault", pitchContinueDefault);
                 SetReference(router, "resultsDefault", resultsDefault);
                 SetReference(router, "settingsDefault", settingsDefault);
                 eventSystem.firstSelectedGameObject = titleDefault.gameObject;

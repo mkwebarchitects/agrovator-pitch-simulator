@@ -22,6 +22,7 @@ namespace Agrovator.PitchSimulator.UI
         [SerializeField] private Selectable titleDefault;
         [SerializeField] private Selectable briefingDefault;
         [SerializeField] private Selectable pitchRoomDefault;
+        [SerializeField] private Selectable pitchRoomContinueDefault;
         [SerializeField] private Selectable resultsDefault;
         [SerializeField] private Selectable settingsDefault;
 
@@ -97,9 +98,26 @@ namespace Agrovator.PitchSimulator.UI
                 reason = "Router screen panels must be distinct.";
                 return false;
             }
+            if (pitchRoomContinueDefault == null ||
+                !pitchRoomContinueDefault.transform.IsChildOf(pitchRoomPanel.transform) ||
+                pitchRoomContinueDefault == pitchRoomDefault)
+            {
+                reason = "Pitch-room Continue focus reference is incomplete or invalid.";
+                return false;
+            }
 
             reason = null;
             return true;
+        }
+
+        public void TickPresentation(PitchSessionSnapshot snapshot)
+        {
+            if (!IsInitialized || snapshot == null)
+            {
+                return;
+            }
+
+            pitchRoomPresenter.RefreshTimer(snapshot);
         }
 
         public void Refresh()
@@ -196,7 +214,12 @@ namespace Agrovator.PitchSimulator.UI
         {
             if (panel == titlePanel) return titleDefault;
             if (panel == briefingPanel) return briefingDefault;
-            if (panel == pitchRoomPanel) return pitchRoomDefault;
+            if (panel == pitchRoomPanel)
+            {
+                return controller != null && controller.Snapshot.State == GameState.AwaitingResponse
+                    ? pitchRoomDefault
+                    : pitchRoomContinueDefault;
+            }
             if (panel == resultsPanel) return resultsDefault;
             if (panel == settingsPanel) return settingsDefault;
             return null;

@@ -24,6 +24,7 @@ namespace Agrovator.PitchSimulator.UI
 
         private static Bootstrapper instance;
         private PitchSessionController controller;
+        private GameScreenRouter router;
         private Func<string, string> localize;
 
         public bool IsInitialized { get; private set; }
@@ -91,19 +92,27 @@ namespace Agrovator.PitchSimulator.UI
                 yield break;
             }
 
-            routers[0].Initialize(controller, localize);
+            router = routers[0];
+            router.Initialize(controller, localize);
             IsInitialized = true;
         }
 
         private void Update()
         {
-            controller?.Tick(Time.unscaledDeltaTime);
+            if (controller == null)
+            {
+                return;
+            }
+
+            controller.Tick(Time.unscaledDeltaTime);
+            router?.TickPresentation(controller.Snapshot);
         }
 
         private void OnDestroy()
         {
             controller?.Dispose();
             controller = null;
+            router = null;
             if (instance == this)
             {
                 instance = null;
