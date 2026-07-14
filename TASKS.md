@@ -10,7 +10,7 @@ This checklist mirrors `docs/plans/2026-07-14-pitch-simulator-vertical-slice.md`
 - [x] Task 4: Runtime dialogue graph, flags and branches
 - [x] Task 5: Scoring, confidence and result feedback
 - [x] Task 6: Timer and accessibility settings
-- [ ] Task 7: LMS contracts, serialization and mock bridge
+- [x] Task 7: LMS contracts, serialization and mock bridge
 - [ ] Task 8: Localization catalog and save-data versioning
 - [ ] Task 9: Smart School Garden content and JSON import
 - [ ] Task 10: Session controller orchestration
@@ -62,6 +62,11 @@ This checklist mirrors `docs/plans/2026-07-14-pitch-simulator-vertical-slice.md`
 - 2026-07-14 Task 6 timer/accessibility checks: Core consumes only an effective duration and contains `0` Accessibility/`TimerMode` references; the Accessibility assembly points only to Core and both runtime assemblies declare `noEngineReferences: true`. Zero duration is an explicitly disabled timer that never expires, while positive timers clamp at zero and emit `Expired` once. Negative/non-finite deltas throw before mutation, and a 1,000-tick allocation test measured no managed allocation. Settings cover Normal/Extended/Off, tutorial zero duration, reduced motion, finite-safe `0…1` audio volumes and exact initial `en`/`ms` locale support with English fallback.
 - 2026-07-14 Task 6 review fix: focused RED reported `39/40` passed with the sole expected failure that Extended duration overflow returned instead of throwing; safe-boundary and timer reentrancy/lifecycle characterization cases already passed. After guarding the computed result, focused GREEN reported `40/40` and full Edit Mode reported `108/108`, each with `0` failures, skips or inconclusive tests and `0` log failure markers. Extended mode accepts `1.1984620899082103E+308` (finite result `1.7976931348623155E+308`) and rejects the first overflowing authored value `1.1984620899082105E+308` with `ArgumentOutOfRangeException`.
 
+- 2026-07-14 Task 7 RED: the LMS fixture reached the expected missing-production-types compiler boundary (`CS0234` for the absent LMS namespace and `CS0246`/`CS0103` for its contracts and mock modes); no XML was produced and the complete Unity log ended with `Scripts have compiler errors.`
+- 2026-07-14 Task 7 focused GREEN: `LmsPayloadTests` reported `36/36` passed with `0` failures, skips or inconclusive tests; independent XML parsing confirmed `Passed`, and the complete 368-line Unity log contained `0` matches for `error CS\d+|Compilation failed|Unhandled Exception`.
+- 2026-07-14 Task 7 all Edit Mode GREEN: the final canonical wrapper reported `144/144` passed with `0` failures, skips or inconclusive tests; independent XML parsing confirmed `Passed`, and the complete 366-line Unity log contained `0` failure-marker matches.
+- 2026-07-14 Task 7 contract/privacy checks: completion JSON round-trips public-field/array DTOs through isolated Unity `JsonUtility`; validation collects structured codes for required IDs, supported content version `1`, inclusive `0-100` overall/confidence/competency scores, UTC timestamp format/order, finite nonnegative duration and nonnegative timeout/attempt counts. The completion field inventory is pseudonymous learner/session/course/module/lesson/scenario IDs plus game/content version, status/timing, result scores, selected response IDs, timeout/attempt and follow-up lesson ID only; it has no name, email, school, credential, answer text or open-ended learner-content field. Launch configuration carries only `LaunchReference`, an opaque short-lived reference outside the completion payload. Mock Success/Failure/Expired/MissingConfiguration modes are synchronous, callback-null-safe, attempt-preserving and return typed sanitized error keys without payload values.
+
 ## Next action
 
-Begin Task 7 by writing the failing LMS contract, payload validation and mock bridge tests.
+Begin Task 8 by writing the failing localization catalog and save-data versioning tests.

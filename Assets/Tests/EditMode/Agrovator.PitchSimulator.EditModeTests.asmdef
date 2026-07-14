@@ -5,7 +5,8 @@
         "Agrovator.PitchSimulator.Core",
         "Agrovator.PitchSimulator.Dialogue",
         "Agrovator.PitchSimulator.Scoring",
-        "Agrovator.PitchSimulator.Accessibility"
+        "Agrovator.PitchSimulator.Accessibility",
+        "Agrovator.PitchSimulator.LMS"
     ],
     "includePlatforms": [
         "Editor"
