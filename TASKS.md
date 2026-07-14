@@ -7,7 +7,7 @@ This checklist mirrors `docs/plans/2026-07-14-pitch-simulator-vertical-slice.md`
 - [x] Task 1: Unity repository foundation and repeatable test runner
 - [x] Task 2: Assembly boundaries and core game states
 - [x] Task 3: Dialogue DTOs and structural validation
-- [ ] Task 4: Runtime dialogue graph, flags and branches
+- [x] Task 4: Runtime dialogue graph, flags and branches
 - [ ] Task 5: Scoring, confidence and result feedback
 - [ ] Task 6: Timer and accessibility settings
 - [ ] Task 7: LMS contracts, serialization and mock bridge
@@ -45,7 +45,11 @@ This checklist mirrors `docs/plans/2026-07-14-pitch-simulator-vertical-slice.md`
 - 2026-07-14 Task 3 focused GREEN: `ScenarioValidatorTests` reported `13/13` passed with `0` failures, skips or inconclusive tests, and the complete 420-line Unity log contained `0` matches for `error CS\d+|Compilation failed|Unhandled Exception`.
 - 2026-07-14 Task 3 all Edit Mode GREEN: the canonical wrapper reported `18/18` passed with `0` failures, skips or inconclusive tests; the complete 366-line log contained `0` failure-marker matches.
 - 2026-07-14 Task 3 structural checks: the runtime Dialogue assembly declares `noEngineReferences: true`, references only Core and contains `0` `UnityEngine`, `MonoBehaviour` or `ScriptableObject` references. Validator coverage confirms every required issue code, inclusive confidence bounds, complete issue collection and stable node/response ordering; `ValidationIssue` exposes only `Code`, `Path` and `Severity`.
+- 2026-07-14 Task 4 RED: the focused `DialogueSessionTests` run produced no XML and reached the expected missing-production-type boundary (`CS0246` for the absent `DialogueSession`); the complete 699-line log ended with `Scripts have compiler errors.`
+- 2026-07-14 Task 4 focused GREEN: `DialogueSessionTests` reported `11/11` passed with `0` failures, skips or inconclusive tests; the complete 402-line Unity log contained `0` matches for `error CS\d+|Compilation failed|Unhandled Exception`.
+- 2026-07-14 Task 4 all Edit Mode GREEN: the canonical wrapper reported `29/29` passed with `0` failures, skips or inconclusive tests; independent XML parsing confirmed `Passed`, and the complete 365-line log contained `0` failure-marker matches.
+- 2026-07-14 Task 4 structural checks: runtime scenario data is copied into get-only objects backed by read-only collections and an ordinal dictionary; session response IDs and flags use ordinal case-sensitive identity. Rejected unknown and unavailable selections preserve both current node and flags, and the recovery test proves the flag is authored by the weak-answer then evidence-response sequence. The Dialogue runtime and its Task 4 tests contain `0` `UnityEngine`, `MonoBehaviour` or `ScriptableObject` references.
 
 ## Next action
 
-Begin Task 4 by writing the failing runtime dialogue traversal, flag and branch tests.
+Begin Task 5 by writing the failing scoring, confidence and result feedback tests.
