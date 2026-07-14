@@ -21,4 +21,4 @@ Changing visible text behind an existing key is lower risk than changing IDs or 
 
 No validator issues; no orphaned keys; English review recorded; Malay status honest; all paths terminate; answer ordering has no quality bias; selected-response IDs remain compatible with the intended content version.
 
-See [gameplay](03-GAMEPLAY-CONTENT.md), [localization](08-ACCESSIBILITY-LOCALIZATION.md), and [release governance](16-RELEASE-GOVERNANCE.md).
+See [gameplay](03-GAMEPLAY-CONTENT.md), [localization](08-ACCESSIBILITY-LOCALIZATION.md), and [asset manifest/release governance](16-ASSET-MANIFEST.md).

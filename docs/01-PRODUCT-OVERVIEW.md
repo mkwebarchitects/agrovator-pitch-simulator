@@ -13,9 +13,9 @@ AGROVATOR Pitch Simulator is a standalone Unity WebGL learning game. A learner p
 - Keyboard navigation and visible focus are implemented. Runtime settings support Normal/Extended/Off timers, reduced motion, language, and independent music/SFX volume, but the current Settings screen exposes only Back; values come from the launch configuration or the local mock defaults.
 - Default scenes are `Assets/Scenes/Bootstrap.unity` then `Assets/Scenes/Game.unity`.
 
-## Not yet demonstrated
+## Local evidence and remaining gaps
 
-No development WebGL build or browser smoke evidence exists at this checkpoint. Final audio clips are not included. Production LMS compatibility is unconfirmed. Safari testing is unavailable on the Windows verification machine.
+Task 18 and Task 20 recorded successful local development WebGL builds, and Task 19/20 recorded passing local Chrome and Edge smoke evidence with zero console/page errors. These results do not establish production hosting, a production browser-support promise, or real LMS compatibility. Firefox was unavailable at standard Windows paths, Safari is unavailable on the Windows verification machine, and final audio clips are not included. Native touch, unrestricted fullscreen, classroom usability, assistive-technology/accessibility human review, final Malay approval, and human release approval remain unverified.
 
 ## Audiences
 

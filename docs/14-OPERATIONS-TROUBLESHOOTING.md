@@ -2,12 +2,12 @@
 
 ## Before you start
 
-Install Unity 6000.5.3f1 with WebGL support. Complete Task 18 before expecting `Build/WebGL/index.html`. Use an HTTP server rooted at the repository; keep the player and harness same-origin.
+Install Unity 6000.5.3f1 with WebGL support. The implemented Task 18 wrapper produces the ignored development artifact at `Build/WebGL/index.html`. Use the repository's loopback server or an approved HTTP server rooted at the repository; keep the player and harness same-origin.
 
 ## Local operator flow
 
-1. Build with `tools/Build-WebGL.ps1` after its Task 18 implementation.
-2. Start a local HTTP server using an approved tool and record its command/port.
+1. Build with `tools/Build-WebGL.ps1` and confirm its exit status, BuildReport, complete log scan, and artifact inventory.
+2. Run `tools/Serve-WebGL.ps1 -SelfTest` and/or start the local server for the browser matrix; record its command/port and verify shutdown.
 3. Open `/WebHarness/index.html`.
 4. Select Success for the normal flow. Use Failure/Expired to check retained results and resubmission. Use Missing Config, then Success plus Resend Launch, to check recovery.
 5. Record browser/version and sanitized outcomes.
@@ -16,7 +16,7 @@ Install Unity 6000.5.3f1 with WebGL support. Complete Task 18 before expecting `
 
 ### Build output is absent
 
-Task 18 is incomplete or failed. Read the complete build log, check the editor version/module, and do not claim browser readiness.
+Read the complete build log and check the editor version, WebGL module, `Agrovator.PitchSimulator.Editor.WebGlBuild.BuildDevelopment` entry point, enabled scenes, and available disk space. Do not reuse an old artifact as fresh evidence.
 
 ### Embedded build does not connect
 

@@ -14,4 +14,4 @@ Judge reactions are typed; missing/unknown artwork falls back to Encouraging. Th
 
 Record source, creator/license, permitted use, edit history, and review date. Check child suitability, loudness, loops, browser unlock behavior, independent volume, missing-clip fallback, sprite slicing, contrast, 1280x720 containment, and reduced-motion behavior. A human must visually and audibly approve replacements.
 
-See [accessibility](08-ACCESSIBILITY-LOCALIZATION.md), [QA](13-QA-PLAN.md), and [release governance](16-RELEASE-GOVERNANCE.md).
+See [accessibility](08-ACCESSIBILITY-LOCALIZATION.md), [QA](13-QA-PLAN.md), and [asset manifest/release governance](16-ASSET-MANIFEST.md).

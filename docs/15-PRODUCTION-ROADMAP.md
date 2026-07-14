@@ -70,11 +70,11 @@ Estimates are planning ranges in developer-days, not measured delivery time. Cod
 
 ## Phase 7 — Automate deterministic WebGL builds
 
-- **Objective:** produce repeatable development and release artifacts.
-- **Tasks:** complete Task 18 editor method/wrapper, validate scene order/logs/artifacts, define release settings.
+- **Objective:** qualify the repeatable Task 18 development build process for production release artifacts.
+- **Tasks:** repeat the existing editor method/wrapper on the release candidate, validate scene order/logs/artifacts, and define/approve release compression, symbols, hosting, versioning, and rollback settings.
 - **Dependencies:** Unity 6000.5.3f1 WebGL module.
-- **Deliverables:** build scripts, development artifact, build report.
-- **Acceptance criteria:** clean build exits zero and artifact inventory matches expectations.
+- **Deliverables:** retained build scripts, release-candidate artifact/report, and approved release settings.
+- **Acceptance criteria:** a clean release-candidate build exits zero, artifact inventory matches expectations, and human owners approve release settings.
 - **Risks:** module/version drift or non-deterministic scene changes.
 - **Estimate:** 2-4 developer-days.
 - **Ownership:** Codex implements/verifies; Claude reviews runbook; humans approve release settings.
@@ -92,10 +92,10 @@ Estimates are planning ranges in developer-days, not measured delivery time. Cod
 
 ## Phase 9 — Run desktop browser compatibility
 
-- **Objective:** demonstrate supported browser behavior.
-- **Tasks:** Task 19 matrix in Chrome, Edge, Firefox; Safari on macOS if required; refresh/fullscreen/failure modes.
+- **Objective:** extend the existing Task 19/20 local Chrome/Edge smoke into an agreed production browser-support decision.
+- **Tasks:** repeat Chrome/Edge against staging, add Firefox and Safari on suitable hosts if required, and verify refresh, unrestricted fullscreen, native touch, and failure modes; preserve approved limitations where coverage is unavailable.
 - **Dependencies:** Phases 7-8.
-- **Deliverables:** browser evidence matrix and defects.
+- **Deliverables:** staging browser/device evidence matrix, approved limitations, and defects.
 - **Acceptance criteria:** agreed browsers pass critical paths or have approved limitations.
 - **Risks:** WebGL/browser policy differences.
 - **Estimate:** 2-4 developer-days.
@@ -178,4 +178,4 @@ Estimates are planning ranges in developer-days, not measured delivery time. Cod
 - **Estimate:** 2-4 developer-days for release, then recurring maintenance.
 - **Ownership:** Codex verifies repository/artifacts; Claude maintains handoff; humans authorize and operate release.
 
-See [workflow](17-CODEX-CLAUDE-WORKFLOW.md), [release governance](16-RELEASE-GOVERNANCE.md), and [acceptance](18-VERTICAL-SLICE-ACCEPTANCE.md).
+See [workflow](17-CODEX-CLAUDE-WORKFLOW.md), [asset manifest/release governance](16-ASSET-MANIFEST.md), and [acceptance](18-VERTICAL-SLICE-ACCEPTANCE.md).

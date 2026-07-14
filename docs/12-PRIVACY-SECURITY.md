@@ -18,4 +18,4 @@ Privacy/security owners must approve purpose, lawful basis where relevant, data 
 
 If sensitive data appears in logs or payloads, stop distribution, preserve minimal evidence securely, notify the responsible owner, rotate exposed references/credentials, remove the source, and document remediation without copying learner data into public issues.
 
-See [LMS discovery](00-LMS-DISCOVERY.md), [contract](11-LMS-CONTRACT.md), and [release governance](16-RELEASE-GOVERNANCE.md).
+See [LMS discovery](00-LMS-DISCOVERY.md), [contract](11-LMS-CONTRACT.md), and [asset manifest/release governance](16-ASSET-MANIFEST.md).

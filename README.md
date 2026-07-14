@@ -6,7 +6,7 @@ This repository is intentionally independent of the external AGROVATOR LMS repos
 
 ## Current status
 
-Implementation through Task 16 is complete. The confirmed checkpoint is Unity `6000.5.3f1`, EditMode `296/296`, and PlayMode `35/35`. A development WebGL build is pending Task 18 and browser/manual evidence is pending Task 19. The local same-origin `postMessage` harness is not proof of production LMS compatibility. Malay is `pending_human_review`; audio clip slots are placeholders.
+The Task 20 vertical-slice audit is recorded for Unity `6000.5.3f1`. Fresh 2026-07-15 evidence is EditMode `300/300` in `53 s`, PlayMode `35/35` in `50.6 s`, a successful `92,357,339`-byte development WebGL build, and passing local smoke runs in Chrome and Edge with zero console/page errors. This accepts the standalone implementation evidence, not a production release: the same-origin mock harness is not proof of production LMS compatibility, Malay remains `pending_human_review`, all audio clips remain placeholders, and human release gates remain open.
 
 See [vertical-slice acceptance](docs/18-VERTICAL-SLICE-ACCEPTANCE.md) and [task evidence](TASKS.md).
 
@@ -41,15 +41,15 @@ The wrapper writes XML to `artifacts/test-results` and logs to `artifacts/logs`.
 powershell -ExecutionPolicy Bypass -File tools/Build-WebGL.ps1
 ```
 
-At this checkpoint, the wrapper intentionally cannot create `Build/WebGL/index.html` until Task 18 implements the editor build method. After Task 18, serve the repository over HTTP and open `WebHarness/index.html`; do not use a `file:` URL. Follow [web deployment](docs/10-WEB-DEPLOYMENT.md).
+The wrapper creates the ignored development artifact at `Build/WebGL/index.html`. Serve the repository over HTTP and open `WebHarness/index.html`; do not use a `file:` URL. Follow [web deployment](docs/10-WEB-DEPLOYMENT.md) for the exact artifact inventory and local smoke procedure.
 
 ## Documentation map
 
 - Product and learner: [overview](docs/01-PRODUCT-OVERVIEW.md), [learner experience](docs/02-LEARNER-EXPERIENCE.md)
 - Content and architecture: [gameplay](docs/03-GAMEPLAY-CONTENT.md), [authoring](docs/04-CONTENT-AUTHORING.md), [architecture](docs/05-TECHNICAL-ARCHITECTURE.md)
-- Delivery: [LMS discovery](docs/00-LMS-DISCOVERY.md), [QA](docs/13-QA-PLAN.md), [operations](docs/14-OPERATIONS-TROUBLESHOOTING.md), [roadmap](docs/15-PRODUCTION-ROADMAP.md)
+- Delivery: [LMS discovery](docs/00-LMS-DISCOVERY.md), [QA](docs/13-QA-PLAN.md), [operations](docs/14-OPERATIONS-TROUBLESHOOTING.md), [roadmap](docs/15-PRODUCTION-ROADMAP.md), [assets and release governance](docs/16-ASSET-MANIFEST.md)
 - Handoffs: [Codex/Claude workflow](docs/17-CODEX-CLAUDE-WORKFLOW.md) and reusable prompts under `prompts/`
 
 ## Known limitations
 
-No production endpoints, credentials, SCORM/xAPI support, compliance certification, WebGL build evidence, or browser support claim is included. Safari is unavailable on the Windows verification host. Final Malay, audio, production LMS, accessibility, privacy/security, hosting, and release approvals require qualified humans.
+No production endpoints, credentials, SCORM/xAPI support, compliance certification, production browser-support promise, or repository-wide licence is included. Local development evidence covers Chrome and Edge only; Firefox was unavailable at standard Windows paths and Safari is unavailable on the Windows host. Final Malay, audio, real LMS submission, classroom usability, assistive-technology/accessibility review, native touch, unrestricted fullscreen, privacy/security, hosting, creative/legal authority, and release approval require qualified humans or suitable environments.

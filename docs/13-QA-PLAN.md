@@ -2,14 +2,14 @@
 
 ## Automated baseline
 
-The confirmed Task 16 checkpoint is EditMode `296/296` and PlayMode `35/35`, with zero failures, skips, inconclusive tests, or compile/exception markers. Run:
+The fresh Task 20 checkpoint is EditMode `300/300` in `53 s` and PlayMode `35/35` in `50.6 s`, with zero failures. Run:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File tools/Run-UnityTests.ps1 -Platform EditMode
 powershell -ExecutionPolicy Bypass -File tools/Run-UnityTests.ps1 -Platform PlayMode
 ```
 
-The wrappers write XML under `artifacts/test-results` and logs under `artifacts/logs`. Counts can change when tests are added; report fresh XML rather than repeating this baseline as current evidence.
+The wrappers write XML under `artifacts/test-results` and logs under `artifacts/logs`. Counts can change when tests are added; report fresh XML and complete-log scans rather than repeating this baseline after changes.
 
 ## Task 18 build checkpoint
 

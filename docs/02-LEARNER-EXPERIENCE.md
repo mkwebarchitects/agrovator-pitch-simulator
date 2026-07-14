@@ -2,7 +2,7 @@
 
 ## Before you start
 
-Use a keyboard or pointer in a supported desktop browser. For this repository checkpoint, browser support is still awaiting Task 19 evidence. Audio may be silent because all nine clip slots are placeholders.
+Use a keyboard or pointer for the locally verified Chrome/Edge development flow. Task 19 and Task 20 recorded local Chrome/Edge smoke evidence, but this is not a production browser-support promise; Firefox and Safari remain unverified. Audio is silent because all nine clip slots are placeholders.
 
 ## Complete an attempt
 

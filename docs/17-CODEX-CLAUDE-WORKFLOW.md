@@ -21,4 +21,4 @@ Use `prompts/claude/` for ten constrained product/content/QA handoffs. Use `prom
 
 The implementer does not approve their own work. A reviewer checks diff and evidence against the task, then the implementer fixes findings and obtains re-review. Human approval remains mandatory where automation cannot establish truth.
 
-See [roadmap](15-PRODUCTION-ROADMAP.md), [QA](13-QA-PLAN.md), and [governance](16-RELEASE-GOVERNANCE.md).
+See [roadmap](15-PRODUCTION-ROADMAP.md), [QA](13-QA-PLAN.md), and [asset manifest/release governance](16-ASSET-MANIFEST.md).
