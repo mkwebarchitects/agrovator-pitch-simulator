@@ -24,6 +24,7 @@ namespace Agrovator.PitchSimulator.Tests.PlayMode
 
             Assert.That(System.Enum.GetValues(typeof(JudgeReaction)), Has.Length.EqualTo(11));
             Assert.That(JudgeReactionMapper.Parse("Impressed"), Is.EqualTo(JudgeReaction.Impressed));
+            Assert.That(JudgeReactionMapper.Parse("Curious"), Is.EqualTo(JudgeReaction.Interested));
             Assert.That(JudgeReactionMapper.Parse("not-authored"), Is.EqualTo(JudgeReaction.Encouraging));
             Assert.That(JudgeReactionMapper.Parse(null), Is.EqualTo(JudgeReaction.Encouraging));
 

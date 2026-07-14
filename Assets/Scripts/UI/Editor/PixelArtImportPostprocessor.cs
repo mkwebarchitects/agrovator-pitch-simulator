@@ -1,4 +1,6 @@
+using System.Linq;
 using UnityEditor;
+using UnityEditor.U2D.Sprites;
 using UnityEngine;
 
 namespace Agrovator.PitchSimulator.UI.Editor
@@ -41,12 +43,12 @@ namespace Agrovator.PitchSimulator.UI.Editor
             if (assetPath == JudgePath)
             {
                 importer.spriteImportMode = SpriteImportMode.Multiple;
-                importer.spritesheet = BuildEqualCells(1408, 160, JudgeNames);
+                ConfigureEqualCells(importer, 1408, 160, JudgeNames);
             }
             else if (assetPath == ConfidencePath)
             {
                 importer.spriteImportMode = SpriteImportMode.Multiple;
-                importer.spritesheet = BuildEqualCells(480, 96, ConfidenceNames);
+                ConfigureEqualCells(importer, 480, 96, ConfidenceNames);
             }
             else
             {
@@ -63,22 +65,41 @@ namespace Agrovator.PitchSimulator.UI.Editor
                 path == DialoguePanelPath || path == ConfidencePath;
         }
 
-        private static SpriteMetaData[] BuildEqualCells(int width, int height, string[] names)
+        private static void ConfigureEqualCells(
+            TextureImporter importer,
+            int width,
+            int height,
+            string[] names)
         {
+            var factories = new SpriteDataProviderFactories();
+            factories.Init();
+            ISpriteEditorDataProvider provider =
+                factories.GetSpriteEditorDataProviderFromObject(importer);
+            provider.InitSpriteEditorDataProvider();
+            var existingIds = provider.GetSpriteRects()
+                .GroupBy(sprite => sprite.name)
+                .ToDictionary(group => group.Key, group => group.First().spriteID);
             var cellWidth = width / names.Length;
-            var cells = new SpriteMetaData[names.Length];
+            var cells = new SpriteRect[names.Length];
             for (var index = 0; index < names.Length; index++)
             {
-                cells[index] = new SpriteMetaData
+                cells[index] = new SpriteRect
                 {
                     name = names[index],
                     rect = new Rect(index * cellWidth, 0f, cellWidth, height),
-                    alignment = (int)SpriteAlignment.Center,
+                    alignment = SpriteAlignment.Center,
                     pivot = new Vector2(0.5f, 0.5f),
                     border = Vector4.zero,
+                    spriteID = existingIds.TryGetValue(names[index], out var existingId)
+                        ? existingId
+                        : GUID.Generate(),
                 };
             }
-            return cells;
+            provider.SetSpriteRects(cells);
+            var nameProvider = provider.GetDataProvider<ISpriteNameFileIdDataProvider>();
+            nameProvider.SetNameFileIdPairs(cells.Select(
+                cell => new SpriteNameFileIdPair(cell.name, cell.spriteID)));
+            provider.Apply();
         }
     }
 }

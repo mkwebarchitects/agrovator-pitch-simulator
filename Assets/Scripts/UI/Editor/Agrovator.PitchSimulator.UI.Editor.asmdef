@@ -2,7 +2,8 @@
     "name": "Agrovator.PitchSimulator.UI.Editor",
     "rootNamespace": "Agrovator.PitchSimulator.UI.Editor",
     "references": [
-        "Agrovator.PitchSimulator.UI"
+        "Agrovator.PitchSimulator.UI",
+        "Unity.2D.Sprite.Editor"
     ],
     "includePlatforms": [
         "Editor"

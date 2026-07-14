@@ -59,7 +59,14 @@ namespace Agrovator.PitchSimulator.UI
             if (iconImage != null)
             {
                 iconImage.sprite = state < iconSprites.Length ? iconSprites[state] : null;
-                iconImage.enabled = iconImage.sprite != null;
+                var hasArtwork = iconImage.sprite != null;
+                iconImage.enabled = hasArtwork;
+                iconImage.gameObject.SetActive(hasArtwork);
+                iconLabel.gameObject.SetActive(!hasArtwork);
+            }
+            else
+            {
+                iconLabel.gameObject.SetActive(true);
             }
             fillImage.fillAmount = value / 100f;
         }

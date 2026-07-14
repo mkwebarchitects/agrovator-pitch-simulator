@@ -1,4 +1,9 @@
+using System.Collections.Generic;
+using System.IO;
 using System.Linq;
+using System.Security.Cryptography;
+using System.Text.RegularExpressions;
+using Agrovator.PitchSimulator.UI;
 using NUnit.Framework;
 using UnityEditor;
 using UnityEngine;
@@ -60,6 +65,89 @@ namespace Agrovator.PitchSimulator.Tests.EditMode.UI
                 "Assets/Art/UI/dialogue-panel.png");
             Assert.That(importer.spriteImportMode, Is.EqualTo(SpriteImportMode.Single));
             Assert.That(importer.spriteBorder, Is.EqualTo(new Vector4(24f, 24f, 24f, 24f)));
+        }
+
+        [Test]
+        public void AuthoredReactionCues_AllResolveToExpectedSemanticStates()
+        {
+            var json = File.ReadAllText("Assets/Content/Scenarios/smart-school-garden.en.json");
+            var cues = Regex.Matches(json, "\\\"ReactionCue\\\"\\s*:\\s*\\\"([^\\\"]+)\\\"")
+                .Cast<Match>()
+                .Select(match => match.Groups[1].Value)
+                .Distinct()
+                .OrderBy(value => value)
+                .ToArray();
+            Assert.That(cues, Is.EqualTo(new[]
+            {
+                "Concerned", "Curious", "Encouraging", "Impressed",
+            }));
+
+            var expected = new Dictionary<string, JudgeReaction>
+            {
+                ["Concerned"] = JudgeReaction.Concerned,
+                ["Curious"] = JudgeReaction.Interested,
+                ["Encouraging"] = JudgeReaction.Encouraging,
+                ["Impressed"] = JudgeReaction.Impressed,
+            };
+            foreach (var cue in cues)
+            {
+                Assert.That(JudgeReactionMapper.Parse(cue), Is.EqualTo(expected[cue]), cue);
+            }
+            Assert.That(JudgeReactionMapper.Parse("truly-unknown"),
+                Is.EqualTo(JudgeReaction.Encouraging));
+        }
+
+        [Test]
+        public void ImporterSource_UsesModernSpriteDataProviderApiWithoutObsoleteSheetAccess()
+        {
+            var source = File.ReadAllText(
+                "Assets/Scripts/UI/Editor/PixelArtImportPostprocessor.cs");
+            Assert.That(source, Does.Contain("ISpriteEditorDataProvider"));
+            Assert.That(source, Does.Contain("SpriteRect"));
+            Assert.That(source, Does.Not.Contain(".spritesheet"));
+            Assert.That(source, Does.Not.Contain("SpriteMetaData"));
+        }
+
+        [Test]
+        public void CleanReimport_ReconstructsSheetsAndPreservesExactMetaBytes()
+        {
+            var paths = new[]
+            {
+                "Assets/Art/Characters/judge-aya-sheet.png",
+                "Assets/Art/UI/confidence-icons.png",
+            };
+            var snapshots = paths.ToDictionary(
+                path => path + ".meta",
+                path => File.ReadAllBytes(path + ".meta"));
+            try
+            {
+                foreach (var path in paths)
+                {
+                    AssetDatabase.ImportAsset(path,
+                        ImportAssetOptions.ForceSynchronousImport | ImportAssetOptions.ForceUpdate);
+                }
+
+                AssertSheet(paths[0], JudgeNames, 128f, 160f);
+                AssertSheet(paths[1], ConfidenceNames, 96f, 96f);
+            }
+            finally
+            {
+                foreach (var pair in snapshots)
+                {
+                    File.WriteAllBytes(pair.Key, pair.Value);
+                    var restored = File.ReadAllBytes(pair.Key);
+                    Assert.That(restored, Is.EqualTo(pair.Value), pair.Key);
+                    Assert.That(Sha256(restored), Is.EqualTo(Sha256(pair.Value)), pair.Key);
+                }
+            }
+        }
+
+        private static byte[] Sha256(byte[] value)
+        {
+            using (var hash = SHA256.Create())
+            {
+                return hash.ComputeHash(value);
+            }
         }
 
         private static void AssertSheet(string path, string[] expectedNames, float width, float height)

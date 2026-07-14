@@ -147,6 +147,42 @@ namespace Agrovator.PitchSimulator.Tests.PlayMode
             Assert.That(label.text, Does.Not.Contain("Score").And.Not.Contain(value.ToString()));
         }
 
+        [Test]
+        public void ConfidenceView_ShowsArtworkWhenPresent_AndGlyphOnlyWhenSpriteIsMissing()
+        {
+            var root = Track(new GameObject("Confidence", typeof(ConfidenceView)));
+            var label = CreateText(root.transform, "Label");
+            var glyph = CreateText(root.transform, "Glyph");
+            var fill = new GameObject("Fill", typeof(Image)).GetComponent<Image>();
+            fill.transform.SetParent(root.transform, false);
+            var artwork = new GameObject("Artwork", typeof(Image)).GetComponent<Image>();
+            artwork.transform.SetParent(root.transform, false);
+            var texture = new Texture2D(2, 2, TextureFormat.RGBA32, false);
+            var sprite = Sprite.Create(texture, new Rect(0f, 0f, 2f, 2f), new Vector2(0.5f, 0.5f));
+            var view = root.GetComponent<ConfidenceView>();
+            view.Configure(label, glyph, fill);
+            view.ConfigureArtwork(artwork, new[] { sprite });
+
+            try
+            {
+                view.Render(0);
+                Assert.That(artwork.gameObject.activeSelf, Is.True);
+                Assert.That(artwork.enabled, Is.True);
+                Assert.That(artwork.sprite, Is.SameAs(sprite));
+                Assert.That(glyph.gameObject.activeSelf, Is.False);
+
+                view.Render(40);
+                Assert.That(artwork.gameObject.activeSelf, Is.False);
+                Assert.That(glyph.gameObject.activeSelf, Is.True);
+                Assert.That(glyph.text, Is.EqualTo("[:]"));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(sprite);
+                UnityEngine.Object.DestroyImmediate(texture);
+            }
+        }
+
         [UnityTest]
         public IEnumerator ControllerOwnedExpiry_RendersNeutralOutcomeAndLocksPresentation()
         {

@@ -28,6 +28,7 @@ namespace Agrovator.PitchSimulator.UI
             if (string.Equals(cue, "Talk", StringComparison.OrdinalIgnoreCase)) return JudgeReaction.Talk;
             if (string.Equals(cue, "Think", StringComparison.OrdinalIgnoreCase)) return JudgeReaction.Think;
             if (string.Equals(cue, "Smile", StringComparison.OrdinalIgnoreCase)) return JudgeReaction.Smile;
+            if (string.Equals(cue, "Curious", StringComparison.OrdinalIgnoreCase)) return JudgeReaction.Interested;
             if (string.Equals(cue, "Interested", StringComparison.OrdinalIgnoreCase)) return JudgeReaction.Interested;
             if (string.Equals(cue, "Confused", StringComparison.OrdinalIgnoreCase)) return JudgeReaction.Confused;
             if (string.Equals(cue, "Concerned", StringComparison.OrdinalIgnoreCase)) return JudgeReaction.Concerned;

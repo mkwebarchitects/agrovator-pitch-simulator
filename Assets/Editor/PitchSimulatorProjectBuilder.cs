@@ -20,6 +20,8 @@ namespace Agrovator.PitchSimulator.Editor
         private const string EnvironmentArtPath = "Assets/Art/Environment/pitch-room.png";
         private const string DialoguePanelArtPath = "Assets/Art/UI/dialogue-panel.png";
         private const string ConfidenceArtPath = "Assets/Art/UI/confidence-icons.png";
+        private static readonly Color Ink = new Color32(0x0E, 0x17, 0x1F, 0xFF);
+        private static readonly Color Cream = new Color32(0xF4, 0xEA, 0xD5, 0xFF);
 
         [MenuItem("Pitch Simulator/Build Project Foundation")]
         public static void BuildProjectFoundation()
@@ -248,7 +250,15 @@ namespace Agrovator.PitchSimulator.Editor
             environmentImage.color = Color.white;
             environmentImage.raycastTarget = false;
 
-            var status = CreateLabel("Status", panel.transform, "Score 0", 22);
+            var statusBacking = new GameObject("Status Backing", typeof(RectTransform),
+                typeof(Image), typeof(LayoutElement));
+            statusBacking.transform.SetParent(panel.transform, false);
+            statusBacking.GetComponent<Image>().color = Ink;
+            statusBacking.GetComponent<Image>().raycastTarget = false;
+            statusBacking.GetComponent<LayoutElement>().preferredHeight = 48f;
+            var status = CreateLabel("Status", statusBacking.transform, "Score 0", 22);
+            status.color = Cream;
+            Stretch(status.GetComponent<RectTransform>());
             var judgeObject = new GameObject("Judge Aya", typeof(RectTransform), typeof(Image),
                 typeof(LayoutElement), typeof(JudgeReactionView));
             judgeObject.transform.SetParent(panel.transform, false);
@@ -269,14 +279,24 @@ namespace Agrovator.PitchSimulator.Editor
             dialogueImage.sprite = LoadSprite(DialoguePanelArtPath);
             dialogueImage.type = Image.Type.Sliced;
             dialogueImage.raycastTarget = false;
-            dialoguePanel.GetComponent<LayoutElement>().preferredHeight = 80f;
-            var prompt = CreateLabel("Prompt", dialoguePanel.transform,
+            dialoguePanel.GetComponent<LayoutElement>().preferredHeight = 96f;
+            var promptBacking = new GameObject("Prompt Backing", typeof(RectTransform), typeof(Image));
+            promptBacking.transform.SetParent(dialoguePanel.transform, false);
+            var promptBackingRect = promptBacking.GetComponent<RectTransform>();
+            Stretch(promptBackingRect);
+            promptBackingRect.offsetMin = new Vector2(28f, 18f);
+            promptBackingRect.offsetMax = new Vector2(-28f, -18f);
+            var promptBackingImage = promptBacking.GetComponent<Image>();
+            promptBackingImage.color = Cream;
+            promptBackingImage.raycastTarget = false;
+            var prompt = CreateLabel("Prompt", promptBacking.transform,
                 "Preparing your pitch…", 30, FontStyle.Bold);
+            prompt.color = Ink;
             Stretch(prompt.GetComponent<RectTransform>());
 
             var confidenceRoot = CreateIndicatorRoot("Confidence", panel.transform);
             var confidenceIcon = CreateLabel("Icon", confidenceRoot.transform, "[:]", 22, FontStyle.Bold);
-            confidenceIcon.gameObject.SetActive(false);
+            confidenceIcon.color = Cream;
             var confidenceArtworkObject = new GameObject("Artwork Icon", typeof(RectTransform),
                 typeof(Image), typeof(LayoutElement));
             confidenceArtworkObject.transform.SetParent(confidenceRoot.transform, false);
@@ -287,6 +307,7 @@ namespace Agrovator.PitchSimulator.Editor
             confidenceArtworkLayout.preferredWidth = 48f;
             confidenceArtworkLayout.preferredHeight = 48f;
             var confidenceLabel = CreateLabel("Label", confidenceRoot.transform, "Curious", 22, FontStyle.Bold);
+            confidenceLabel.color = Cream;
             var confidenceFill = CreateFilledBar("Fill", confidenceRoot.transform);
             var confidenceView = confidenceRoot.AddComponent<ConfidenceView>();
             confidenceRoot.GetComponent<LayoutElement>().preferredHeight = 42f;
@@ -299,6 +320,7 @@ namespace Agrovator.PitchSimulator.Editor
             var timerRoot = CreateIndicatorRoot("Timer", panel.transform);
             timerRoot.GetComponent<LayoutElement>().preferredHeight = 42f;
             var timerSeconds = CreateLabel("Seconds", timerRoot.transform, "0", 22, FontStyle.Bold);
+            timerSeconds.color = Cream;
             var timerFill = CreateFilledBar("Fill", timerRoot.transform);
             var timerView = timerRoot.AddComponent<TimerView>();
             SetReference(timerView, "secondsLabel", timerSeconds);
@@ -343,9 +365,13 @@ namespace Agrovator.PitchSimulator.Editor
         private static GameObject CreateIndicatorRoot(string name, Transform parent)
         {
             var root = new GameObject(name, typeof(RectTransform), typeof(HorizontalLayoutGroup),
-                typeof(LayoutElement));
+                typeof(LayoutElement), typeof(Image));
             root.transform.SetParent(parent, false);
+            var backing = root.GetComponent<Image>();
+            backing.color = Ink;
+            backing.raycastTarget = false;
             var layout = root.GetComponent<HorizontalLayoutGroup>();
+            layout.padding = new RectOffset(12, 12, 4, 4);
             layout.spacing = 12f;
             layout.childAlignment = TextAnchor.MiddleCenter;
             layout.childControlWidth = false;
