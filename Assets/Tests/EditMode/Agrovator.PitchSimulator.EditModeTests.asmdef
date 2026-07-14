@@ -3,7 +3,8 @@
     "rootNamespace": "Agrovator.PitchSimulator.Tests.EditMode",
     "references": [
         "Agrovator.PitchSimulator.Core",
-        "Agrovator.PitchSimulator.Dialogue"
+        "Agrovator.PitchSimulator.Dialogue",
+        "Agrovator.PitchSimulator.Scoring"
     ],
     "includePlatforms": [
         "Editor"

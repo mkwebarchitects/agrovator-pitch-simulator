@@ -8,7 +8,7 @@ This checklist mirrors `docs/plans/2026-07-14-pitch-simulator-vertical-slice.md`
 - [x] Task 2: Assembly boundaries and core game states
 - [x] Task 3: Dialogue DTOs and structural validation
 - [x] Task 4: Runtime dialogue graph, flags and branches
-- [ ] Task 5: Scoring, confidence and result feedback
+- [x] Task 5: Scoring, confidence and result feedback
 - [ ] Task 6: Timer and accessibility settings
 - [ ] Task 7: LMS contracts, serialization and mock bridge
 - [ ] Task 8: Localization catalog and save-data versioning
@@ -51,7 +51,12 @@ This checklist mirrors `docs/plans/2026-07-14-pitch-simulator-vertical-slice.md`
 - 2026-07-14 Task 4 structural checks: runtime scenario data is copied into get-only objects backed by read-only collections and an ordinal dictionary; session response IDs and flags use ordinal case-sensitive identity. Rejected unknown and unavailable selections preserve both current node and flags, and the recovery test proves the flag is authored by the weak-answer then evidence-response sequence. The Dialogue runtime and its Task 4 tests contain `0` `UnityEngine`, `MonoBehaviour` or `ScriptableObject` references.
 - 2026-07-14 Task 4 review RED: the focused fixture reported `15/19` passed and exactly four expected failures: terminal responses remained available, and compile accepted null, empty and exact-duplicate response IDs. The complete 386-line log contained `0` compile-failure markers.
 - 2026-07-14 Task 4 review GREEN: the focused fixture reported `19/19` passed and the canonical full Edit Mode suite reported `37/37` passed, both with `0` failures, skips or inconclusive tests. Independent XML parsing confirmed `Passed`; the complete focused/full logs were 381/365 lines with `0` matches for `error CS\d+|Compilation failed|Unhandled Exception`.
+- 2026-07-14 Task 5 RED: the focused `ScoringTests` run produced no XML and reached the expected missing-production-types compiler boundary (`CS0234` for the absent Scoring namespace plus `CS0246`/`CS0103` for its contracts); the complete log ended with `Scripts have compiler errors.`
+- 2026-07-14 Task 5 runtime seam RED: after the baseline scoring suite was green, the new immutable runtime-delta integration case reached the expected `CS1503` boundary because only the authored DTO overload existed; restoring the mapped `RuntimeResponseScoreDelta` overload made the case pass without introducing a second score model.
+- 2026-07-14 Task 5 focused GREEN: `ScoringTests` reported `31/31` passed with `0` failures, skips or inconclusive tests; independent XML parsing confirmed `Passed`, and the complete 392-line Unity log contained `0` matches for `error CS\d+|Compilation failed|Unhandled Exception`.
+- 2026-07-14 Task 5 all Edit Mode GREEN: the final canonical wrapper reported `68/68` passed with `0` failures, skips or inconclusive tests; independent XML parsing confirmed `Passed`, and the complete 393-line log contained `0` failure-marker matches.
+- 2026-07-14 Task 5 scoring checks: all seven authored deltas clamp to explicit 20/15/15/15/15/10/10 caps and floor at zero; overall caps at 100, confidence at 0…100, level boundaries are inclusive at 0/40/60/80, category strength thresholds are 12/9/9/9/9/6/6, and normalized strength/improvement ties use stable rubric order. Recovery produces the localized `result.strength.recovery` key; all result copy remains localization keys. Scoring declares `noEngineReferences: true` and the Scoring sources/tests contain `0` `UnityEngine`, `MonoBehaviour` or `ScriptableObject` references.
 
 ## Next action
 
-Begin Task 5 by writing the failing scoring, confidence and result feedback tests.
+Begin Task 6 by writing the failing timer and accessibility settings tests.
