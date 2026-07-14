@@ -231,6 +231,7 @@ namespace Agrovator.PitchSimulator.Tests.EditMode.LMS
         [TestCase("2026-07-14T02:00:00z")]
         [TestCase("14/07/2026T02:00:00Z")]
         [TestCase("2026-07-14T02:00Z")]
+        [TestCase("2026-07-14T02:00:00.Z")]
         [TestCase("2026-07-14T02:00:00.12345678Z")]
         [TestCase("2026-07-14T02:00:00+00:00")]
         public void ValidateCompletion_RejectsNonCanonicalUtcTimestamp(string timestamp)
