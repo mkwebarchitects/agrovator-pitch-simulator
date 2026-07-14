@@ -158,30 +158,51 @@ namespace Agrovator.PitchSimulator.Tests.EditMode.Dialogue
         }
 
         [Test]
-        public void LongestChoices_AreDistributedAcrossQualityTiersWithoutStrongMajority()
+        public void StrongLengthRanks_AreDistributedAcrossAuthoredQuestions()
         {
             var scenario = LoadDefinition();
             var catalog = LocalizationCatalog.Load(ReadCatalog("en"), ReadCatalog("ms"));
             var questions = scenario.Nodes.Where(node => node.NodeType == "Question").ToArray();
-            var longestTiers = questions.Select(node => LongestQualityTier(node.Responses, catalog)).ToArray();
+            var ranks = questions.Select(node => CreateLengthProfile(node.Responses, catalog).StrongRank).ToArray();
 
-            Assert.That(longestTiers, Does.Contain("Strong"));
-            Assert.That(longestTiers, Does.Contain("Developing"));
-            Assert.That(longestTiers, Does.Contain("NeedsWork"));
-            Assert.That(longestTiers.Count(tier => tier == "Strong"),
-                Is.LessThanOrEqualTo(questions.Length / 2));
+            foreach (LengthRank rank in Enum.GetValues(typeof(LengthRank)))
+            {
+                Assert.That(ranks.Count(value => value == rank), Is.InRange(2, 3), rank.ToString());
+            }
         }
 
         [Test]
-        public void EveryPlayableRoute_HasAtMostTwoQuestionsWhereLongestChoiceIsStrong()
+        public void QualityTierMeanLengths_AreCloseAcrossAuthoredQuestions()
+        {
+            var scenario = LoadDefinition();
+            var catalog = LocalizationCatalog.Load(ReadCatalog("en"), ReadCatalog("ms"));
+            var means = scenario.Nodes.Where(node => node.NodeType == "Question")
+                .SelectMany(node => node.Responses)
+                .GroupBy(response => response.QualityTier, StringComparer.Ordinal)
+                .ToDictionary(
+                    group => group.Key,
+                    group => group.Average(response => catalog.Resolve("en", response.TextKey).Length),
+                    StringComparer.Ordinal);
+
+            Assert.That(means.Keys, Is.EquivalentTo(new[] { "Strong", "Developing", "NeedsWork" }));
+            Assert.That(means.Values.Max() - means.Values.Min(), Is.LessThanOrEqualTo(12.0));
+        }
+
+        [Test]
+        public void EveryPlayableRoute_HasTwoStrongAnswersAtEachLengthRankAndCloseTierMeans()
         {
             var scenario = LoadDefinition();
             var catalog = LocalizationCatalog.Load(ReadCatalog("en"), ReadCatalog("ms"));
             var analysis = AnalyzePaths(scenario, catalog);
 
             Assert.That(analysis.Paths, Is.Not.Empty);
-            Assert.That(analysis.Paths,
-                Has.All.Matches<PathResult>(path => path.StrongLongestQuestionCount <= 2));
+            Assert.That(analysis.Paths.Min(path => path.StrongShortestCount), Is.EqualTo(2));
+            Assert.That(analysis.Paths.Max(path => path.StrongShortestCount), Is.EqualTo(2));
+            Assert.That(analysis.Paths.Min(path => path.StrongMiddleCount), Is.EqualTo(2));
+            Assert.That(analysis.Paths.Max(path => path.StrongMiddleCount), Is.EqualTo(2));
+            Assert.That(analysis.Paths.Min(path => path.StrongLongestCount), Is.EqualTo(2));
+            Assert.That(analysis.Paths.Max(path => path.StrongLongestCount), Is.EqualTo(2));
+            Assert.That(analysis.Paths.Max(path => path.TierMeanSpread), Is.LessThanOrEqualTo(12.0));
         }
 
         private static ScenarioDefinitionDto LoadDefinition()
@@ -228,14 +249,19 @@ namespace Agrovator.PitchSimulator.Tests.EditMode.Dialogue
         {
             var nodes = scenario.Nodes.ToDictionary(node => node.Id, StringComparer.Ordinal);
             var analysis = new PathAnalysis();
-            Visit(scenario.OpeningNodeId, new HashSet<string>(StringComparer.Ordinal), 0, 0, 0);
+            Visit(scenario.OpeningNodeId, new HashSet<string>(StringComparer.Ordinal), 0, 0, 0, 0, 0, 0, 0, 0);
             return analysis;
 
             void Visit(
                 string nodeId,
                 HashSet<string> flags,
                 int questionCount,
-                int strongLongestQuestionCount,
+                int strongShortestCount,
+                int strongMiddleCount,
+                int strongLongestCount,
+                int strongLengthTotal,
+                int developingLengthTotal,
+                int needsWorkLengthTotal,
                 int depth)
             {
                 Assert.That(depth, Is.LessThan(20), "Scenario path appears cyclic.");
@@ -262,16 +288,40 @@ namespace Agrovator.PitchSimulator.Tests.EditMode.Dialogue
                         analysis.ChoiceLossCount++;
                     }
 
-                    if (availableResponses.Length > 0
-                        && LongestQualityTier(availableResponses, catalog) == "Strong")
+                    if (availableResponses.Length > 0)
                     {
-                        strongLongestQuestionCount++;
+                        var profile = CreateLengthProfile(availableResponses, catalog);
+                        switch (profile.StrongRank)
+                        {
+                            case LengthRank.Shortest:
+                                strongShortestCount++;
+                                break;
+                            case LengthRank.Middle:
+                                strongMiddleCount++;
+                                break;
+                            case LengthRank.Longest:
+                                strongLongestCount++;
+                                break;
+                            default:
+                                throw new ArgumentOutOfRangeException();
+                        }
+
+                        strongLengthTotal += profile.GetLength("Strong");
+                        developingLengthTotal += profile.GetLength("Developing");
+                        needsWorkLengthTotal += profile.GetLength("NeedsWork");
                     }
                 }
 
                 if (node.NodeType == "Terminal")
                 {
-                    analysis.Paths.Add(new PathResult(questionCount, strongLongestQuestionCount));
+                    analysis.Paths.Add(new PathResult(
+                        questionCount,
+                        strongShortestCount,
+                        strongMiddleCount,
+                        strongLongestCount,
+                        strongLengthTotal,
+                        developingLengthTotal,
+                        needsWorkLengthTotal));
                     return;
                 }
 
@@ -301,23 +351,22 @@ namespace Agrovator.PitchSimulator.Tests.EditMode.Dialogue
                         response.NextNodeId,
                         nextFlags,
                         questionCount,
-                        strongLongestQuestionCount,
+                        strongShortestCount,
+                        strongMiddleCount,
+                        strongLongestCount,
+                        strongLengthTotal,
+                        developingLengthTotal,
+                        needsWorkLengthTotal,
                         depth + 1);
                 }
             }
         }
 
-        private static string LongestQualityTier(
+        private static ResponseLengthProfile CreateLengthProfile(
             IEnumerable<ResponseOptionDto> responses,
             LocalizationCatalog catalog)
         {
-            var choices = responses.Select(response => new
-            {
-                Response = response,
-                Length = catalog.Resolve("en", response.TextKey).Length,
-            }).ToArray();
-            var maximumLength = choices.Max(choice => choice.Length);
-            return choices.Single(choice => choice.Length == maximumLength).Response.QualityTier;
+            return new ResponseLengthProfile(responses, catalog);
         }
 
         private static bool Available(
@@ -357,15 +406,72 @@ namespace Agrovator.PitchSimulator.Tests.EditMode.Dialogue
 
         private sealed class PathResult
         {
-            public PathResult(int questionCount, int strongLongestQuestionCount)
+            public PathResult(
+                int questionCount,
+                int strongShortestCount,
+                int strongMiddleCount,
+                int strongLongestCount,
+                int strongLengthTotal,
+                int developingLengthTotal,
+                int needsWorkLengthTotal)
             {
                 QuestionCount = questionCount;
-                StrongLongestQuestionCount = strongLongestQuestionCount;
+                StrongShortestCount = strongShortestCount;
+                StrongMiddleCount = strongMiddleCount;
+                StrongLongestCount = strongLongestCount;
+                var means = new[]
+                {
+                    (double)strongLengthTotal / questionCount,
+                    (double)developingLengthTotal / questionCount,
+                    (double)needsWorkLengthTotal / questionCount,
+                };
+                TierMeanSpread = means.Max() - means.Min();
             }
 
             public int QuestionCount { get; }
 
-            public int StrongLongestQuestionCount { get; }
+            public int StrongShortestCount { get; }
+
+            public int StrongMiddleCount { get; }
+
+            public int StrongLongestCount { get; }
+
+            public double TierMeanSpread { get; }
+        }
+
+        private sealed class ResponseLengthProfile
+        {
+            private readonly IReadOnlyDictionary<string, int> _lengths;
+
+            public ResponseLengthProfile(
+                IEnumerable<ResponseOptionDto> responses,
+                LocalizationCatalog catalog)
+            {
+                var choices = responses.Select(response => new
+                {
+                    Tier = response.QualityTier,
+                    Length = catalog.Resolve("en", response.TextKey).Length,
+                }).OrderBy(choice => choice.Length).ToArray();
+                Assert.That(choices.Select(choice => choice.Tier),
+                    Is.EquivalentTo(new[] { "Strong", "Developing", "NeedsWork" }));
+                Assert.That(choices.Select(choice => choice.Length).Distinct().Count(), Is.EqualTo(3));
+                _lengths = choices.ToDictionary(choice => choice.Tier, choice => choice.Length, StringComparer.Ordinal);
+                StrongRank = (LengthRank)Array.FindIndex(choices, choice => choice.Tier == "Strong");
+            }
+
+            public LengthRank StrongRank { get; }
+
+            public int GetLength(string qualityTier)
+            {
+                return _lengths[qualityTier];
+            }
+        }
+
+        private enum LengthRank
+        {
+            Shortest,
+            Middle,
+            Longest,
         }
     }
 }
