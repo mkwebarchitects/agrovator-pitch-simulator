@@ -31,6 +31,7 @@ namespace Agrovator.PitchSimulator.UI
         private GameScreenRouter router;
         private Func<string, string> localize;
         private AudioService audioService;
+        private AudioCueDirector audioCueDirector;
 
         public bool IsInitialized { get; private set; }
 
@@ -132,14 +133,24 @@ namespace Agrovator.PitchSimulator.UI
             }
 
             controller.Tick(Time.unscaledDeltaTime);
-            router?.TickPresentation(controller.Snapshot);
+            var snapshot = controller.Snapshot;
+            audioCueDirector?.UpdateTimer(
+                snapshot.State,
+                snapshot.TimerRemainingSeconds,
+                snapshot.TimerTotalSeconds);
+            router?.TickPresentation(snapshot);
         }
 
         private void OnDestroy()
         {
+            if (controller != null && audioCueDirector != null)
+            {
+                controller.EventPublished -= audioCueDirector.HandleSessionEvent;
+            }
             controller?.Dispose();
             controller = null;
             router = null;
+            audioCueDirector = null;
             audioService = null;
             if (instance == this)
             {
@@ -163,13 +174,15 @@ namespace Agrovator.PitchSimulator.UI
                 Debug.isDebugBuild || Application.isEditor);
             audioService.SetMusicVolume(launch.MusicVolume);
             audioService.SetSfxVolume(launch.SfxVolume);
+            audioCueDirector = new AudioCueDirector(cue => audioService.Play(cue));
+            controller.EventPublished += audioCueDirector.HandleSessionEvent;
         }
 
         private void HandleTitleUserGesture()
         {
             if (audioService == null) return;
             audioService.UnlockAfterUserGesture();
-            audioService.Play(AudioCue.ButtonPress);
+            audioCueDirector?.HandleUserGesture();
         }
 
         private bool TryLoadContent(

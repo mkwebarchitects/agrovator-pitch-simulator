@@ -1,5 +1,6 @@
 using System;
 using Agrovator.PitchSimulator.Core;
+using Agrovator.PitchSimulator.Dialogue;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -38,10 +39,21 @@ namespace Agrovator.PitchSimulator.UI
         public void Refresh(PitchSessionSnapshot snapshot)
         {
             if (!initialized) return;
-            promptText.text = snapshot.CurrentNode?.TextKey ?? "Preparing your pitch...";
+            var showingOutcome = snapshot.State == GameState.ShowingReaction ||
+                snapshot.State == GameState.ShowingFeedback;
+            var promptKey = snapshot.State == GameState.ShowingReaction
+                ? snapshot.LastFeedbackKey
+                : snapshot.State == GameState.ShowingFeedback
+                    ? snapshot.LastExplanationKey
+                    : snapshot.CurrentNode?.TextKey;
+            promptText.text = string.IsNullOrEmpty(promptKey)
+                ? "Preparing your pitch..."
+                : resolveText(promptKey);
             statusText.text = $"Score {snapshot.OverallScore}";
             responseList.Render(
-                snapshot.AvailableResponses,
+                showingOutcome
+                    ? Array.Empty<RuntimeResponseOption>()
+                    : snapshot.AvailableResponses,
                 snapshot.State == GameState.AwaitingResponse,
                 resolveText);
             RefreshTimer(snapshot);

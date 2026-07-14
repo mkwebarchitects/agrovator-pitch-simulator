@@ -80,5 +80,14 @@ namespace Agrovator.PitchSimulator.Tests.EditMode.Core
             Assert.That(machine.TryApply(GameCommand.Retry), Is.True);
             Assert.That(machine.Current, Is.EqualTo(GameState.Briefing));
         }
+
+        [Test]
+        public void Retry_ReturnsCompleteToBriefing()
+        {
+            var machine = new GameStateMachine(GameState.Complete);
+
+            Assert.That(machine.TryApply(GameCommand.Retry), Is.True);
+            Assert.That(machine.Current, Is.EqualTo(GameState.Briefing));
+        }
     }
 }

@@ -21,6 +21,7 @@ namespace Agrovator.PitchSimulator.Core
                 [(GameState.Results, GameCommand.Retry)] = GameState.Briefing,
                 [(GameState.Submitting, GameCommand.SubmissionSucceeded)] = GameState.Complete,
                 [(GameState.Submitting, GameCommand.SubmissionFailed)] = GameState.Results,
+                [(GameState.Complete, GameCommand.Retry)] = GameState.Briefing,
             };
 
         public GameStateMachine(GameState initialState)

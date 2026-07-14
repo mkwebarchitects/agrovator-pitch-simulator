@@ -360,8 +360,22 @@ async function playAttempt(page, frame, canvas, options) {
   }
 
   await keyboardAction(page, canvas, "Enter", options.timeoutMs, "Results Retry");
-  await keyboardAction(page, canvas, "Enter", options.timeoutMs, "retry Briefing Continue");
-  await keyboardAction(page, canvas, "Enter", options.timeoutMs, "retry Tutorial", false);
+  const retryBriefingBounds = await canvas.boundingBox();
+  if (!retryBriefingBounds) throw new Error("Retry Briefing canvas has no pointer bounds.");
+  const retryBriefingBefore = await canvasHash(canvas);
+  await canvas.click({ position: {
+    x: retryBriefingBounds.width * 0.5,
+    y: retryBriefingBounds.height * 0.66,
+  } });
+  await waitForCanvasChange(canvas, retryBriefingBefore, options.timeoutMs,
+    "retry Briefing pointer Continue");
+  await mouseContinue(page, canvas, options.timeoutMs, "retry Tutorial");
+  await mouseContinue(page, canvas, options.timeoutMs, "retry Judge introduction");
+  await mouseContinue(page, canvas, options.timeoutMs, "retry Tutorial response reveal", true);
+  await mouseResponse(page, canvas, options.timeoutMs);
+  await mouseContinue(page, canvas, options.timeoutMs, "retry Tutorial reaction");
+  await mouseContinue(page, canvas, options.timeoutMs, "retry Tutorial feedback");
+  await mouseContinue(page, canvas, options.timeoutMs, "retry Question 1 response reveal", true);
   return sanitizeText(completion);
 }
 
@@ -406,7 +420,7 @@ async function runBrowser(playwright, definition, server, options) {
     warnings: [],
     completionSummary: null,
     modes: { success: false, failure: false, missingConfig: false, expired: "not-exercised" },
-    interactionContract: "Measured Start pointer at (0.50, 0.61), Briefing pointer at (0.50, 0.66); pitch-room Continue pointer at (0.50, 0.91) x3 to tutorial; tutorial pointer response at (0.50, 0.78); Continue x3 to Q1; six focused Enter responses held 120ms; Continue x3 between Q1-Q5 and x2 after Q6 to Results. Stable lower-control-region changes plus 220ms settle gate observable swaps; 180ms bounded waits cover internal reaction/feedback transitions.",
+    interactionContract: "Measured Start pointer at (0.50, 0.61), Briefing pointer at (0.50, 0.66); pitch-room Continue pointer at (0.50, 0.91) x3 to tutorial; tutorial pointer response at (0.50, 0.78); Continue x3 to Q1; six focused Enter responses held 120ms; Continue x3 between Q1-Q5 and x2 after Q6 to Results. After successful completion, Retry must support a downstream pointer-only Briefing/tutorial/response sequence through fresh Q1 reveal, preventing focus-tint-only false positives. Stable lower-control-region changes plus 220ms settle gate observable swaps; 180ms bounded waits cover internal reaction/feedback transitions.",
     screenshot: null,
   };
   if (!definition.path || !existsSync(definition.path)) {

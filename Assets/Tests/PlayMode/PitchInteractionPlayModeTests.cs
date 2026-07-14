@@ -92,6 +92,65 @@ namespace Agrovator.PitchSimulator.Tests.PlayMode
         }
 
         [Test]
+        public void PitchRoomPresenter_LocalizesStateContent_AndHidesPostResponseChoices()
+        {
+            var controller = CreateController(BuildTwoQuestionScenario());
+            Assert.That(controller.FinishLaunch(), Is.True);
+            Assert.That(controller.StartScenario(), Is.True);
+            Assert.That(controller.Continue(), Is.True);
+            Assert.That(controller.Continue(), Is.True);
+            Assert.That(controller.Continue(), Is.True);
+            Assert.That(controller.Continue(), Is.True);
+            Assert.That(controller.Snapshot.State, Is.EqualTo(GameState.AwaitingResponse));
+
+            var root = Track(new GameObject("Pitch Presenter"));
+            var presenter = root.AddComponent<PitchRoomPresenter>();
+            var prompt = CreateText(root.transform, "Prompt");
+            var status = CreateText(root.transform, "Status");
+            var continueButton = CreateButton(root.transform, "Continue");
+            var responseList = CreateResponseList(root.transform);
+            SetField(presenter, "promptText", prompt);
+            SetField(presenter, "statusText", status);
+            SetField(presenter, "responseList", responseList);
+            SetField(presenter, "timerView", CreateTimer(root.transform));
+            SetField(presenter, "confidenceView", CreateConfidence(root.transform));
+            SetField(presenter, "continueButton", continueButton);
+            var localized = new System.Collections.Generic.Dictionary<string, string>
+            {
+                ["question.one"] = "Localized question one",
+                ["question.two"] = "Localized question two",
+                ["feedback.first"] = "Localized feedback one",
+                ["explanation.first"] = "Localized explanation one",
+            };
+            presenter.Initialize(controller, null,
+                key => localized.TryGetValue(key, out var value) ? value : $"Localized {key}");
+
+            presenter.Refresh(controller.Snapshot);
+            Assert.That(prompt.text, Is.EqualTo("Localized question one"));
+            Assert.That(VisibleResponseCount(responseList), Is.EqualTo(3));
+
+            Assert.That(controller.SelectResponse("first"), Is.True);
+            presenter.Refresh(controller.Snapshot);
+            Assert.That(controller.Snapshot.State, Is.EqualTo(GameState.ShowingReaction));
+            Assert.That(controller.Snapshot.CurrentNodeId, Is.EqualTo("question-two"));
+            Assert.That(prompt.text, Is.EqualTo("Localized feedback one"));
+            Assert.That(VisibleResponseCount(responseList), Is.Zero);
+
+            Assert.That(controller.Continue(), Is.True);
+            presenter.Refresh(controller.Snapshot);
+            Assert.That(controller.Snapshot.State, Is.EqualTo(GameState.ShowingFeedback));
+            Assert.That(prompt.text, Is.EqualTo("Localized explanation one"));
+            Assert.That(VisibleResponseCount(responseList), Is.Zero);
+
+            Assert.That(controller.Continue(), Is.True);
+            presenter.Refresh(controller.Snapshot);
+            Assert.That(controller.Snapshot.State, Is.EqualTo(GameState.AskingQuestion));
+            Assert.That(prompt.text, Is.EqualTo("Localized question two"));
+            Assert.That(VisibleResponseCount(responseList), Is.EqualTo(3));
+            controller.Dispose();
+        }
+
+        [Test]
         public void TitleButtons_InvokeUserGestureSynchronouslyBeforeTheirCommands()
         {
             var root = Track(new GameObject("Title", typeof(TitlePresenter)));
@@ -238,7 +297,7 @@ namespace Agrovator.PitchSimulator.Tests.PlayMode
             SetField(presenter, "timerView", timer);
             SetField(presenter, "confidenceView", confidence);
             SetField(presenter, "continueButton", continueButton);
-            presenter.Initialize(controller, null);
+            presenter.Initialize(controller, null, key => $"Localized {key}");
             presenter.Refresh(controller.Snapshot);
 
             controller.Tick(1d);
@@ -249,8 +308,13 @@ namespace Agrovator.PitchSimulator.Tests.PlayMode
             Assert.That(controller.Snapshot.LastResponseId, Is.Null);
             Assert.That(controller.Snapshot.LastReactionCue, Is.EqualTo("Neutral"));
             Assert.That(controller.Snapshot.TimeoutCount, Is.EqualTo(1));
+            Assert.That(prompt.text, Is.EqualTo("Localized session.timeout.feedback"));
             Assert.That(timer.DisplayedSeconds, Is.Zero);
             Assert.That(responseList.IsSelectionLocked, Is.True);
+
+            Assert.That(controller.Continue(), Is.True);
+            presenter.Refresh(controller.Snapshot);
+            Assert.That(prompt.text, Is.EqualTo("Localized session.timeout.explanation"));
             controller.Dispose();
         }
 
@@ -340,6 +404,12 @@ namespace Agrovator.PitchSimulator.Tests.PlayMode
             return root;
         }
 
+        private static int VisibleResponseCount(ResponseListView responseList)
+        {
+            return responseList.GetComponentsInChildren<ResponseButtonView>(true)
+                .Count(slot => slot.gameObject.activeSelf);
+        }
+
         private static PitchSessionController CreateController(RuntimeScenario scenario)
         {
             var launch = new LmsLaunchConfig
@@ -403,7 +473,54 @@ namespace Agrovator.PitchSimulator.Tests.PlayMode
             });
         }
 
-        private static ResponseOptionDto Response(string id, string text)
+        private static RuntimeScenario BuildTwoQuestionScenario()
+        {
+            return RuntimeScenario.Compile(new ScenarioDefinitionDto
+            {
+                Id = "pitch-presentation-test",
+                Version = 1,
+                InitialConfidence = 50,
+                OpeningNodeId = "question-one",
+                Nodes = new[]
+                {
+                    new DialogueNodeDto
+                    {
+                        Id = "question-one",
+                        NodeType = "Question",
+                        TextKey = "question.one",
+                        TimerSeconds = 20,
+                        Responses = new[]
+                        {
+                            Response("first", "First response", "question-two"),
+                            Response("second", "Second response", "question-two"),
+                            Response("third", "Third response", "question-two"),
+                        },
+                    },
+                    new DialogueNodeDto
+                    {
+                        Id = "question-two",
+                        NodeType = "Question",
+                        TextKey = "question.two",
+                        TimerSeconds = 20,
+                        Responses = new[]
+                        {
+                            Response("fourth", "Fourth response"),
+                            Response("fifth", "Fifth response"),
+                            Response("sixth", "Sixth response"),
+                        },
+                    },
+                    new DialogueNodeDto
+                    {
+                        Id = "terminal",
+                        NodeType = "Terminal",
+                        TextKey = "terminal.text",
+                        Responses = Array.Empty<ResponseOptionDto>(),
+                    },
+                },
+            });
+        }
+
+        private static ResponseOptionDto Response(string id, string text, string nextNodeId = "terminal")
         {
             return new ResponseOptionDto
             {
@@ -414,7 +531,7 @@ namespace Agrovator.PitchSimulator.Tests.PlayMode
                 ReactionCue = "Encouraging",
                 FeedbackKey = $"feedback.{id}",
                 ExplanationKey = $"explanation.{id}",
-                NextNodeId = "terminal",
+                NextNodeId = nextNodeId,
             };
         }
     }

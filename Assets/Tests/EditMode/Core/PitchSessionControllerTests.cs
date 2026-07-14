@@ -315,6 +315,26 @@ namespace Agrovator.PitchSimulator.Tests.EditMode.Core
         }
 
         [Test]
+        public void Retry_AfterSuccessfulCompletionStartsFreshIncrementedAttempt()
+        {
+            var fixture = CreateAtResults();
+            Assert.That(fixture.Controller.SubmitResults(), Is.True);
+            Assert.That(fixture.Controller.Snapshot.State, Is.EqualTo(GameState.Complete));
+
+            Assert.That(fixture.Controller.Retry(), Is.True);
+
+            var snapshot = fixture.Controller.Snapshot;
+            Assert.That(snapshot.State, Is.EqualTo(GameState.Briefing));
+            Assert.That(snapshot.AttemptNumber, Is.EqualTo(3));
+            Assert.That(snapshot.CurrentNodeId, Is.EqualTo("tutorial"));
+            Assert.That(snapshot.OverallScore, Is.Zero);
+            Assert.That(snapshot.Confidence, Is.EqualTo(50));
+            Assert.That(snapshot.SelectedResponseIds, Is.Empty);
+            Assert.That(snapshot.Result, Is.Null);
+            Assert.That(snapshot.CompletionPayload, Is.Null);
+        }
+
+        [Test]
         public void Retry_ClearsRuntimeStateAndIncrementsAttempt()
         {
             var fixture = CreateStartedFixture();
