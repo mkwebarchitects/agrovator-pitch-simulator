@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using System.Linq;
+using System.Text.RegularExpressions;
 using Agrovator.PitchSimulator.Editor;
 using NUnit.Framework;
 using UnityEditor;
@@ -80,6 +81,10 @@ namespace Agrovator.PitchSimulator.Tests.EditMode.UI
 
             StringAssert.Contains("role=\"status\"", html);
             StringAssert.Contains("aria-live=\"polite\"", html);
+            Assert.That(Regex.IsMatch(html,
+                "<div\\s+id=\\\"unity-warning\\\"[^>]*\\shidden(?:\\s|>)",
+                RegexOptions.CultureInvariant), Is.True,
+                "The empty assertive warning region must be hidden before the first banner.");
             StringAssert.Contains("ResizeObserver", html);
             StringAssert.Contains("orientationchange", html);
             StringAssert.Contains("aspect-ratio: 16 / 9", css);

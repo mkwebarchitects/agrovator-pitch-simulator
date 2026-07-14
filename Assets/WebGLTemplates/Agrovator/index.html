@@ -6,6 +6,7 @@
     <meta name="theme-color" content="#0e171f">
     <title>{{{ PRODUCT_NAME }}}</title>
     <link rel="stylesheet" href="TemplateData/style.css">
+    <script src="TemplateData/layout.js"></script>
   </head>
   <body>
     <main id="unity-shell" aria-label="AGROVATOR Pitch Simulator">
@@ -18,7 +19,7 @@
             <div id="unity-progress-bar"></div>
           </div>
         </div>
-        <div id="unity-warning" role="alert" aria-live="assertive"></div>
+        <div id="unity-warning" role="alert" aria-live="assertive" hidden></div>
       </div>
       <button id="unity-fullscreen" type="button" disabled>Enter fullscreen</button>
     </main>
@@ -35,12 +36,32 @@
       const warning = document.querySelector("#unity-warning");
       const fullscreen = document.querySelector("#unity-fullscreen");
 
+      function readPixels(style, property) {
+        const value = Number.parseFloat(style.getPropertyValue(property));
+        return Number.isFinite(value) ? value : 0;
+      }
+
       function fitCanvas() {
-        const availableWidth = Math.max(1, shell.clientWidth);
-        const controlsHeight = fullscreen.offsetHeight + 20;
-        const availableHeight = Math.max(1, window.innerHeight - controlsHeight);
-        const width = Math.min(availableWidth, availableHeight * 16 / 9);
-        stage.style.width = `${Math.floor(width)}px`;
+        const bodyStyle = getComputedStyle(document.body);
+        const shellStyle = getComputedStyle(shell);
+        const controlStyle = getComputedStyle(fullscreen);
+        const viewportHeight = window.visualViewport
+          ? window.visualViewport.height
+          : window.innerHeight;
+        const width = AgrovatorLayout.calculateStageWidth({
+          shellWidth: shell.clientWidth,
+          viewportHeight,
+          bodyPaddingTop: readPixels(bodyStyle, "padding-top"),
+          bodyPaddingBottom: readPixels(bodyStyle, "padding-bottom"),
+          shellRowGap: readPixels(shellStyle, "row-gap"),
+          controlHeight: fullscreen.getBoundingClientRect().height,
+          controlMarginTop: readPixels(controlStyle, "margin-top"),
+          controlMarginBottom: readPixels(controlStyle, "margin-bottom"),
+        });
+        const nextWidth = `${width}px`;
+        if (stage.style.width !== nextWidth) {
+          stage.style.width = nextWidth;
+        }
       }
 
       function showBanner(message, type) {
@@ -55,11 +76,25 @@
         }
       }
 
-      window.addEventListener("resize", fitCanvas, { passive: true });
-      window.addEventListener("orientationchange", fitCanvas, { passive: true });
-      const resizeObserver = new ResizeObserver(fitCanvas);
+      let layoutFrame = 0;
+      function requestLayout() {
+        if (layoutFrame !== 0) {
+          return;
+        }
+        layoutFrame = window.requestAnimationFrame(() => {
+          layoutFrame = 0;
+          fitCanvas();
+        });
+      }
+
+      window.addEventListener("resize", requestLayout, { passive: true });
+      window.addEventListener("orientationchange", requestLayout, { passive: true });
+      if (window.visualViewport) {
+        window.visualViewport.addEventListener("resize", requestLayout, { passive: true });
+      }
+      const resizeObserver = new ResizeObserver(requestLayout);
       resizeObserver.observe(shell);
-      fitCanvas();
+      requestLayout();
 
       const buildUrl = "Build";
       const loaderUrl = `${buildUrl}/{{{ LOADER_FILENAME }}}`;

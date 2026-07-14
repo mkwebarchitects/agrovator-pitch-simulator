@@ -8,7 +8,7 @@ At the completed Task 18 checkpoint:
 - Canonical EditMode is `300/300`; canonical PlayMode is `35/35`, with zero failures, skips, inconclusive tests, or compile/exception markers.
 - Bootstrap/Game generation, screen/focus contracts, full scenario/results/retry, local mock LMS, same-origin WebGL bridge/harness, accessibility settings, original art imports, and browser-safe audio hooks are implemented.
 - Default build order is Bootstrap then Game. WebIntegrationTest is excluded.
-- The approved Task 18 development build succeeded: wrapper `377.897` seconds; BuildReport `92,354,975` bytes in `00:05:44.6730968`; zero build warnings/errors; six generated files. The plain payload totals `92,348,318` bytes, and no compressed artifact was emitted.
+- The final review-corrected Task 18 development build succeeded: warm-cache wrapper `50.886` seconds; BuildReport `92,357,339` bytes in `00:00:04.4515450`; zero build warnings/errors; seven generated files. The plain payload totals `92,349,401` bytes, and no compressed artifact was emitted.
 - English is reviewed; Malay key parity exists with `pending_human_review` English fallback.
 
 These counts are historical evidence for this commit range, not a substitute for fresh verification after change.

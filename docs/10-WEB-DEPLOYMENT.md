@@ -14,20 +14,21 @@ Unity `6000.5.3f1` with WebGL Build Support is required. The default build order
 
 ## Measured Task 18 development build
 
-On 2026-07-14, the approved wrapper completed in `377.897` seconds. Unity's `BuildReport` reported `Succeeded`, `92,354,975` bytes, `00:05:44.6730968`, zero build warnings and zero build errors. The complete log contained zero compiler errors, compilation failures, `BuildFailedException`, failed-result markers, unhandled exceptions or batch-abort markers. It did contain two non-build Unity Services network diagnostics (`Curl error 28`) for unreachable analytics/configuration endpoints; they did not affect the player result.
+On 2026-07-14, the final review-corrected approved wrapper completed in `50.886` seconds with a warm build cache. Unity's `BuildReport` reported `Succeeded`, `92,357,339` bytes, `00:00:04.4515450`, zero build warnings and zero build errors. The complete log contained zero compiler errors, compilation failures, `BuildFailedException`, failed-result markers, unhandled exceptions or batch-abort markers. It did contain two non-build clean-shutdown diagnostics (`Curl error 42: Callback aborted`); they did not affect the player result.
 
-The six emitted files total exactly `92,354,975` bytes:
+The seven emitted files total exactly `92,357,339` bytes:
 
 | Artifact | Bytes |
 | --- | ---: |
-| `Build/WebGL/index.html` | 4,086 |
+| `Build/WebGL/index.html` | 5,367 |
 | `Build/WebGL/TemplateData/style.css` | 2,571 |
+| `Build/WebGL/TemplateData/layout.js` | 1,083 |
 | `Build/WebGL/Build/WebGL.loader.js` | 58,622 |
 | `Build/WebGL/Build/WebGL.framework.js` | 711,897 |
 | `Build/WebGL/Build/WebGL.data` | 9,288,984 |
 | `Build/WebGL/Build/WebGL.wasm` | 82,288,815 |
 
-The development configuration intentionally selects Gzip plus decompression fallback as a same-origin local-harness setting, but this Development build emitted plain `.js`, `.data` and `.wasm` files. Uncompressed payload bytes are `92,348,318`; no `.gz`, `.br` or `.unityweb` artifact was produced, so a compressed-byte total is not applicable. Production compression and hosting headers remain a later deployment decision.
+The development configuration intentionally selects Gzip plus decompression fallback as a same-origin local-harness setting, but this Development build emitted plain `.js`, `.data` and `.wasm` files. Uncompressed payload bytes are `92,349,401`; no `.gz`, `.br` or `.unityweb` artifact was produced, so a compressed-byte total is not applicable. Production compression and hosting headers remain a later deployment decision.
 
 ## Hosting requirements to confirm
 
