@@ -31,7 +31,8 @@ namespace Agrovator.PitchSimulator.UI
 
         public bool IsInitialized { get; private set; }
 
-        public void Initialize(PitchSessionController sessionController, Func<string, string> localize = null)
+        public void Initialize(PitchSessionController sessionController, Func<string, string> localize = null,
+            Action onTitleUserGesture = null)
         {
             if (sessionController == null)
             {
@@ -48,7 +49,7 @@ namespace Agrovator.PitchSimulator.UI
             }
 
             controller = sessionController;
-            titlePresenter.Initialize(controller, Refresh, OpenSettings);
+            titlePresenter.Initialize(controller, Refresh, OpenSettings, onTitleUserGesture);
             briefingPresenter.Initialize(controller, Refresh);
             pitchRoomPresenter.Initialize(controller, Refresh, localize);
             resultsPresenter.Initialize(controller, Refresh);

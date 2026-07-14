@@ -1,7 +1,9 @@
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using Agrovator.PitchSimulator.Editor;
+using Agrovator.PitchSimulator.Audio;
 using Agrovator.PitchSimulator.UI;
 using NUnit.Framework;
 using UnityEditor;
@@ -41,8 +43,10 @@ namespace Agrovator.PitchSimulator.Tests.EditMode.UI
             {
                 PitchSimulatorProjectBuilder.BuildProjectFoundationBatch();
                 AssertContract(scene);
+                AssertBootstrapAudioContract();
                 PitchSimulatorProjectBuilder.BuildProjectFoundationBatch();
                 AssertContract(scene);
+                AssertBootstrapAudioContract();
             }
             finally
             {
@@ -52,6 +56,38 @@ namespace Agrovator.PitchSimulator.Tests.EditMode.UI
                     File.WriteAllBytes(pair.Key, pair.Value);
                 }
                 AssetDatabase.Refresh(ImportAssetOptions.ForceSynchronousImport | ImportAssetOptions.ForceUpdate);
+            }
+        }
+
+        private static void AssertBootstrapAudioContract()
+        {
+            var scene = EditorSceneManager.OpenScene("Assets/Scenes/Bootstrap.unity", OpenSceneMode.Additive);
+            try
+            {
+                var generated = scene.GetRootGameObjects().Single(root => root.name == "Generated Bootstrap");
+                var bootstrapper = generated.GetComponentInChildren<Bootstrapper>(true);
+                var sources = bootstrapper.GetComponents<AudioSource>();
+                Assert.That(sources, Has.Length.EqualTo(2));
+                Assert.That(sources.All(source => !source.playOnAwake), Is.True);
+                Assert.That(sources.All(source => source.spatialBlend == 0f), Is.True);
+
+                var serialized = new SerializedObject(bootstrapper);
+                var music = serialized.FindProperty("musicSource").objectReferenceValue as AudioSource;
+                var sfx = serialized.FindProperty("sfxSource").objectReferenceValue as AudioSource;
+                Assert.That(music, Is.Not.Null.And.Not.SameAs(sfx));
+                Assert.That(music.loop, Is.True);
+                Assert.That(sfx.loop, Is.False);
+                var bindings = serialized.FindProperty("audioCueBindings");
+                Assert.That(bindings.arraySize, Is.EqualTo(Enum.GetValues(typeof(AudioCue)).Length));
+                for (var index = 0; index < bindings.arraySize; index++)
+                {
+                    Assert.That(bindings.GetArrayElementAtIndex(index)
+                        .FindPropertyRelative("clip").objectReferenceValue, Is.Null);
+                }
+            }
+            finally
+            {
+                EditorSceneManager.CloseScene(scene, true);
             }
         }
 

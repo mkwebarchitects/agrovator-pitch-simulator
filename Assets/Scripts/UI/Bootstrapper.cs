@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using System.Linq;
 using Agrovator.PitchSimulator.Accessibility;
+using Agrovator.PitchSimulator.Audio;
 using Agrovator.PitchSimulator.Core;
 using Agrovator.PitchSimulator.Dialogue;
 using Agrovator.PitchSimulator.LMS;
@@ -21,11 +22,15 @@ namespace Agrovator.PitchSimulator.UI
         [SerializeField] private TextAsset scenarioJson;
         [SerializeField] private TextAsset englishCatalogJson;
         [SerializeField] private TextAsset malayCatalogJson;
+        [SerializeField] private AudioSource musicSource;
+        [SerializeField] private AudioSource sfxSource;
+        [SerializeField] private AudioCueBinding[] audioCueBindings = Array.Empty<AudioCueBinding>();
 
         private static Bootstrapper instance;
         private PitchSessionController controller;
         private GameScreenRouter router;
         private Func<string, string> localize;
+        private AudioService audioService;
 
         public bool IsInitialized { get; private set; }
 
@@ -92,8 +97,9 @@ namespace Agrovator.PitchSimulator.UI
                 yield break;
             }
 
+            ConfigureAudio();
             router = routers[0];
-            router.Initialize(controller, localize);
+            router.Initialize(controller, localize, HandleTitleUserGesture);
             IsInitialized = true;
         }
 
@@ -113,10 +119,36 @@ namespace Agrovator.PitchSimulator.UI
             controller?.Dispose();
             controller = null;
             router = null;
+            audioService = null;
             if (instance == this)
             {
                 instance = null;
             }
+        }
+
+        private void ConfigureAudio()
+        {
+            var music = musicSource == null
+                ? (IAudioPlaybackChannel)new SilentAudioPlaybackChannel()
+                : new UnityAudioSourceChannel(musicSource);
+            var sfx = sfxSource == null
+                ? (IAudioPlaybackChannel)new SilentAudioPlaybackChannel()
+                : new UnityAudioSourceChannel(sfxSource);
+            audioService = new AudioService(
+                music,
+                sfx,
+                audioCueBindings ?? Array.Empty<AudioCueBinding>(),
+                new UnityAudioDiagnostics(this),
+                Debug.isDebugBuild || Application.isEditor);
+            audioService.SetMusicVolume(0.8f);
+            audioService.SetSfxVolume(0.8f);
+        }
+
+        private void HandleTitleUserGesture()
+        {
+            if (audioService == null) return;
+            audioService.UnlockAfterUserGesture();
+            audioService.Play(AudioCue.ButtonPress);
         }
 
         private bool TryCreateController(out PitchSessionController result)

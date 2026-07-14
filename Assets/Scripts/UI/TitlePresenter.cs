@@ -12,9 +12,11 @@ namespace Agrovator.PitchSimulator.UI
         private PitchSessionController controller;
         private Action changed;
         private Action openSettings;
+        private Action userGesture;
         private bool initialized;
 
-        public void Initialize(PitchSessionController sessionController, Action onChanged, Action onOpenSettings)
+        public void Initialize(PitchSessionController sessionController, Action onChanged, Action onOpenSettings,
+            Action onUserGesture = null)
         {
             if (sessionController == null) throw new ArgumentNullException(nameof(sessionController));
             startButton.onClick.RemoveListener(StartScenario);
@@ -22,6 +24,7 @@ namespace Agrovator.PitchSimulator.UI
             controller = sessionController;
             changed = onChanged;
             openSettings = onOpenSettings;
+            userGesture = onUserGesture;
             startButton.onClick.AddListener(StartScenario);
             settingsButton.onClick.AddListener(OpenSettings);
             initialized = true;
@@ -42,6 +45,7 @@ namespace Agrovator.PitchSimulator.UI
         private void StartScenario()
         {
             if (!initialized) return;
+            userGesture?.Invoke();
             controller.StartScenario();
             changed?.Invoke();
         }
@@ -49,6 +53,7 @@ namespace Agrovator.PitchSimulator.UI
         private void OpenSettings()
         {
             if (!initialized) return;
+            userGesture?.Invoke();
             openSettings?.Invoke();
         }
     }

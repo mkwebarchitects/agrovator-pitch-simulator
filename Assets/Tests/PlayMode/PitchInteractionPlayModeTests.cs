@@ -92,6 +92,34 @@ namespace Agrovator.PitchSimulator.Tests.PlayMode
         }
 
         [Test]
+        public void TitleButtons_InvokeUserGestureSynchronouslyBeforeTheirCommands()
+        {
+            var root = Track(new GameObject("Title", typeof(TitlePresenter)));
+            var presenter = root.GetComponent<TitlePresenter>();
+            var start = CreateButton(root.transform, "Start");
+            var settings = CreateButton(root.transform, "Settings");
+            SetField(presenter, "startButton", start);
+            SetField(presenter, "settingsButton", settings);
+            var controller = CreateController(BuildScenario(timerSeconds: 1));
+            Assert.That(controller.FinishLaunch(), Is.True);
+            var calls = new System.Collections.Generic.List<string>();
+            presenter.Initialize(
+                controller,
+                () => calls.Add("start"),
+                () => calls.Add("settings"),
+                () => calls.Add("gesture"));
+
+            settings.onClick.Invoke();
+            start.onClick.Invoke();
+
+            Assert.That(calls, Is.EqualTo(new[]
+            {
+                "gesture", "settings", "gesture", "start",
+            }));
+            controller.Dispose();
+        }
+
+        [Test]
         public void TimerView_RendersCeilingFillAndGentleFinalFivePulse_WithoutReducedMotion()
         {
             var root = Track(new GameObject("Timer", typeof(RectTransform), typeof(TimerView)));

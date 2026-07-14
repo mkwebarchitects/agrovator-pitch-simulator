@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Agrovator.PitchSimulator.UI;
+using Agrovator.PitchSimulator.Audio;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
@@ -71,6 +72,17 @@ namespace Agrovator.PitchSimulator.Editor
                 var bootstrapObject = new GameObject("Bootstrapper");
                 bootstrapObject.transform.SetParent(root.transform, false);
                 var bootstrapper = bootstrapObject.AddComponent<Bootstrapper>();
+                var musicSource = bootstrapObject.AddComponent<AudioSource>();
+                musicSource.playOnAwake = false;
+                musicSource.spatialBlend = 0f;
+                musicSource.loop = true;
+                var sfxSource = bootstrapObject.AddComponent<AudioSource>();
+                sfxSource.playOnAwake = false;
+                sfxSource.spatialBlend = 0f;
+                sfxSource.loop = false;
+                SetReference(bootstrapper, "musicSource", musicSource);
+                SetReference(bootstrapper, "sfxSource", sfxSource);
+                SetAudioCueBindings(bootstrapper);
                 SetReference(bootstrapper, "scenarioJson",
                     AssetDatabase.LoadAssetAtPath<TextAsset>("Assets/Content/Scenarios/smart-school-garden.en.json"));
                 SetReference(bootstrapper, "englishCatalogJson",
@@ -83,6 +95,21 @@ namespace Agrovator.PitchSimulator.Editor
             {
                 CloseIfOwned(scene, closeAfter);
             }
+        }
+
+        private static void SetAudioCueBindings(Bootstrapper bootstrapper)
+        {
+            var serialized = new SerializedObject(bootstrapper);
+            var bindings = serialized.FindProperty("audioCueBindings");
+            var cues = (AudioCue[])Enum.GetValues(typeof(AudioCue));
+            bindings.arraySize = cues.Length;
+            for (var index = 0; index < cues.Length; index++)
+            {
+                var binding = bindings.GetArrayElementAtIndex(index);
+                binding.FindPropertyRelative("cue").enumValueIndex = (int)cues[index];
+                binding.FindPropertyRelative("clip").objectReferenceValue = null;
+            }
+            serialized.ApplyModifiedPropertiesWithoutUndo();
         }
 
         private static void BuildGameScene()

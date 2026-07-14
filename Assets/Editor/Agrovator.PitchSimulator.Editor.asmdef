@@ -2,7 +2,8 @@
     "name": "Agrovator.PitchSimulator.Editor",
     "rootNamespace": "Agrovator.PitchSimulator.Editor",
     "references": [
-        "Agrovator.PitchSimulator.UI"
+        "Agrovator.PitchSimulator.UI",
+        "Agrovator.PitchSimulator.Audio"
     ],
     "includePlatforms": [
         "Editor"

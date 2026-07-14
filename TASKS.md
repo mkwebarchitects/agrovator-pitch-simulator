@@ -20,7 +20,7 @@ This checklist mirrors `docs/plans/2026-07-14-pitch-simulator-vertical-slice.md`
 - [ ] Task 11: Unity composition, scenes and uGUI shell
 - [ ] Task 12: Response interaction, timer and confidence presentation
 - [ ] Task 13: Original pixel-art presentation and judge reactions
-- [ ] Task 14: Browser-safe audio hooks
+- [x] Task 14: Browser-safe audio hooks
 - [ ] Task 15: WebGL JavaScript bridge and local LMS harness
 - [ ] Task 16: Complete results, review and retry flow
 
@@ -113,7 +113,13 @@ This checklist mirrors `docs/plans/2026-07-14-pitch-simulator-vertical-slice.md`
 
 ## Next action
 
-Begin Task 14 by adding browser-safe audio hooks.
+Begin Task 15 by adding the WebGL JavaScript bridge and local LMS harness.
+
+- 2026-07-14 Task 14 RED: the focused `AudioServiceTests` run produced no XML and reached the expected missing-production-API boundary with `CS0234` for the absent Audio namespace plus `CS0246` for `AudioCueBinding`, `AudioService`, `AudioCue`, `IAudioPlaybackChannel` and `IAudioDiagnostics`; the complete log ended with `Scripts have compiler errors.`
+- 2026-07-14 Task 14 focused GREEN: the device-free audio fixture reported `7/7` passed and the Title user-gesture PlayMode assertion reported `1/1` passed, each with zero failures or compile/exception markers. The exact nine-cue inventory routes only `MusicLoop` to the looping music channel and the other eight cues to one-shot SFX. Pre-unlock calls are inert and unqueued; unlock is idempotent; mute preserves independent finite-safe clamped volumes; null, missing and unknown cues warn at most once through the injected development diagnostic seam.
+- 2026-07-14 Task 14 generated-scene GREEN: the Editor builder fixture reported `1/1` passed with zero failure markers while invoking the builder twice. The generated Bootstrap owns exactly two distinct 2D `AudioSource` components with `playOnAwake=false`, explicit music/SFX loop policies and nine intentionally null clip bindings. `Bootstrapper` explicitly constructs the plain service, and Title Start/Settings callbacks invoke the idempotent gesture unlock synchronously before the first `ButtonPress` attempt; there is no `Awake`, `Start` or `Update` autoplay.
+- 2026-07-14 Task 14 asset/licensing boundary: `Assets/Audio/PLACEHOLDERS.md` maps every cue to a reserved filename, channel, loop policy, recommended source/import treatment, provenance evidence and child-safe loudness review. It explicitly states that no final audio is included, licensed or claimed.
+- 2026-07-14 Task 14 full regression GREEN: persistent project-builder runs 1 and 2 each exited `0` with one success marker and zero failure markers. Canonical EditMode reported `296/296` and canonical PlayMode `19/19`, both Passed with zero failures, skips, inconclusive tests or compile/exception markers. Incidental Unity 6.5 ProjectSettings/SceneTemplate output and unrelated Game/WebIntegrationTest serialization churn were removed; final scene hashes are Bootstrap `8BD9567B...`, Game `6FA0A5B0...` and WebIntegrationTest `2B0546A1...`.
 
 - 2026-07-14 Task 12 PlayMode RED: the interaction fixture reached the expected missing-production-type boundary with `CS0246` for `ResponseListView`, `TimerView` and `ConfidenceView`; no XML was produced and the log ended at `Scripts have compiler errors.`
 - 2026-07-14 Task 12 focused GREEN: `PitchInteractionPlayModeTests` reported `13/13` passed with zero failures, skips or inconclusive tests; the complete log contained zero compile/exception markers. It covers the fixed three-slot response pool, numbered display text, visible-only explicit navigation and focus, synchronous click/Submit one-shot locking, timer number/fill/pulse behavior, reduced-motion suppression, exact five-state confidence boundaries and controller-owned neutral timeout rendering.
