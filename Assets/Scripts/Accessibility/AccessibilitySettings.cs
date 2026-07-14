@@ -45,9 +45,18 @@ namespace Agrovator.PitchSimulator.Accessibility
                 return 0d;
             }
 
-            return TimerMode == TimerMode.Extended
-                ? authoredDurationSeconds * 1.5d
-                : authoredDurationSeconds;
+            if (TimerMode != TimerMode.Extended)
+            {
+                return authoredDurationSeconds;
+            }
+
+            var effectiveDuration = authoredDurationSeconds * 1.5d;
+            if (double.IsInfinity(effectiveDuration))
+            {
+                throw new ArgumentOutOfRangeException(nameof(authoredDurationSeconds));
+            }
+
+            return effectiveDuration;
         }
 
         private static TimerMode NormalizeTimerMode(TimerMode timerMode)

@@ -68,6 +68,26 @@ namespace Agrovator.PitchSimulator.Tests.EditMode.Core
         }
 
         [Test]
+        public void ExpiredListener_ObservesCommittedStateAndCannotReenterExpiry()
+        {
+            var timer = new QuestionTimer(1d);
+            var expiryCount = 0;
+            timer.Expired += () =>
+            {
+                expiryCount++;
+                Assert.That(timer.RemainingSeconds, Is.Zero);
+                Assert.That(timer.HasExpired, Is.True);
+                timer.Tick(1d);
+            };
+
+            timer.Tick(1d);
+
+            Assert.That(expiryCount, Is.EqualTo(1));
+            Assert.That(timer.RemainingSeconds, Is.Zero);
+            Assert.That(timer.HasExpired, Is.True);
+        }
+
+        [Test]
         public void ZeroDuration_DisablesCountdownWithoutExpiring()
         {
             var timer = new QuestionTimer(0d);
@@ -79,6 +99,39 @@ namespace Agrovator.PitchSimulator.Tests.EditMode.Core
             Assert.That(timer.RemainingSeconds, Is.Zero);
             Assert.That(timer.HasExpired, Is.False);
             Assert.That(expiryCount, Is.Zero);
+        }
+
+        [Test]
+        public void PauseAndResume_DisabledTimerDoesNotStartOrExpire()
+        {
+            var timer = new QuestionTimer(0d);
+            var expiryCount = 0;
+            timer.Expired += () => expiryCount++;
+
+            timer.Pause();
+            timer.Resume();
+            timer.Tick(10d);
+
+            Assert.That(timer.RemainingSeconds, Is.Zero);
+            Assert.That(timer.HasExpired, Is.False);
+            Assert.That(expiryCount, Is.Zero);
+        }
+
+        [Test]
+        public void PauseAndResume_ExpiredTimerDoesNotRestartOrExpireAgain()
+        {
+            var timer = new QuestionTimer(1d);
+            var expiryCount = 0;
+            timer.Expired += () => expiryCount++;
+            timer.Tick(1d);
+
+            timer.Pause();
+            timer.Resume();
+            timer.Tick(10d);
+
+            Assert.That(timer.RemainingSeconds, Is.Zero);
+            Assert.That(timer.HasExpired, Is.True);
+            Assert.That(expiryCount, Is.EqualTo(1));
         }
 
         [Test]

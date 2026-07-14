@@ -79,6 +79,28 @@ namespace Agrovator.PitchSimulator.Tests.EditMode.Accessibility
         }
 
         [Test]
+        public void GetEffectiveDuration_ExtendedAcceptsMaximumSafeDuration()
+        {
+            const double maximumSafeAuthoredDuration = 1.1984620899082103E+308;
+            var settings = Create(timerMode: TimerMode.Extended);
+
+            var result = settings.GetEffectiveDuration(maximumSafeAuthoredDuration, false);
+
+            Assert.That(result, Is.EqualTo(1.7976931348623155E+308));
+            Assert.That(double.IsInfinity(result), Is.False);
+        }
+
+        [Test]
+        public void GetEffectiveDuration_ExtendedRejectsDurationAboveSafeBoundary()
+        {
+            const double firstOverflowingAuthoredDuration = 1.1984620899082105E+308;
+            var settings = Create(timerMode: TimerMode.Extended);
+
+            Assert.Throws<ArgumentOutOfRangeException>(
+                () => settings.GetEffectiveDuration(firstOverflowingAuthoredDuration, false));
+        }
+
+        [Test]
         public void GetEffectiveDuration_OffReturnsZero()
         {
             var settings = Create(timerMode: TimerMode.Off);
