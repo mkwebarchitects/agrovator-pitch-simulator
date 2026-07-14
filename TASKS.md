@@ -22,7 +22,7 @@ This checklist mirrors `docs/plans/2026-07-14-pitch-simulator-vertical-slice.md`
 - [x] Task 13: Original pixel-art presentation and judge reactions
 - [x] Task 14: Browser-safe audio hooks
 - [x] Task 15: WebGL JavaScript bridge and local LMS harness
-- [ ] Task 16: Complete results, review and retry flow
+- [x] Task 16: Complete results, review and retry flow
 
 ## P2 - Delivery and acceptance
 
@@ -146,3 +146,8 @@ Begin Task 16 by completing the results, review and retry flow.
 - 2026-07-14 Task 13 review visual GREEN: the builder fixture reported `1/1` passed. Ink `#0E171F` against cream `#F4EAD5` measures `15.139:1` for the prompt; the reversed pair gives the same ratio for status, confidence and timer copy. Opaque, compact, raycast-free backings protect text from variable artwork without obscuring the room; the `1280x720` reference, preferred-height budget and direct-child rect containment all pass.
 - 2026-07-14 Task 13 review runtime/importer GREEN: PlayMode reported `18/18`; `PixelArtImportTests` reported `9/9`; generated-scene PlayMode reported `2/2`. Confidence artwork and glyph are mutually exclusive with runtime missing-sprite fallback. The existing authored `Curious` cue maps explicitly to typed Interested while truly unknown cues still map to Encouraging. Sprite slicing now uses the Unity 6 built-in `com.unity.2d.sprite` `1.0.0` package and `Unity.2D.Sprite.Editor` data-provider API (`ISpriteEditorDataProvider`, `SpriteRect`, name/file-ID provider), with zero `CS0618` markers.
 - 2026-07-14 Task 13 review full GREEN: final canonical PlayMode reported `18/18` and EditMode `289/289`; final builder runs both exited `0` with success markers and zero failure markers. Scene and sprite-meta SHA-256 values matched before/after tests exactly: Bootstrap `372ACAA1...`, Game `6FA0A5B0...`, WebIntegrationTest `09BCF104...`, Judge meta `F20D01B0...`, Confidence meta `8ACD53DB...`. Incidental ProjectSettings/SceneTemplate output and unrelated scene file-ID churn were removed after verification.
+
+- 2026-07-14 Task 16 RED: the focused `ResultsPlayModeTests` run produced no XML and stopped only at the expected missing-production-type boundary, with `CS0246` for `QuestionReviewItemView`; the log ended with `Scripts have compiler errors.`
+- 2026-07-14 Task 16 focused GREEN: `ResultsPlayModeTests` reported `4/4` passed with zero failures or compile/exception markers. Strong and recovery paths assert overall/final confidence, pitching/communications rollups, two strengths, two improvements and immutable ordered response/feedback/explanation review history. Retry clears the complete attempt state. Success, Submitting, generic Failure, Expired and Missing Configuration render localized statuses; failed submissions retain review and can be submitted again.
+- 2026-07-14 Task 16 generated-scene GREEN: the project builder completed twice with exit `0`; the strengthened Editor fixture reported `1/1`. The Results screen owns a fixed six-item review pool under a bounded vertical `ScrollRect`, explicit serialized presenter references, localized headings/action labels, explicit Submit/Retry navigation and 1280x720-contained non-scrolling chrome.
+- 2026-07-14 Task 16 full regression GREEN: canonical PlayMode reported `33/33` and EditMode `296/296`, both Passed with zero failures, skips, inconclusive tests or compile/exception markers. Bootstrap and WebIntegrationTest scene churn plus Unity ProjectSettings/SceneTemplate normalization were removed; only the required generated Game results hierarchy remains in scope.

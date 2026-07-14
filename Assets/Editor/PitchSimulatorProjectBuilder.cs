@@ -146,7 +146,7 @@ namespace Agrovator.PitchSimulator.Editor
                 var briefingDefault = briefing.transform.Find("Continue Button").GetComponent<Button>();
                 var pitchDefault = pitch.transform.Find("Responses/Response 1").GetComponent<Button>();
                 var pitchContinueDefault = pitch.transform.Find("Continue Button").GetComponent<Button>();
-                var resultsDefault = results.transform.Find("Submit Button").GetComponent<Button>();
+                var resultsDefault = results.transform.Find("Footer/Submit Button").GetComponent<Button>();
                 var settingsDefault = settings.transform.Find("Close Button").GetComponent<Button>();
 
                 SetReference(router, "titlePanel", title);
@@ -446,15 +446,166 @@ namespace Agrovator.PitchSimulator.Editor
         {
             var panel = CreateScreen("Results", parent);
             presenter = panel.AddComponent<ResultsPresenter>();
-            CreateLabel("Heading", panel.transform, "Results", 40, FontStyle.Bold);
-            var summary = CreateLabel("Summary", panel.transform, "Pitch complete", 28);
-            var submit = CreateButton("Submit Button", panel.transform, "Submit Results");
-            var retry = CreateButton("Retry Button", panel.transform, "Try Again");
+            var panelLayout = panel.GetComponent<VerticalLayoutGroup>();
+            panelLayout.padding = new RectOffset(72, 72, 20, 20);
+            panelLayout.spacing = 12f;
+
+            var heading = CreateLabel("Heading", panel.transform, "Results", 36, FontStyle.Bold);
+            heading.GetComponent<LayoutElement>().preferredHeight = 50f;
+
+            var scrollObject = new GameObject("Results Scroll", typeof(RectTransform), typeof(Image),
+                typeof(ScrollRect), typeof(LayoutElement));
+            scrollObject.transform.SetParent(panel.transform, false);
+            scrollObject.GetComponent<Image>().color = new Color(0.075f, 0.12f, 0.15f, 1f);
+            var scrollLayout = scrollObject.GetComponent<LayoutElement>();
+            scrollLayout.minHeight = 280f;
+            scrollLayout.preferredHeight = 450f;
+            scrollLayout.flexibleHeight = 1f;
+
+            var viewportObject = new GameObject("Viewport", typeof(RectTransform), typeof(Image), typeof(RectMask2D));
+            viewportObject.transform.SetParent(scrollObject.transform, false);
+            Stretch(viewportObject.GetComponent<RectTransform>());
+            viewportObject.GetComponent<Image>().color = new Color(0f, 0f, 0f, 0.01f);
+
+            var contentObject = new GameObject("Content", typeof(RectTransform), typeof(VerticalLayoutGroup),
+                typeof(ContentSizeFitter));
+            contentObject.transform.SetParent(viewportObject.transform, false);
+            var contentRect = contentObject.GetComponent<RectTransform>();
+            contentRect.anchorMin = new Vector2(0f, 1f);
+            contentRect.anchorMax = new Vector2(1f, 1f);
+            contentRect.pivot = new Vector2(0.5f, 1f);
+            contentRect.anchoredPosition = Vector2.zero;
+            contentRect.sizeDelta = Vector2.zero;
+            var contentLayout = contentObject.GetComponent<VerticalLayoutGroup>();
+            contentLayout.padding = new RectOffset(28, 28, 24, 24);
+            contentLayout.spacing = 12f;
+            contentLayout.childAlignment = TextAnchor.UpperLeft;
+            contentLayout.childControlWidth = true;
+            contentLayout.childControlHeight = true;
+            contentLayout.childForceExpandWidth = true;
+            contentLayout.childForceExpandHeight = false;
+            contentObject.GetComponent<ContentSizeFitter>().verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+            var scroll = scrollObject.GetComponent<ScrollRect>();
+            scroll.viewport = viewportObject.GetComponent<RectTransform>();
+            scroll.content = contentRect;
+            scroll.horizontal = false;
+            scroll.vertical = true;
+            scroll.movementType = ScrollRect.MovementType.Clamped;
+            scroll.scrollSensitivity = 40f;
+
+            var level = CreateLabel("Level", contentObject.transform, "Level", 30, FontStyle.Bold);
+            var overall = CreateLabel("Overall", contentObject.transform, "Overall 0", 24);
+            var confidence = CreateLabel("Final Confidence", contentObject.transform, "Final confidence 0", 24);
+            var pitching = CreateLabel("Pitching", contentObject.transform, "Pitching 0", 24);
+            var communications = CreateLabel("Communications", contentObject.transform, "Communication 0", 24);
+            var strengthsHeading = CreateLabel("Strengths Heading", contentObject.transform, "Strengths", 26,
+                FontStyle.Bold);
+            var strengths = new[]
+            {
+                CreateLabel("Strength 1", contentObject.transform, string.Empty, 22),
+                CreateLabel("Strength 2", contentObject.transform, string.Empty, 22),
+            };
+            var improvementsHeading = CreateLabel("Improvements Heading", contentObject.transform, "Improvements",
+                26, FontStyle.Bold);
+            var improvements = new[]
+            {
+                CreateLabel("Improvement 1", contentObject.transform, string.Empty, 22),
+                CreateLabel("Improvement 2", contentObject.transform, string.Empty, 22),
+            };
+            var reviewHeading = CreateLabel("Review Heading", contentObject.transform, "Review your choices", 28,
+                FontStyle.Bold);
+            var reviewItems = new QuestionReviewItemView[6];
+            for (var index = 0; index < reviewItems.Length; index++)
+            {
+                reviewItems[index] = CreateQuestionReviewItem(index + 1, contentObject.transform);
+            }
+
+            foreach (var text in contentObject.GetComponentsInChildren<Text>(true))
+            {
+                text.alignment = TextAnchor.MiddleLeft;
+            }
+
+            var status = CreateLabel("Submission Status", panel.transform, "", 22, FontStyle.Bold);
+            status.GetComponent<LayoutElement>().preferredHeight = 40f;
+            var footer = new GameObject("Footer", typeof(RectTransform), typeof(HorizontalLayoutGroup),
+                typeof(LayoutElement));
+            footer.transform.SetParent(panel.transform, false);
+            var footerLayout = footer.GetComponent<HorizontalLayoutGroup>();
+            footerLayout.spacing = 20f;
+            footerLayout.childAlignment = TextAnchor.MiddleCenter;
+            footerLayout.childControlWidth = true;
+            footerLayout.childControlHeight = true;
+            footerLayout.childForceExpandWidth = true;
+            footerLayout.childForceExpandHeight = false;
+            footer.GetComponent<LayoutElement>().preferredHeight = 64f;
+            var submit = CreateButton("Submit Button", footer.transform, "Submit Results");
+            var retry = CreateButton("Retry Button", footer.transform, "Try Again");
             ConfigureVerticalNavigation(submit, retry);
-            SetReference(presenter, "summaryText", summary);
+            SetReference(presenter, "headingText", heading);
+            SetReference(presenter, "levelText", level);
+            SetReference(presenter, "overallText", overall);
+            SetReference(presenter, "confidenceText", confidence);
+            SetReference(presenter, "pitchingText", pitching);
+            SetReference(presenter, "communicationsText", communications);
+            SetReference(presenter, "strengthsHeadingText", strengthsHeading);
+            SetReferenceArray(presenter, "strengthTexts", strengths);
+            SetReference(presenter, "improvementsHeadingText", improvementsHeading);
+            SetReferenceArray(presenter, "improvementTexts", improvements);
+            SetReference(presenter, "reviewHeadingText", reviewHeading);
+            SetReferenceArray(presenter, "reviewItems", reviewItems);
+            SetReference(presenter, "submissionStatusText", status);
             SetReference(presenter, "submitButton", submit);
+            SetReference(presenter, "submitButtonText", submit.transform.Find("Label").GetComponent<Text>());
             SetReference(presenter, "retryButton", retry);
+            SetReference(presenter, "retryButtonText", retry.transform.Find("Label").GetComponent<Text>());
             return panel;
+        }
+
+        private static QuestionReviewItemView CreateQuestionReviewItem(int number, Transform parent)
+        {
+            var root = new GameObject($"Review Item {number}", typeof(RectTransform), typeof(Image),
+                typeof(VerticalLayoutGroup), typeof(LayoutElement), typeof(QuestionReviewItemView));
+            root.transform.SetParent(parent, false);
+            root.GetComponent<Image>().color = Cream;
+            var layout = root.GetComponent<VerticalLayoutGroup>();
+            layout.padding = new RectOffset(24, 24, 18, 18);
+            layout.spacing = 6f;
+            layout.childAlignment = TextAnchor.UpperLeft;
+            layout.childControlWidth = true;
+            layout.childControlHeight = true;
+            layout.childForceExpandWidth = true;
+            layout.childForceExpandHeight = false;
+            root.GetComponent<LayoutElement>().preferredHeight = 430f;
+
+            var responseLabel = CreateLabel("Response Label", root.transform, "Your response", 18, FontStyle.Bold);
+            var response = CreateLabel("Response", root.transform, string.Empty, 21);
+            var feedbackLabel = CreateLabel("Feedback Label", root.transform, "Feedback", 18, FontStyle.Bold);
+            var feedback = CreateLabel("Feedback", root.transform, string.Empty, 21);
+            var explanationLabel = CreateLabel("Explanation Label", root.transform, "Stronger answer", 18,
+                FontStyle.Bold);
+            var explanation = CreateLabel("Explanation", root.transform, string.Empty, 21);
+            foreach (var text in root.GetComponentsInChildren<Text>())
+            {
+                text.color = Ink;
+                text.alignment = TextAnchor.UpperLeft;
+            }
+            foreach (var label in new[] { responseLabel, feedbackLabel, explanationLabel })
+            {
+                label.GetComponent<LayoutElement>().preferredHeight = 42f;
+            }
+            foreach (var value in new[] { response, feedback, explanation })
+            {
+                value.GetComponent<LayoutElement>().preferredHeight = 76f;
+            }
+
+            var view = root.GetComponent<QuestionReviewItemView>();
+            SetReference(view, "responseLabel", responseLabel);
+            SetReference(view, "responseText", response);
+            SetReference(view, "feedbackLabel", feedbackLabel);
+            SetReference(view, "feedbackText", feedback);
+            SetReference(view, "explanationLabel", explanationLabel);
+            SetReference(view, "explanationText", explanation);
+            return view;
         }
 
         private static GameObject CreateSettingsScreen(Transform parent, out SettingsPresenter presenter)

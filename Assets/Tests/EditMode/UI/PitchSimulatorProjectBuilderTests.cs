@@ -159,6 +159,33 @@ namespace Agrovator.PitchSimulator.Tests.EditMode.UI
             Assert.That(judge.IsConfigured, Is.True);
             Assert.That(pitchRoom.Find("Confidence/Artwork Icon").GetComponent<Image>(), Is.Not.Null);
 
+            var results = generated.transform.Find("Canvas/Results");
+            Assert.That(results, Is.Not.Null);
+            var resultsPresenter = results.GetComponent<ResultsPresenter>();
+            Assert.That(resultsPresenter, Is.Not.Null);
+            Assert.That(resultsPresenter.ValidateContract(), Is.True);
+            var resultsScroll = results.Find("Results Scroll").GetComponent<ScrollRect>();
+            Assert.That(resultsScroll, Is.Not.Null);
+            Assert.That(resultsScroll.vertical, Is.True);
+            Assert.That(resultsScroll.horizontal, Is.False);
+            Assert.That(resultsScroll.viewport, Is.Not.Null);
+            Assert.That(resultsScroll.content, Is.Not.Null);
+            Assert.That(resultsScroll.content.GetComponentsInChildren<QuestionReviewItemView>(true),
+                Has.Length.EqualTo(6));
+            Assert.That(results.Find("Footer/Submit Button").GetComponent<Button>().navigation.mode,
+                Is.EqualTo(Navigation.Mode.Explicit));
+            Assert.That(results.Find("Footer/Retry Button").GetComponent<Button>().navigation.mode,
+                Is.EqualTo(Navigation.Mode.Explicit));
+
+            var resultsRect = results.GetComponent<RectTransform>();
+            LayoutRebuilder.ForceRebuildLayoutImmediate(resultsRect);
+            Assert.That(RequiredVerticalHeight(results), Is.LessThanOrEqualTo(720f),
+                "Results chrome must fit the 1280x720 reference while review content scrolls.");
+            foreach (Transform child in results)
+            {
+                AssertContained(resultsRect, child.GetComponent<RectTransform>());
+            }
+
             AssertTextContrast(
                 pitchRoom.Find("Status Backing/Status").GetComponent<Text>(),
                 pitchRoom.Find("Status Backing").GetComponent<Image>(), 4.5f);

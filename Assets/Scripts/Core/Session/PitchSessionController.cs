@@ -23,6 +23,7 @@ namespace Agrovator.PitchSimulator.Core
         private readonly string gameVersion;
         private readonly GameStateMachine stateMachine = new GameStateMachine(GameState.Booting);
         private readonly List<string> selectedResponseIds = new List<string>();
+        private readonly List<PitchReviewEntry> reviewHistory = new List<PitchReviewEntry>();
 
         private DialogueSession dialogue;
         private ConfidenceMeter confidence;
@@ -179,6 +180,10 @@ namespace Agrovator.PitchSimulator.Core
                 scores.Apply(response.ScoreDelta, response.CompetencyTags);
                 confidence.Apply(response.ConfidenceDelta);
                 selectedResponseIds.Add(response.Id);
+                reviewHistory.Add(new PitchReviewEntry(
+                    response.TextKey,
+                    response.FeedbackKey,
+                    response.ExplanationKey));
             }
 
             lastResponseId = response.Id;
@@ -338,6 +343,7 @@ namespace Agrovator.PitchSimulator.Core
             dialogue = new DialogueSession(scenario);
             confidence = new ConfidenceMeter(scenario.InitialConfidence);
             selectedResponseIds.Clear();
+            reviewHistory.Clear();
             timeoutCount = 0;
             durationSeconds = 0d;
             result = null;
@@ -458,6 +464,7 @@ namespace Agrovator.PitchSimulator.Core
                 timeoutCount,
                 attemptNumber,
                 selectedResponseIds.AsReadOnly(),
+                reviewHistory.AsReadOnly(),
                 lastResponseId,
                 lastReactionCue,
                 lastFeedbackKey,

@@ -22,6 +22,7 @@ namespace Agrovator.PitchSimulator.Core
             int timeoutCount,
             int attemptNumber,
             IReadOnlyList<string> selectedResponseIds,
+            IReadOnlyList<PitchReviewEntry> reviewHistory,
             string lastResponseId,
             string lastReactionCue,
             string lastFeedbackKey,
@@ -41,6 +42,7 @@ namespace Agrovator.PitchSimulator.Core
             TimeoutCount = timeoutCount;
             AttemptNumber = attemptNumber;
             SelectedResponseIds = Copy(selectedResponseIds);
+            ReviewHistory = Copy(reviewHistory);
             LastResponseId = lastResponseId;
             LastReactionCue = lastReactionCue;
             LastFeedbackKey = lastFeedbackKey;
@@ -73,6 +75,8 @@ namespace Agrovator.PitchSimulator.Core
         public int AttemptNumber { get; }
 
         public IReadOnlyList<string> SelectedResponseIds { get; }
+
+        public IReadOnlyList<PitchReviewEntry> ReviewHistory { get; }
 
         public string LastResponseId { get; }
 
@@ -151,5 +155,24 @@ namespace Agrovator.PitchSimulator.Core
                 RecommendedFollowUpLessonId = source.RecommendedFollowUpLessonId,
             };
         }
+    }
+
+    public sealed class PitchReviewEntry
+    {
+        internal PitchReviewEntry(
+            string responseDisplayKey,
+            string feedbackKey,
+            string explanationKey)
+        {
+            ResponseDisplayKey = responseDisplayKey;
+            FeedbackKey = feedbackKey;
+            ExplanationKey = explanationKey;
+        }
+
+        public string ResponseDisplayKey { get; }
+
+        public string FeedbackKey { get; }
+
+        public string ExplanationKey { get; }
     }
 }

@@ -52,7 +52,8 @@ namespace Agrovator.PitchSimulator.UI
             titlePresenter.Initialize(controller, Refresh, OpenSettings, onTitleUserGesture);
             briefingPresenter.Initialize(controller, Refresh);
             pitchRoomPresenter.Initialize(controller, Refresh, localize);
-            resultsPresenter.Initialize(controller, Refresh);
+            resultsPresenter.Initialize(controller, Refresh,
+                localize ?? (key => "Localization text is unavailable."));
             settingsPresenter.Initialize(CloseSettings);
             controller.EventPublished += HandleSessionEvent;
             IsInitialized = true;
@@ -104,6 +105,11 @@ namespace Agrovator.PitchSimulator.UI
                 pitchRoomContinueDefault == pitchRoomDefault)
             {
                 reason = "Pitch-room Continue focus reference is incomplete or invalid.";
+                return false;
+            }
+            if (!resultsPresenter.ValidateContract())
+            {
+                reason = "Results presenter contract is incomplete.";
                 return false;
             }
 
