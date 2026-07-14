@@ -11,7 +11,7 @@ This checklist mirrors `docs/plans/2026-07-14-pitch-simulator-vertical-slice.md`
 - [x] Task 5: Scoring, confidence and result feedback
 - [x] Task 6: Timer and accessibility settings
 - [x] Task 7: LMS contracts, serialization and mock bridge
-- [ ] Task 8: Localization catalog and save-data versioning
+- [x] Task 8: Localization catalog and save-data versioning
 - [ ] Task 9: Smart School Garden content and JSON import
 - [ ] Task 10: Session controller orchestration
 
@@ -69,7 +69,11 @@ This checklist mirrors `docs/plans/2026-07-14-pitch-simulator-vertical-slice.md`
 - 2026-07-14 Task 7 review RED: against commit `c118b6d`, the expanded focused LMS fixture reported `51/88` passed with exactly `37` expected failures: `15` serializer-gating/non-finite cases, `10` launch-volume validation cases, `9` launch-reference validation cases and `3` permissive timestamp cases; the complete 391-line log had `0` compile/exception markers. A follow-up upper-bound RED reported `88/89` passed with the sole expected failure that a 61-character launch-reference identifier was accepted.
 - 2026-07-14 Task 7 review GREEN: the final focused fixture reported `89/89` passed with `0` failures, skips or inconclusive tests and the complete 386-line log contained `0` failure markers. The final canonical wrapper reported `197/197` EditMode tests passed; independent XML parsing confirmed `Passed` with `0` failures, skips or inconclusive tests, and the complete 366-line log contained `0` failure markers. Serialization now gates on structured validation before `JsonUtility`, all serialized floating values must be finite and in range, launch references require `lref_` plus 12-60 URL-safe identifier characters, timestamps use exact invariant RFC3339 UTC forms with optional 1-7 digit fractional seconds, and completion arrays normalize to non-null empty arrays after JSON deserialization.
 - 2026-07-14 Task 7 timestamp review cycle 3: focused RED against `8ba1127` reported `89/90` passed with the sole expected failure that bare-decimal timestamp `2026-07-14T02:00:00.Z` was accepted; the complete 388-line log had `0` failure markers. Replacing optional uppercase-`F` parsing with exact lowercase-`f` formats for 1-7 fractional digits produced focused GREEN `90/90` and canonical full EditMode GREEN `198/198`, both with `0` failures, skips or inconclusive tests; their complete 387/364-line logs contained `0` failure markers.
+- 2026-07-14 Task 8 RED: the focused localization fixture produced no XML and reached the expected missing-production-type compiler boundary (`CS0246` for `LocalizationCatalog`); the complete 707-line Unity log ended with `Scripts have compiler errors.` The compiler response included Unity's `System.Runtime.Serialization.dll`, confirming the planned BCL JSON API was available before implementation.
+- 2026-07-14 Task 8 focused GREEN: `LocalizationTests` reported `12/12` and `SaveDataTests` reported `18/18` passed with `0` failures, skips or inconclusive tests; independent XML parsing confirmed `Passed`, and their complete 419/366-line logs contained `0` matches for `error CS\d+|Compilation failed|Unhandled Exception`.
+- 2026-07-14 Task 8 all Edit Mode GREEN: the canonical wrapper reported `228/228` passed with `0` failures, skips or inconclusive tests; independent XML parsing confirmed `Passed`, and the complete 363-line log contained `0` failure-marker matches.
+- 2026-07-14 Task 8 catalog/versioning checks: `en.json` is the canonical `reviewed` 28-key catalog; `ms.json` has exactly the same 28 ordinal keys, no duplicates or omissions, and status `pending_human_review`, with reviewed English fallback copy rather than fabricated Malay. All 19 Task 5 result keys are present. `DataContractJsonSerializer` parses the deterministic locale/status/entries schema and rejects malformed/null/duplicate entries. Save version 1 contains exactly version, timer mode, reduced motion, music volume, SFX volume and locale primitives; v0 deterministically migrates to v1 defaults, negative/future versions are rejected, and Core contains `0` Accessibility or `UnityEngine` references.
 
 ## Next action
 
-Begin Task 8 by writing the failing localization catalog and save-data versioning tests.
+Begin Task 9 by writing the failing Smart School Garden content and JSON import tests.
