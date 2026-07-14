@@ -51,13 +51,18 @@ namespace Agrovator.PitchSimulator.Tests.EditMode.Dialogue
         }
 
         [Test]
-        public void EveryPlayablePath_HasTutorialAndAtLeastFiveScoredQuestions()
+        public void EveryPlayablePath_TerminatesWithSixQuestionsWithoutDeadEndsOrChoiceLoss()
         {
             var scenario = LoadDefinition();
-            var paths = EnumerateQuestionCounts(scenario);
+            var catalog = LocalizationCatalog.Load(ReadCatalog("en"), ReadCatalog("ms"));
+            var analysis = AnalyzePaths(scenario, catalog);
 
-            Assert.That(paths, Is.Not.Empty);
-            Assert.That(paths.Min(), Is.GreaterThanOrEqualTo(5));
+            Assert.That(analysis.Paths, Has.Count.EqualTo(729));
+            Assert.That(analysis.Paths, Has.All.Matches<PathResult>(path => path.QuestionCount == 6));
+            Assert.That(analysis.DeadEndCount, Is.Zero);
+            Assert.That(analysis.MissingDestinationCount, Is.Zero);
+            Assert.That(analysis.UnavailableSelectedDestinationCount, Is.Zero);
+            Assert.That(analysis.ChoiceLossCount, Is.Zero);
             Assert.That(scenario.Nodes.Count(node => node.NodeType == "Tutorial"), Is.EqualTo(1));
         }
 
@@ -130,6 +135,14 @@ namespace Agrovator.PitchSimulator.Tests.EditMode.Dialogue
                 Assert.That(catalog.Resolve("en", key), Does.Not.StartWith("[[missing:"), key);
                 Assert.That(catalog.Resolve("ms", key), Does.Not.StartWith("[[missing:"), key);
             }
+
+            if (catalog.GetTranslationStatus("ms") == "pending_human_review")
+            {
+                foreach (var key in catalog.GetKeys("en"))
+                {
+                    Assert.That(catalog.Resolve("ms", key), Is.EqualTo(catalog.Resolve("en", key)), key);
+                }
+            }
         }
 
         [Test]
@@ -145,23 +158,30 @@ namespace Agrovator.PitchSimulator.Tests.EditMode.Dialogue
         }
 
         [Test]
-        public void AnswerLength_DoesNotPredictStrongQuality()
+        public void LongestChoices_AreDistributedAcrossQualityTiersWithoutStrongMajority()
         {
             var scenario = LoadDefinition();
             var catalog = LocalizationCatalog.Load(ReadCatalog("en"), ReadCatalog("ms"));
             var questions = scenario.Nodes.Where(node => node.NodeType == "Question").ToArray();
-            var strongLengths = questions.Select(node => catalog.Resolve(
-                "en",
-                node.Responses.Single(response => response.QualityTier == "Strong").TextKey).Length).ToArray();
-            var longestLengths = questions.Select(node => node.Responses.Max(response =>
-                catalog.Resolve("en", response.TextKey).Length)).ToArray();
-            var shortestLengths = questions.Select(node => node.Responses.Min(response =>
-                catalog.Resolve("en", response.TextKey).Length)).ToArray();
+            var longestTiers = questions.Select(node => LongestQualityTier(node.Responses, catalog)).ToArray();
 
-            Assert.That(strongLengths.Zip(longestLengths, (strong, longest) => strong < longest).Count(value => value),
-                Is.GreaterThanOrEqualTo(2));
-            Assert.That(strongLengths.Zip(shortestLengths, (strong, shortest) => strong == shortest),
-                Has.Some.True);
+            Assert.That(longestTiers, Does.Contain("Strong"));
+            Assert.That(longestTiers, Does.Contain("Developing"));
+            Assert.That(longestTiers, Does.Contain("NeedsWork"));
+            Assert.That(longestTiers.Count(tier => tier == "Strong"),
+                Is.LessThanOrEqualTo(questions.Length / 2));
+        }
+
+        [Test]
+        public void EveryPlayableRoute_HasAtMostTwoQuestionsWhereLongestChoiceIsStrong()
+        {
+            var scenario = LoadDefinition();
+            var catalog = LocalizationCatalog.Load(ReadCatalog("en"), ReadCatalog("ms"));
+            var analysis = AnalyzePaths(scenario, catalog);
+
+            Assert.That(analysis.Paths, Is.Not.Empty);
+            Assert.That(analysis.Paths,
+                Has.All.Matches<PathResult>(path => path.StrongLongestQuestionCount <= 2));
         }
 
         private static ScenarioDefinitionDto LoadDefinition()
@@ -204,45 +224,100 @@ namespace Agrovator.PitchSimulator.Tests.EditMode.Dialogue
             }
         }
 
-        private static IReadOnlyList<int> EnumerateQuestionCounts(ScenarioDefinitionDto scenario)
+        private static PathAnalysis AnalyzePaths(ScenarioDefinitionDto scenario, LocalizationCatalog catalog)
         {
             var nodes = scenario.Nodes.ToDictionary(node => node.Id, StringComparer.Ordinal);
-            var counts = new List<int>();
-            Visit(scenario.OpeningNodeId, new HashSet<string>(StringComparer.Ordinal), 0, 0);
-            return counts;
+            var analysis = new PathAnalysis();
+            Visit(scenario.OpeningNodeId, new HashSet<string>(StringComparer.Ordinal), 0, 0, 0);
+            return analysis;
 
-            void Visit(string nodeId, HashSet<string> flags, int questionCount, int depth)
+            void Visit(
+                string nodeId,
+                HashSet<string> flags,
+                int questionCount,
+                int strongLongestQuestionCount,
+                int depth)
             {
                 Assert.That(depth, Is.LessThan(20), "Scenario path appears cyclic.");
-                var node = nodes[nodeId];
-                if (!Available(node.RequiredFlags, node.BlockedFlags, flags))
+                if (!nodes.TryGetValue(nodeId, out var node))
                 {
+                    analysis.MissingDestinationCount++;
                     return;
                 }
 
+                if (!Available(node.RequiredFlags, node.BlockedFlags, flags))
+                {
+                    analysis.UnavailableSelectedDestinationCount++;
+                    return;
+                }
+
+                var availableResponses = node.Responses
+                    .Where(response => Available(response.RequiredFlags, response.BlockedFlags, flags))
+                    .ToArray();
                 if (node.NodeType == "Question")
                 {
                     questionCount++;
+                    if (availableResponses.Length != 3)
+                    {
+                        analysis.ChoiceLossCount++;
+                    }
+
+                    if (availableResponses.Length > 0
+                        && LongestQualityTier(availableResponses, catalog) == "Strong")
+                    {
+                        strongLongestQuestionCount++;
+                    }
                 }
 
                 if (node.NodeType == "Terminal")
                 {
-                    counts.Add(questionCount);
+                    analysis.Paths.Add(new PathResult(questionCount, strongLongestQuestionCount));
                     return;
                 }
 
-                foreach (var response in node.Responses)
+                if (availableResponses.Length == 0)
                 {
-                    if (!Available(response.RequiredFlags, response.BlockedFlags, flags))
+                    analysis.DeadEndCount++;
+                    return;
+                }
+
+                foreach (var response in availableResponses)
+                {
+                    var nextFlags = new HashSet<string>(flags, StringComparer.Ordinal);
+                    nextFlags.UnionWith(response.SetFlags);
+                    if (!nodes.TryGetValue(response.NextNodeId, out var destination))
                     {
+                        analysis.MissingDestinationCount++;
                         continue;
                     }
 
-                    var nextFlags = new HashSet<string>(flags, StringComparer.Ordinal);
-                    nextFlags.UnionWith(response.SetFlags);
-                    Visit(response.NextNodeId, nextFlags, questionCount, depth + 1);
+                    if (!Available(destination.RequiredFlags, destination.BlockedFlags, nextFlags))
+                    {
+                        analysis.UnavailableSelectedDestinationCount++;
+                        continue;
+                    }
+
+                    Visit(
+                        response.NextNodeId,
+                        nextFlags,
+                        questionCount,
+                        strongLongestQuestionCount,
+                        depth + 1);
                 }
             }
+        }
+
+        private static string LongestQualityTier(
+            IEnumerable<ResponseOptionDto> responses,
+            LocalizationCatalog catalog)
+        {
+            var choices = responses.Select(response => new
+            {
+                Response = response,
+                Length = catalog.Resolve("en", response.TextKey).Length,
+            }).ToArray();
+            var maximumLength = choices.Max(choice => choice.Length);
+            return choices.Single(choice => choice.Length == maximumLength).Response.QualityTier;
         }
 
         private static bool Available(
@@ -265,6 +340,32 @@ namespace Agrovator.PitchSimulator.Tests.EditMode.Dialogue
                 score.Communication,
                 score.TimeManagement,
             };
+        }
+
+        private sealed class PathAnalysis
+        {
+            public List<PathResult> Paths { get; } = new List<PathResult>();
+
+            public int DeadEndCount { get; set; }
+
+            public int MissingDestinationCount { get; set; }
+
+            public int UnavailableSelectedDestinationCount { get; set; }
+
+            public int ChoiceLossCount { get; set; }
+        }
+
+        private sealed class PathResult
+        {
+            public PathResult(int questionCount, int strongLongestQuestionCount)
+            {
+                QuestionCount = questionCount;
+                StrongLongestQuestionCount = strongLongestQuestionCount;
+            }
+
+            public int QuestionCount { get; }
+
+            public int StrongLongestQuestionCount { get; }
         }
     }
 }
