@@ -1,0 +1,21 @@
+{
+    "name": "Agrovator.PitchSimulator.EditModeTests",
+    "rootNamespace": "Agrovator.PitchSimulator.Tests.EditMode",
+    "references": [
+        "Agrovator.PitchSimulator.Core"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": false,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false,
+    "optionalUnityReferences": [
+        "TestAssemblies"
+    ]
+}
