@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using Agrovator.PitchSimulator.Editor;
 using Agrovator.PitchSimulator.Audio;
+using Agrovator.PitchSimulator.LMS;
 using Agrovator.PitchSimulator.UI;
 using NUnit.Framework;
 using UnityEditor;
@@ -44,9 +45,13 @@ namespace Agrovator.PitchSimulator.Tests.EditMode.UI
                 PitchSimulatorProjectBuilder.BuildProjectFoundationBatch();
                 AssertContract(scene);
                 AssertBootstrapAudioContract();
+                AssertWebIntegrationContract();
+                AssertExactBuildSettings();
                 PitchSimulatorProjectBuilder.BuildProjectFoundationBatch();
                 AssertContract(scene);
                 AssertBootstrapAudioContract();
+                AssertWebIntegrationContract();
+                AssertExactBuildSettings();
             }
             finally
             {
@@ -57,6 +62,48 @@ namespace Agrovator.PitchSimulator.Tests.EditMode.UI
                 }
                 AssetDatabase.Refresh(ImportAssetOptions.ForceSynchronousImport | ImportAssetOptions.ForceUpdate);
             }
+        }
+
+        private static void AssertWebIntegrationContract()
+        {
+            var scene = EditorSceneManager.OpenScene(
+                "Assets/Scenes/WebIntegrationTest.unity", OpenSceneMode.Additive);
+            try
+            {
+                var ownedRoots = scene.GetRootGameObjects()
+                    .Where(root => root.name == "Generated Web Integration Test")
+                    .ToArray();
+                Assert.That(ownedRoots, Has.Length.EqualTo(1));
+                var root = ownedRoots[0];
+                var hosts = root.GetComponentsInChildren<WebGlLmsBridgeHost>(true);
+                Assert.That(hosts, Has.Length.EqualTo(1));
+
+                var serialized = new SerializedObject(hosts[0]);
+                var diagnostics = serialized.FindProperty("diagnosticsLabel").objectReferenceValue as Text;
+                Assert.That(diagnostics, Is.Not.Null);
+                Assert.That(diagnostics.transform.IsChildOf(root.transform), Is.True);
+
+                var missingScripts = scene.GetRootGameObjects()
+                    .SelectMany(sceneRoot => sceneRoot.GetComponentsInChildren<Transform>(true))
+                    .Sum(item => GameObjectUtility.GetMonoBehavioursWithMissingScriptCount(item.gameObject));
+                Assert.That(missingScripts, Is.Zero);
+            }
+            finally
+            {
+                EditorSceneManager.CloseScene(scene, true);
+            }
+        }
+
+        private static void AssertExactBuildSettings()
+        {
+            var scenes = EditorBuildSettings.scenes;
+            Assert.That(scenes, Has.Length.EqualTo(2));
+            Assert.That(scenes.All(scene => scene.enabled), Is.True);
+            Assert.That(scenes.Select(scene => scene.path), Is.EqualTo(new[]
+            {
+                "Assets/Scenes/Bootstrap.unity",
+                "Assets/Scenes/Game.unity",
+            }));
         }
 
         private static void AssertBootstrapAudioContract()

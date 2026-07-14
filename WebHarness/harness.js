@@ -13,6 +13,12 @@
   const completionAttempt = document.getElementById("completion-attempt");
   const completionCompetencies = document.getElementById("completion-competencies");
   const completionTimeouts = document.getElementById("completion-timeouts");
+  const allowedCompletionStatuses = Object.freeze({
+    completed: "Completed",
+    passed: "Passed",
+    failed: "Failed",
+    incomplete: "Incomplete"
+  });
 
   const launchConfig = Object.freeze({
     PseudonymousLearnerId: "local-learner-001",
@@ -56,7 +62,7 @@
     const competencyCount = Array.isArray(payload.CompetencyScores)
       ? payload.CompetencyScores.length
       : 0;
-    completionStatus.textContent = String(payload.CompletionStatus || "submitted");
+    completionStatus.textContent = normalizeCompletionStatus(payload.CompletionStatus);
     completionScore.textContent = Number.isFinite(payload.OverallScore)
       ? String(payload.OverallScore)
       : "—";
@@ -67,6 +73,14 @@
     completionTimeouts.textContent = Number.isInteger(payload.TimeoutCount)
       ? String(payload.TimeoutCount)
       : "—";
+  }
+
+  function normalizeCompletionStatus(value) {
+    if (typeof value !== "string") return "Unknown";
+    const normalized = value.trim().toLowerCase();
+    return Object.prototype.hasOwnProperty.call(allowedCompletionStatuses, normalized)
+      ? allowedCompletionStatuses[normalized]
+      : "Unknown";
   }
 
   function resultStatus() {

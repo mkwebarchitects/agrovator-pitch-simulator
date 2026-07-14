@@ -75,5 +75,11 @@ mergeInto(LibraryManager.library, {
       requestId: requestId,
       payload: payload
     }, window.location.origin);
+  },
+
+  PitchSimulatorBridge_CancelSubmission__deps: ["$PitchSimulatorLmsBridge"],
+  PitchSimulatorBridge_CancelSubmission: function (requestId) {
+    PitchSimulatorLmsBridge.initialize();
+    delete PitchSimulatorLmsBridge.pending[requestId];
   }
 });

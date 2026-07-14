@@ -76,6 +76,22 @@ namespace Agrovator.PitchSimulator.Tests.PlayMode
         }
 
         [Test]
+        public void SubmitCompletion_MissingConfiguration_MapsMissingConfigurationForAttempt()
+        {
+            var transport = new FakeWebGlLmsTransport();
+            var bridge = new WebGlLmsBridge(transport);
+            LmsSubmissionError error = null;
+
+            bridge.SubmitCompletion(ValidCompletion(), null, value => error = value);
+            transport.Fail(WebGlLmsTransportFailure.MissingConfiguration);
+
+            Assert.That(error, Is.Not.Null);
+            Assert.That(error.Code, Is.EqualTo(LmsSubmissionErrorCode.MissingConfiguration));
+            Assert.That(error.MessageKey, Is.EqualTo("lms.configuration.missing"));
+            Assert.That(error.AttemptNumber, Is.EqualTo(2));
+        }
+
+        [Test]
         public void GetLaunchConfig_MissingConfig_ReturnsNullWithoutSubmissionOrException()
         {
             var transport = new FakeWebGlLmsTransport { LaunchConfigJson = string.Empty };
@@ -126,16 +142,46 @@ namespace Agrovator.PitchSimulator.Tests.PlayMode
 
 #if UNITY_EDITOR
         [Test]
-        public void Bootstrapper_WebGlPath_UsesRealBridgeAndBoundedLaunchPolling()
+        public void LaunchPoller_MissingThenResentConfig_ThrottlesAndRecovers()
         {
-            var sourcePath = Path.Combine(Application.dataPath, "Scripts", "UI", "Bootstrapper.cs");
-            var source = File.ReadAllText(sourcePath);
+            var transport = new FakeWebGlLmsTransport { LaunchConfigJson = string.Empty };
+            var poller = new LmsLaunchPoller(new WebGlLmsBridge(transport), 0.2f);
 
-            Assert.That(source, Does.Contain("#if UNITY_WEBGL && !UNITY_EDITOR"));
-            Assert.That(source, Does.Contain("return new WebGlLmsBridge();"));
-            Assert.That(source, Does.Contain(
-                "while (launch == null && Time.realtimeSinceStartup < launchDeadline)"));
-            Assert.That(source, Does.Contain("WebGlLaunchTimeoutSeconds = 10f"));
+            Assert.That(poller.TryPoll(10f, out var first), Is.False);
+            Assert.That(first, Is.Null);
+            Assert.That(transport.LaunchReadCount, Is.EqualTo(1));
+
+            transport.LaunchConfigJson = LmsPayloadJson.SerializeLaunchConfig(ValidLaunchConfig());
+            Assert.That(poller.TryPoll(10.1f, out var throttled), Is.False);
+            Assert.That(throttled, Is.Null);
+            Assert.That(transport.LaunchReadCount, Is.EqualTo(1));
+
+            Assert.That(poller.TryPoll(10.2f, out var recovered), Is.True);
+            Assert.That(recovered.SessionId, Is.EqualTo("session-web-1"));
+            Assert.That(transport.LaunchReadCount, Is.EqualTo(2));
+        }
+
+        [Test]
+        public void BrowserSources_CancelStaleRequests_AndAllowlistCompletionStatus()
+        {
+            var jslib = File.ReadAllText(Path.Combine(
+                Application.dataPath, "Plugins", "WebGL", "PitchSimulatorBridge.jslib"));
+            var bridgeSource = File.ReadAllText(Path.Combine(
+                Application.dataPath, "Scripts", "LMS", "WebGlLmsBridge.cs"));
+            var harness = File.ReadAllText(Path.Combine(
+                Application.dataPath, "..", "WebHarness", "harness.js"));
+
+            Assert.That(jslib, Does.Contain("PitchSimulatorBridge_CancelSubmission"));
+            Assert.That(jslib, Does.Contain("delete PitchSimulatorLmsBridge.pending[requestId]"));
+            Assert.That(bridgeSource, Does.Contain("Pending.Remove(requestId);"));
+            Assert.That(bridgeSource, Does.Contain("TryCancelJavaScriptRequest(requestId);"));
+            Assert.That(bridgeSource, Does.Contain("PitchSimulatorBridge_CancelSubmission(requestId);"));
+            Assert.That(harness, Does.Contain("allowedCompletionStatuses"));
+            Assert.That(harness, Does.Contain(
+                "Object.prototype.hasOwnProperty.call(allowedCompletionStatuses, normalized)"));
+            Assert.That(harness, Does.Contain("return \"Unknown\""));
+            Assert.That(harness, Does.Not.Contain(
+                "completionStatus.textContent = String(payload.CompletionStatus"));
         }
 #endif
 
@@ -198,8 +244,11 @@ namespace Agrovator.PitchSimulator.Tests.PlayMode
 
             public string SubmittedJson { get; private set; }
 
+            public int LaunchReadCount { get; private set; }
+
             public string GetLaunchConfigJson()
             {
+                LaunchReadCount++;
                 return LaunchConfigJson;
             }
 

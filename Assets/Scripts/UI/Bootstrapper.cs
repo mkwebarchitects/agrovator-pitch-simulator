@@ -18,7 +18,6 @@ namespace Agrovator.PitchSimulator.UI
     public sealed class Bootstrapper : MonoBehaviour
     {
         private const string GameSceneName = "Game";
-        private const float WebGlLaunchTimeoutSeconds = 10f;
 
         [SerializeField] private TextAsset scenarioJson;
         [SerializeField] private TextAsset englishCatalogJson;
@@ -91,20 +90,20 @@ namespace Agrovator.PitchSimulator.UI
             }
 
             var lmsBridge = CreateLmsBridge(scenario);
-            var launch = lmsBridge.GetLaunchConfig();
+            var launchPoller = new LmsLaunchPoller(lmsBridge);
+            LmsLaunchConfig launch;
 #if UNITY_WEBGL && !UNITY_EDITOR
-            var launchDeadline = Time.realtimeSinceStartup + WebGlLaunchTimeoutSeconds;
-            while (launch == null && Time.realtimeSinceStartup < launchDeadline)
+            while (!launchPoller.TryPoll(Time.realtimeSinceStartup, out launch))
             {
                 yield return null;
-                launch = lmsBridge.GetLaunchConfig();
             }
-#endif
-            if (launch == null)
+#else
+            if (!launchPoller.TryPoll(Time.realtimeSinceStartup, out launch))
             {
                 Debug.LogError("LMS launch configuration was not available.", this);
                 yield break;
             }
+#endif
 
             if (!TryCreateController(scenario, catalog, lmsBridge, launch, out controller))
             {

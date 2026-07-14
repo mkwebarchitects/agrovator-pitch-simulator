@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using UnityEngine;
-using UnityEngine.UI;
 
 namespace Agrovator.PitchSimulator.LMS
 {
@@ -158,49 +157,46 @@ namespace Agrovator.PitchSimulator.LMS
         }
     }
 
-    [DisallowMultipleComponent]
-    public sealed class WebGlLmsBridgeHost : MonoBehaviour
+    public sealed class LmsLaunchPoller
     {
-        private const float LaunchPollIntervalSeconds = 0.2f;
+        private readonly ILmsBridge bridge;
+        private readonly float intervalSeconds;
+        private bool hasPolled;
+        private float lastPollTime;
+        private float nextPollTime;
 
-        [SerializeField] private Text diagnosticsLabel;
-
-        private WebGlLmsBridge bridge;
-        private float nextLaunchPollTime;
-
-        public bool IsConfigured { get; private set; }
-
-        public Text DiagnosticsLabel => diagnosticsLabel;
-
-        private void Start()
+        public LmsLaunchPoller(ILmsBridge bridge, float intervalSeconds = 0.2f)
         {
-            bridge ??= new WebGlLmsBridge();
-            RefreshLaunchStatus();
+            this.bridge = bridge ?? throw new ArgumentNullException(nameof(bridge));
+            if (float.IsNaN(intervalSeconds) || float.IsInfinity(intervalSeconds) || intervalSeconds <= 0f)
+            {
+                throw new ArgumentOutOfRangeException(nameof(intervalSeconds));
+            }
+            this.intervalSeconds = intervalSeconds;
         }
 
-        private void Update()
-        {
-            if (Time.unscaledTime < nextLaunchPollTime) return;
-            RefreshLaunchStatus();
-        }
+        public bool LastCallPolledTransport { get; private set; }
 
-        public void Initialize(IWebGlLmsTransport transport)
+        public bool TryPoll(float unscaledTime, out LmsLaunchConfig launch)
         {
-            bridge = new WebGlLmsBridge(transport);
-            RefreshLaunchStatus();
-        }
+            if (float.IsNaN(unscaledTime) || float.IsInfinity(unscaledTime))
+            {
+                throw new ArgumentOutOfRangeException(nameof(unscaledTime));
+            }
 
-        public void RefreshLaunchStatus()
-        {
-            bridge ??= new WebGlLmsBridge();
-            nextLaunchPollTime = Time.unscaledTime + LaunchPollIntervalSeconds;
-            var launch = bridge.GetLaunchConfig();
-            IsConfigured = launch != null;
-            if (diagnosticsLabel == null) return;
+            LastCallPolledTransport = false;
+            if (hasPolled && unscaledTime >= lastPollTime && unscaledTime < nextPollTime)
+            {
+                launch = null;
+                return false;
+            }
 
-            diagnosticsLabel.text = IsConfigured
-                ? $"LMS bridge ready (attempt {launch.AttemptNumber})."
-                : "LMS bridge waiting for launch configuration.";
+            hasPolled = true;
+            lastPollTime = unscaledTime;
+            nextPollTime = unscaledTime + intervalSeconds;
+            LastCallPolledTransport = true;
+            launch = bridge.GetLaunchConfig();
+            return launch != null;
         }
     }
 
@@ -222,6 +218,9 @@ namespace Agrovator.PitchSimulator.LMS
             string completionJson,
             int requestId,
             string receiverName);
+
+        [DllImport("__Internal")]
+        private static extern void PitchSimulatorBridge_CancelSubmission(int requestId);
 #endif
 
         public string GetLaunchConfigJson()
@@ -246,7 +245,16 @@ namespace Agrovator.PitchSimulator.LMS
                 onSuccess,
                 onFailure,
                 Time.realtimeSinceStartup + SubmissionTimeoutSeconds);
-            PitchSimulatorBridge_SubmitCompletion(completionJson, requestId, ReceiverName);
+            try
+            {
+                PitchSimulatorBridge_SubmitCompletion(completionJson, requestId, ReceiverName);
+            }
+            catch
+            {
+                Pending.Remove(requestId);
+                TryCancelJavaScriptRequest(requestId);
+                throw;
+            }
 #else
             onFailure?.Invoke(WebGlLmsTransportFailure.MissingConfiguration);
 #endif
@@ -286,9 +294,23 @@ namespace Agrovator.PitchSimulator.LMS
 
             foreach (var requestId in ExpiredRequestIds)
             {
-                Fail(requestId, WebGlLmsTransportFailure.SubmissionFailed);
+                if (!Pending.Remove(requestId, out var submission)) continue;
+                TryCancelJavaScriptRequest(requestId);
+                submission.Failure?.Invoke(WebGlLmsTransportFailure.SubmissionFailed);
             }
             ExpiredRequestIds.Clear();
+        }
+
+        private static void TryCancelJavaScriptRequest(int requestId)
+        {
+            try
+            {
+                PitchSimulatorBridge_CancelSubmission(requestId);
+            }
+            catch
+            {
+                // C# ownership is already cleared; a stale browser callback is ignored.
+            }
         }
 
         private sealed class PendingSubmission
@@ -312,43 +334,4 @@ namespace Agrovator.PitchSimulator.LMS
 #endif
     }
 
-    public sealed class WebGlLmsCallbackReceiver : MonoBehaviour
-    {
-        private void Update()
-        {
-#if UNITY_WEBGL && !UNITY_EDITOR
-            BrowserWebGlLmsTransport.ExpireTimedOutSubmissions(Time.realtimeSinceStartup);
-#endif
-        }
-
-        public void OnLmsSubmissionSucceeded(string requestId)
-        {
-#if UNITY_WEBGL && !UNITY_EDITOR
-            if (int.TryParse(requestId, out var parsed))
-            {
-                BrowserWebGlLmsTransport.Complete(parsed);
-            }
-#endif
-        }
-
-        public void OnLmsSubmissionFailed(string result)
-        {
-#if UNITY_WEBGL && !UNITY_EDITOR
-            if (string.IsNullOrEmpty(result)) return;
-            var separator = result.IndexOf('|');
-            if (separator <= 0 || !int.TryParse(result.Substring(0, separator), out var requestId))
-            {
-                return;
-            }
-
-            var status = result.Substring(separator + 1);
-            var failure = status == "expired"
-                ? WebGlLmsTransportFailure.SessionExpired
-                : status == "missing-config"
-                    ? WebGlLmsTransportFailure.MissingConfiguration
-                    : WebGlLmsTransportFailure.SubmissionFailed;
-            BrowserWebGlLmsTransport.Fail(requestId, failure);
-#endif
-        }
-    }
 }
