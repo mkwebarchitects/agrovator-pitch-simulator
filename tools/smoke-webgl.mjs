@@ -262,7 +262,7 @@ async function mouseResponse(page, canvas, timeoutMs) {
   const bounds = await canvas.boundingBox();
   if (!bounds) throw new Error("Unity canvas has no pointer bounds.");
   // Measured generated 1280x720 contract: tutorial response spans ~73%-84% canvas height.
-  await canvas.click({ position: { x: bounds.width * 0.5, y: bounds.height * 0.78 } });
+  await canvas.click({ position: { x: bounds.width * 0.5, y: bounds.height * 0.78 }, delay: 120 });
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
     const current = await controlRegionHash(page, canvas);
@@ -280,7 +280,7 @@ async function mouseContinue(page, canvas, timeoutMs, label, expectControlChange
   const bounds = await canvas.boundingBox();
   if (!bounds) throw new Error("Unity canvas has no Continue-control bounds.");
   // Generated layout contract: active pitch-room Continue spans the bottom control row.
-  await canvas.click({ position: { x: bounds.width * 0.5, y: bounds.height * 0.91 } });
+  await canvas.click({ position: { x: bounds.width * 0.5, y: bounds.height * 0.91 }, delay: 120 });
   if (!expectControlChange) {
     await new Promise(resolveWait => setTimeout(resolveWait, 180));
     return null;
@@ -317,13 +317,13 @@ async function playAttempt(page, frame, canvas, options) {
   const titleBounds = await canvas.boundingBox();
   if (!titleBounds) throw new Error("Unity canvas has no Title-control bounds.");
   const titleBefore = await canvasHash(canvas);
-  await canvas.click({ position: { x: titleBounds.width * 0.5, y: titleBounds.height * 0.61 } });
+  await canvas.click({ position: { x: titleBounds.width * 0.5, y: titleBounds.height * 0.61 }, delay: 120 });
   await waitForCanvasChange(canvas, titleBefore, options.timeoutMs, "Title pointer Start");
   await new Promise(resolveWait => setTimeout(resolveWait, 300));
   const briefingBounds = await canvas.boundingBox();
   if (!briefingBounds) throw new Error("Unity canvas has no Briefing-control bounds.");
   const briefingBefore = await canvasHash(canvas);
-  await canvas.click({ position: { x: briefingBounds.width * 0.5, y: briefingBounds.height * 0.66 } });
+  await canvas.click({ position: { x: briefingBounds.width * 0.5, y: briefingBounds.height * 0.66 }, delay: 120 });
   await waitForCanvasChange(canvas, briefingBefore, options.timeoutMs, "Briefing pointer Continue");
   await new Promise(resolveWait => setTimeout(resolveWait, 300));
 
@@ -366,7 +366,7 @@ async function playAttempt(page, frame, canvas, options) {
   await canvas.click({ position: {
     x: retryBriefingBounds.width * 0.5,
     y: retryBriefingBounds.height * 0.66,
-  } });
+  }, delay: 120 });
   await waitForCanvasChange(canvas, retryBriefingBefore, options.timeoutMs,
     "retry Briefing pointer Continue");
   await mouseContinue(page, canvas, options.timeoutMs, "retry Tutorial");
@@ -398,7 +398,7 @@ async function verifyMissingConfigRecovery(page, options) {
   const recoveredBounds = await canvas.boundingBox();
   if (!recoveredBounds) throw new Error("Recovered Unity canvas has no Title-control bounds.");
   const recoveredBefore = await canvasHash(canvas);
-  await canvas.click({ position: { x: recoveredBounds.width * 0.5, y: recoveredBounds.height * 0.61 } });
+  await canvas.click({ position: { x: recoveredBounds.width * 0.5, y: recoveredBounds.height * 0.61 }, delay: 120 });
   await waitForCanvasChange(canvas, recoveredBefore, options.timeoutMs, "recovered Title pointer Start");
   return true;
 }
