@@ -170,6 +170,12 @@ namespace Agrovator.PitchSimulator.Tests.EditMode.UI
             Assert.That(resultsScroll.horizontal, Is.False);
             Assert.That(resultsScroll.viewport, Is.Not.Null);
             Assert.That(resultsScroll.content, Is.Not.Null);
+            Assert.That(resultsScroll.verticalScrollbar, Is.Not.Null);
+            Assert.That(resultsScroll.verticalScrollbar, Is.TypeOf<KeyboardReviewScrollbar>());
+            Assert.That(resultsScroll.verticalScrollbar.gameObject.activeSelf, Is.True);
+            Assert.That(resultsScroll.verticalScrollbar.interactable, Is.True);
+            Assert.That(resultsScroll.verticalScrollbar.direction, Is.EqualTo(Scrollbar.Direction.BottomToTop));
+            Assert.That(resultsScroll.verticalScrollbar.navigation.mode, Is.EqualTo(Navigation.Mode.Explicit));
             Assert.That(resultsScroll.content.GetComponentsInChildren<QuestionReviewItemView>(true),
                 Has.Length.EqualTo(6));
             Assert.That(results.Find("Footer/Submit Button").GetComponent<Button>().navigation.mode,

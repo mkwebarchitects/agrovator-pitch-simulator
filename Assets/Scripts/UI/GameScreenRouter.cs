@@ -24,6 +24,8 @@ namespace Agrovator.PitchSimulator.UI
         [SerializeField] private Selectable pitchRoomDefault;
         [SerializeField] private Selectable pitchRoomContinueDefault;
         [SerializeField] private Selectable resultsDefault;
+        [SerializeField] private Selectable resultsSubmittingDefault;
+        [SerializeField] private Selectable resultsCompleteDefault;
         [SerializeField] private Selectable settingsDefault;
 
         private PitchSessionController controller;
@@ -110,6 +112,15 @@ namespace Agrovator.PitchSimulator.UI
             if (!resultsPresenter.ValidateContract())
             {
                 reason = "Results presenter contract is incomplete.";
+                return false;
+            }
+            if (resultsSubmittingDefault == null || resultsCompleteDefault == null ||
+                !resultsSubmittingDefault.transform.IsChildOf(resultsPanel.transform) ||
+                !resultsCompleteDefault.transform.IsChildOf(resultsPanel.transform) ||
+                resultsSubmittingDefault == resultsDefault || resultsCompleteDefault == resultsDefault ||
+                resultsSubmittingDefault == resultsCompleteDefault)
+            {
+                reason = "Results state-aware focus references are incomplete or invalid.";
                 return false;
             }
 
@@ -227,7 +238,14 @@ namespace Agrovator.PitchSimulator.UI
                     ? pitchRoomDefault
                     : pitchRoomContinueDefault;
             }
-            if (panel == resultsPanel) return resultsDefault;
+            if (panel == resultsPanel)
+            {
+                if (controller != null && controller.Snapshot.State == GameState.Submitting)
+                    return resultsSubmittingDefault;
+                if (controller != null && controller.Snapshot.State == GameState.Complete)
+                    return resultsCompleteDefault;
+                return resultsDefault;
+            }
             if (panel == settingsPanel) return settingsDefault;
             return null;
         }

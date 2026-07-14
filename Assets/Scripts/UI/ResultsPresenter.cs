@@ -18,6 +18,7 @@ namespace Agrovator.PitchSimulator.UI
         [SerializeField] private Text improvementsHeadingText;
         [SerializeField] private Text[] improvementTexts = Array.Empty<Text>();
         [SerializeField] private Text reviewHeadingText;
+        [SerializeField] private ScrollRect reviewScroll;
         [SerializeField] private QuestionReviewItemView[] reviewItems = Array.Empty<QuestionReviewItemView>();
         [SerializeField] private Text submissionStatusText;
         [SerializeField] private Button submitButton;
@@ -28,6 +29,8 @@ namespace Agrovator.PitchSimulator.UI
         private PitchSessionController controller;
         private Action changed;
         private Func<string, string> localize;
+        private object renderedResultIdentity;
+        private int renderedAttempt = -1;
         private bool initialized;
 
         public void Initialize(
@@ -57,7 +60,9 @@ namespace Agrovator.PitchSimulator.UI
                 submitButton == null || submitButtonText == null || retryButton == null || retryButtonText == null ||
                 strengthTexts == null || strengthTexts.Length != 2 ||
                 improvementTexts == null || improvementTexts.Length != 2 ||
-                reviewItems == null || reviewItems.Length == 0)
+                reviewScroll == null || reviewScroll.content == null || !reviewScroll.vertical ||
+                reviewScroll.horizontal || !(reviewScroll.verticalScrollbar is KeyboardReviewScrollbar) ||
+                reviewItems == null || reviewItems.Length != 6)
             {
                 return false;
             }
@@ -73,6 +78,8 @@ namespace Agrovator.PitchSimulator.UI
                 strengthsHeadingText,
                 improvementsHeadingText,
                 reviewHeadingText,
+                reviewScroll,
+                reviewScroll.verticalScrollbar,
                 submissionStatusText,
                 submitButton,
                 submitButtonText,
@@ -113,10 +120,15 @@ namespace Agrovator.PitchSimulator.UI
             if (snapshot.Result == null)
             {
                 ClearResult();
+                renderedResultIdentity = null;
+                renderedAttempt = snapshot.AttemptNumber;
+                ResetReviewScroll();
             }
             else
             {
                 var result = snapshot.Result;
+                var isNewResult = !ReferenceEquals(renderedResultIdentity, result) ||
+                    renderedAttempt != snapshot.AttemptNumber;
                 levelText.text = localize(result.LevelLocalizationKey);
                 overallText.text = $"{localize("ui.overall_score")} {result.OverallScore}";
                 confidenceText.text = $"{localize("ui.final_confidence")} {snapshot.Confidence}";
@@ -125,6 +137,9 @@ namespace Agrovator.PitchSimulator.UI
                 RefreshList(strengthTexts, result.StrengthKeys);
                 RefreshList(improvementTexts, result.ImprovementKeys);
                 RefreshReview(snapshot);
+                renderedResultIdentity = result;
+                renderedAttempt = snapshot.AttemptNumber;
+                if (isNewResult) ResetReviewScroll();
             }
 
             submissionStatusText.text = GetSubmissionStatus(snapshot);
@@ -172,6 +187,11 @@ namespace Agrovator.PitchSimulator.UI
             RefreshList(strengthTexts, Array.Empty<string>());
             RefreshList(improvementTexts, Array.Empty<string>());
             foreach (var item in reviewItems) item.Clear();
+        }
+
+        private void ResetReviewScroll()
+        {
+            reviewScroll.verticalNormalizedPosition = 1f;
         }
 
         private string GetSubmissionStatus(PitchSessionSnapshot snapshot)

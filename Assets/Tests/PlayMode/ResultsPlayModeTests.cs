@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using System.Reflection;
 using Agrovator.PitchSimulator.Accessibility;
 using Agrovator.PitchSimulator.Core;
@@ -10,6 +11,8 @@ using Agrovator.PitchSimulator.Scoring;
 using Agrovator.PitchSimulator.UI;
 using NUnit.Framework;
 using UnityEngine;
+using UnityEngine.EventSystems;
+using UnityEngine.SceneManagement;
 using UnityEngine.TestTools;
 using UnityEngine.UI;
 
@@ -65,7 +68,11 @@ namespace Agrovator.PitchSimulator.Tests.PlayMode
             Assert.That(rig.ReviewItems[1].ResponseText, Is.EqualTo("Strong finish"));
             Assert.That(rig.ReviewItems[1].FeedbackText, Is.EqualTo("Strong finish feedback"));
             Assert.That(rig.ReviewItems[1].ExplanationText, Is.EqualTo("Strong finish explanation"));
-            Assert.That(rig.ReviewItems[2].gameObject.activeSelf, Is.False);
+            Assert.That(rig.ReviewItems, Has.Length.EqualTo(6));
+            for (var index = 2; index < rig.ReviewItems.Length; index++)
+            {
+                Assert.That(rig.ReviewItems[index].gameObject.activeSelf, Is.False);
+            }
             Assert.That(rig.Status.text, Is.EqualTo("Ready to submit"));
             Assert.That(rig.Submit.interactable, Is.True);
             Assert.That(rig.Retry.interactable, Is.True);
@@ -80,6 +87,10 @@ namespace Agrovator.PitchSimulator.Tests.PlayMode
             rig.Presenter.Refresh(controller.Snapshot);
 
             Assert.That(controller.Snapshot.ReviewHistory, Has.Count.EqualTo(3));
+            Assert.That(controller.Snapshot.OverallScore, Is.EqualTo(27));
+            Assert.That(controller.Snapshot.Confidence, Is.EqualTo(54));
+            Assert.That(controller.Snapshot.Result.PitchingScore, Is.EqualTo(21));
+            Assert.That(controller.Snapshot.Result.CommunicationsScore, Is.EqualTo(6));
             Assert.That(controller.Snapshot.ReviewHistory[0].ResponseDisplayKey, Is.EqualTo("response.opening.weak"));
             Assert.That(controller.Snapshot.ReviewHistory[1].ResponseDisplayKey, Is.EqualTo("response.recovery"));
             Assert.That(controller.Snapshot.ReviewHistory[2].ResponseDisplayKey, Is.EqualTo("response.recovery.finish"));
@@ -90,8 +101,14 @@ namespace Agrovator.PitchSimulator.Tests.PlayMode
             }));
             Assert.That(controller.Snapshot.Result.ImprovementKeys, Has.Count.EqualTo(2));
             Assert.That(rig.ReviewItems[0].ResponseText, Is.EqualTo("Weak opening"));
+            Assert.That(rig.ReviewItems[0].FeedbackText, Is.EqualTo("Weak opening feedback"));
+            Assert.That(rig.ReviewItems[0].ExplanationText, Is.EqualTo("Weak opening explanation"));
             Assert.That(rig.ReviewItems[1].ResponseText, Is.EqualTo("Recovery answer"));
+            Assert.That(rig.ReviewItems[1].FeedbackText, Is.EqualTo("Recovery feedback"));
+            Assert.That(rig.ReviewItems[1].ExplanationText, Is.EqualTo("Recovery explanation"));
             Assert.That(rig.ReviewItems[2].ResponseText, Is.EqualTo("Recovery finish"));
+            Assert.That(rig.ReviewItems[2].FeedbackText, Is.EqualTo("Recovery finish feedback"));
+            Assert.That(rig.ReviewItems[2].ExplanationText, Is.EqualTo("Recovery finish explanation"));
 
             rig.Retry.onClick.Invoke();
             yield return null;
@@ -180,6 +197,127 @@ namespace Agrovator.PitchSimulator.Tests.PlayMode
             Assert.That(controller.Snapshot.ReviewHistory, Has.Count.EqualTo(2));
         }
 
+        [UnityTest]
+        public IEnumerator ReviewScroll_ResetsForInitialAndNewAttemptButNotSubmissionRefreshes()
+        {
+            var bridge = new DeferredBridge();
+            var controller = CreateController(bridge);
+            MoveToResults(controller, "opening-strong", "strong-finish");
+            var rig = CreateResultsRig(controller);
+
+            rig.ReviewScroll.verticalNormalizedPosition = 0.2f;
+            rig.Presenter.Refresh(controller.Snapshot);
+            Assert.That(rig.ReviewScroll.verticalNormalizedPosition, Is.EqualTo(1f));
+
+            rig.ReviewScroll.verticalNormalizedPosition = 0.35f;
+            rig.Submit.onClick.Invoke();
+            Assert.That(controller.Snapshot.State, Is.EqualTo(GameState.Submitting));
+            Assert.That(rig.ReviewScroll.verticalNormalizedPosition, Is.EqualTo(0.35f).Within(0.001f));
+
+            bridge.Fail(new LmsSubmissionError(
+                LmsSubmissionErrorCode.SubmissionFailed,
+                "lms.submission.failed",
+                controller.Snapshot.AttemptNumber));
+            rig.Presenter.Refresh(controller.Snapshot);
+            Assert.That(rig.ReviewScroll.verticalNormalizedPosition, Is.EqualTo(0.35f).Within(0.001f));
+
+            rig.Retry.onClick.Invoke();
+            Assert.That(controller.Snapshot.State, Is.EqualTo(GameState.Briefing));
+            Assert.That(rig.ReviewScroll.verticalNormalizedPosition, Is.EqualTo(1f));
+
+            CompleteCurrentAttempt(controller, "opening-weak", "recovery-answer", "recovery-finish");
+            rig.ReviewScroll.verticalNormalizedPosition = 0.15f;
+            rig.Presenter.Refresh(controller.Snapshot);
+            yield return null;
+
+            Assert.That(controller.Snapshot.AttemptNumber, Is.EqualTo(2));
+            Assert.That(rig.ReviewScroll.verticalNormalizedPosition, Is.EqualTo(1f));
+        }
+
+        [UnityTest]
+        public IEnumerator GeneratedResults_UsesStateAwareFocusAndKeyboardScrollableReview()
+        {
+            var load = SceneManager.LoadSceneAsync("Game", LoadSceneMode.Additive);
+            Assert.That(load, Is.Not.Null);
+            yield return load;
+
+            var scene = SceneManager.GetSceneByName("Game");
+            var roots = scene.GetRootGameObjects();
+            var router = roots.SelectMany(root => root.GetComponentsInChildren<GameScreenRouter>(true)).Single();
+            var eventSystem = roots.SelectMany(root => root.GetComponentsInChildren<EventSystem>(true)).Single();
+            var results = roots.SelectMany(root => root.GetComponentsInChildren<ResultsPresenter>(true)).Single().transform;
+            var submit = results.Find("Footer/Submit Button").GetComponent<Button>();
+            var retry = results.Find("Footer/Retry Button").GetComponent<Button>();
+            var scrollbar = results.Find("Results Scroll/Scrollbar").GetComponent<Scrollbar>();
+            var scroll = results.Find("Results Scroll").GetComponent<ScrollRect>();
+            var bridge = new DeferredBridge();
+            var controller = CreateController(bridge);
+            MoveToResults(controller, "opening-strong", "strong-finish");
+
+            router.Initialize(controller, Localize);
+            yield return null;
+            Assert.That(EventSystem.current, Is.SameAs(eventSystem));
+            Assert.That(EventSystem.current.currentSelectedGameObject, Is.SameAs(submit.gameObject));
+            Assert.That(scroll.verticalScrollbar, Is.SameAs(scrollbar));
+            Assert.That(scrollbar, Is.TypeOf<KeyboardReviewScrollbar>());
+            Assert.That(scrollbar.gameObject.activeInHierarchy, Is.True);
+            Assert.That(scrollbar.navigation.mode, Is.EqualTo(Navigation.Mode.Explicit));
+            Assert.That(scrollbar.navigation.selectOnDown, Is.SameAs(submit));
+            Assert.That(submit.navigation.selectOnUp, Is.SameAs(scrollbar));
+            Assert.That(submit.navigation.selectOnDown, Is.SameAs(retry));
+            Assert.That(retry.navigation.selectOnUp, Is.SameAs(submit));
+            Assert.That(retry.navigation.selectOnDown, Is.SameAs(scrollbar));
+
+            EventSystem.current.SetSelectedGameObject(scrollbar.gameObject);
+            scrollbar.value = 0f;
+            yield return null;
+            var boundaryDown = new AxisEventData(eventSystem)
+            {
+                moveDir = MoveDirection.Down,
+                moveVector = Vector2.down,
+            };
+            ExecuteEvents.Execute(scrollbar.gameObject, boundaryDown, ExecuteEvents.moveHandler);
+            Assert.That(EventSystem.current.currentSelectedGameObject, Is.SameAs(submit.gameObject));
+
+            Assert.That(controller.SubmitResults(), Is.True);
+            router.Refresh();
+            Assert.That(EventSystem.current.currentSelectedGameObject, Is.SameAs(scrollbar.gameObject));
+            scrollbar.value = 0.5f;
+            yield return null;
+            var before = scrollbar.value;
+            var scrollBefore = scroll.verticalNormalizedPosition;
+            var move = new AxisEventData(eventSystem) { moveDir = MoveDirection.Down, moveVector = Vector2.down };
+            ExecuteEvents.Execute(scrollbar.gameObject, move, ExecuteEvents.moveHandler);
+            yield return null;
+            Assert.That(Mathf.Abs(scrollbar.value - before), Is.GreaterThan(0.0001f));
+            Assert.That(
+                Mathf.Abs(scroll.verticalNormalizedPosition - scrollBefore),
+                Is.GreaterThan(0.0001f),
+                $"scrollbar={scrollbar.value}, scrollBefore={scrollBefore}, scrollAfter={scroll.verticalNormalizedPosition}, " +
+                $"contentHeight={scroll.content.rect.height}, viewportHeight={scroll.viewport.rect.height}, " +
+                $"contentActive={scroll.content.gameObject.activeInHierarchy}, scrollActive={scroll.isActiveAndEnabled}");
+
+            scrollbar.value = 0f;
+            yield return null;
+            EventSystem.current.SetSelectedGameObject(scrollbar.gameObject);
+            var submittingBoundaryDown = new AxisEventData(eventSystem)
+            {
+                moveDir = MoveDirection.Down,
+                moveVector = Vector2.down,
+            };
+            ExecuteEvents.Execute(scrollbar.gameObject, submittingBoundaryDown, ExecuteEvents.moveHandler);
+            Assert.That(EventSystem.current.currentSelectedGameObject, Is.SameAs(scrollbar.gameObject),
+                "Submitting must keep a usable keyboard focus when footer actions are disabled.");
+
+            bridge.Succeed();
+            yield return null;
+            Assert.That(controller.Snapshot.State, Is.EqualTo(GameState.Complete));
+            Assert.That(EventSystem.current.currentSelectedGameObject, Is.SameAs(retry.gameObject));
+
+            controller.Dispose();
+            yield return SceneManager.UnloadSceneAsync(scene);
+        }
+
         private ResultsRig CreateResultsRig(PitchSessionController controller)
         {
             var root = Own(new GameObject("Results Test", typeof(RectTransform), typeof(ResultsPresenter)));
@@ -196,8 +334,24 @@ namespace Agrovator.PitchSimulator.Tests.PlayMode
                 Status = Text("Status", root.transform),
                 Submit = Button("Submit", root.transform),
                 Retry = Button("Retry", root.transform),
-                ReviewItems = new QuestionReviewItemView[4],
+                ReviewItems = new QuestionReviewItemView[6],
             };
+
+            var scrollObject = new GameObject("Review Scroll", typeof(RectTransform), typeof(ScrollRect));
+            scrollObject.transform.SetParent(root.transform, false);
+            var contentObject = new GameObject("Content", typeof(RectTransform));
+            contentObject.transform.SetParent(scrollObject.transform, false);
+            var scrollbarObject = new GameObject("Scrollbar", typeof(RectTransform), typeof(Image),
+                typeof(KeyboardReviewScrollbar));
+            scrollbarObject.transform.SetParent(scrollObject.transform, false);
+            rig.ReviewScroll = scrollObject.GetComponent<ScrollRect>();
+            scrollObject.GetComponent<RectTransform>().sizeDelta = new Vector2(200f, 200f);
+            contentObject.GetComponent<RectTransform>().sizeDelta = new Vector2(200f, 1000f);
+            rig.ReviewScroll.content = contentObject.GetComponent<RectTransform>();
+            rig.ReviewScroll.horizontal = false;
+            rig.ReviewScroll.vertical = true;
+            rig.ReviewScroll.verticalScrollbar = scrollbarObject.GetComponent<Scrollbar>();
+            rig.ReviewScroll.verticalNormalizedPosition = 1f;
 
             for (var index = 0; index < rig.ReviewItems.Length; index++)
             {
@@ -226,6 +380,7 @@ namespace Agrovator.PitchSimulator.Tests.PlayMode
             Set(rig.Presenter, "improvementTexts", rig.Improvements);
             Set(rig.Presenter, "reviewHeadingText", Text("Review Heading", root.transform));
             Set(rig.Presenter, "reviewItems", rig.ReviewItems);
+            Set(rig.Presenter, "reviewScroll", rig.ReviewScroll);
             Set(rig.Presenter, "submissionStatusText", rig.Status);
             Set(rig.Presenter, "submitButton", rig.Submit);
             Set(rig.Presenter, "submitButtonText", Text("Submit Label", rig.Submit.transform));
@@ -239,6 +394,11 @@ namespace Agrovator.PitchSimulator.Tests.PlayMode
         {
             Assert.That(controller.FinishLaunch(), Is.True);
             Assert.That(controller.StartScenario(), Is.True);
+            CompleteCurrentAttempt(controller, responseIds);
+        }
+
+        private static void CompleteCurrentAttempt(PitchSessionController controller, params string[] responseIds)
+        {
             foreach (var responseId in responseIds)
             {
                 while (controller.Snapshot.State != GameState.AwaitingResponse)
@@ -461,6 +621,7 @@ namespace Agrovator.PitchSimulator.Tests.PlayMode
             public Text Status;
             public Button Submit;
             public Button Retry;
+            public ScrollRect ReviewScroll;
             public QuestionReviewItemView[] ReviewItems;
         }
 
@@ -492,6 +653,14 @@ namespace Agrovator.PitchSimulator.Tests.PlayMode
                 onSuccess = null;
                 onFailure = null;
                 callback?.Invoke(error);
+            }
+
+            public void Succeed()
+            {
+                var callback = onSuccess;
+                onSuccess = null;
+                onFailure = null;
+                callback?.Invoke();
             }
         }
     }

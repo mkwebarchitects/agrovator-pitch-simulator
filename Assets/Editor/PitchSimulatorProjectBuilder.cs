@@ -147,6 +147,8 @@ namespace Agrovator.PitchSimulator.Editor
                 var pitchDefault = pitch.transform.Find("Responses/Response 1").GetComponent<Button>();
                 var pitchContinueDefault = pitch.transform.Find("Continue Button").GetComponent<Button>();
                 var resultsDefault = results.transform.Find("Footer/Submit Button").GetComponent<Button>();
+                var resultsSubmittingDefault = results.transform.Find("Results Scroll/Scrollbar").GetComponent<Scrollbar>();
+                var resultsCompleteDefault = results.transform.Find("Footer/Retry Button").GetComponent<Button>();
                 var settingsDefault = settings.transform.Find("Close Button").GetComponent<Button>();
 
                 SetReference(router, "titlePanel", title);
@@ -164,6 +166,8 @@ namespace Agrovator.PitchSimulator.Editor
                 SetReference(router, "pitchRoomDefault", pitchDefault);
                 SetReference(router, "pitchRoomContinueDefault", pitchContinueDefault);
                 SetReference(router, "resultsDefault", resultsDefault);
+                SetReference(router, "resultsSubmittingDefault", resultsSubmittingDefault);
+                SetReference(router, "resultsCompleteDefault", resultsCompleteDefault);
                 SetReference(router, "settingsDefault", settingsDefault);
                 eventSystem.firstSelectedGameObject = titleDefault.gameObject;
 
@@ -465,6 +469,7 @@ namespace Agrovator.PitchSimulator.Editor
             var viewportObject = new GameObject("Viewport", typeof(RectTransform), typeof(Image), typeof(RectMask2D));
             viewportObject.transform.SetParent(scrollObject.transform, false);
             Stretch(viewportObject.GetComponent<RectTransform>());
+            viewportObject.GetComponent<RectTransform>().offsetMax = new Vector2(-40f, 0f);
             viewportObject.GetComponent<Image>().color = new Color(0f, 0f, 0f, 0.01f);
 
             var contentObject = new GameObject("Content", typeof(RectTransform), typeof(VerticalLayoutGroup),
@@ -492,6 +497,36 @@ namespace Agrovator.PitchSimulator.Editor
             scroll.vertical = true;
             scroll.movementType = ScrollRect.MovementType.Clamped;
             scroll.scrollSensitivity = 40f;
+
+            var scrollbarObject = new GameObject("Scrollbar", typeof(RectTransform), typeof(Image),
+                typeof(KeyboardReviewScrollbar));
+            scrollbarObject.transform.SetParent(scrollObject.transform, false);
+            var scrollbarRect = scrollbarObject.GetComponent<RectTransform>();
+            scrollbarRect.anchorMin = new Vector2(1f, 0f);
+            scrollbarRect.anchorMax = new Vector2(1f, 1f);
+            scrollbarRect.pivot = new Vector2(1f, 0.5f);
+            scrollbarRect.anchoredPosition = Vector2.zero;
+            scrollbarRect.sizeDelta = new Vector2(32f, 0f);
+            scrollbarObject.GetComponent<Image>().color = new Color(0.12f, 0.19f, 0.22f, 1f);
+            var slidingArea = new GameObject("Sliding Area", typeof(RectTransform));
+            slidingArea.transform.SetParent(scrollbarObject.transform, false);
+            Stretch(slidingArea.GetComponent<RectTransform>());
+            slidingArea.GetComponent<RectTransform>().offsetMin = new Vector2(4f, 4f);
+            slidingArea.GetComponent<RectTransform>().offsetMax = new Vector2(-4f, -4f);
+            var handleObject = new GameObject("Handle", typeof(RectTransform), typeof(Image));
+            handleObject.transform.SetParent(slidingArea.transform, false);
+            Stretch(handleObject.GetComponent<RectTransform>());
+            var handleImage = handleObject.GetComponent<Image>();
+            handleImage.color = new Color(0.93f, 0.76f, 0.2f, 1f);
+            var scrollbar = scrollbarObject.GetComponent<KeyboardReviewScrollbar>();
+            scrollbar.handleRect = handleObject.GetComponent<RectTransform>();
+            scrollbar.targetGraphic = handleImage;
+            scrollbar.direction = Scrollbar.Direction.BottomToTop;
+            scrollbar.numberOfSteps = 20;
+            scrollbar.size = 0.2f;
+            scrollbar.value = 1f;
+            scroll.verticalScrollbar = scrollbar;
+            scroll.verticalScrollbarVisibility = ScrollRect.ScrollbarVisibility.Permanent;
 
             var level = CreateLabel("Level", contentObject.transform, "Level", 30, FontStyle.Bold);
             var overall = CreateLabel("Overall", contentObject.transform, "Overall 0", 24);
@@ -540,7 +575,7 @@ namespace Agrovator.PitchSimulator.Editor
             footer.GetComponent<LayoutElement>().preferredHeight = 64f;
             var submit = CreateButton("Submit Button", footer.transform, "Submit Results");
             var retry = CreateButton("Retry Button", footer.transform, "Try Again");
-            ConfigureVerticalNavigation(submit, retry);
+            ConfigureVerticalNavigation(scrollbar, submit, retry);
             SetReference(presenter, "headingText", heading);
             SetReference(presenter, "levelText", level);
             SetReference(presenter, "overallText", overall);
@@ -552,6 +587,7 @@ namespace Agrovator.PitchSimulator.Editor
             SetReference(presenter, "improvementsHeadingText", improvementsHeading);
             SetReferenceArray(presenter, "improvementTexts", improvements);
             SetReference(presenter, "reviewHeadingText", reviewHeading);
+            SetReference(presenter, "reviewScroll", scroll);
             SetReferenceArray(presenter, "reviewItems", reviewItems);
             SetReference(presenter, "submissionStatusText", status);
             SetReference(presenter, "submitButton", submit);
