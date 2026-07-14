@@ -4,17 +4,11 @@ namespace Agrovator.PitchSimulator.Core
 {
     public sealed class QuestionTimer
     {
-        private readonly bool isEnabled;
+        private bool isEnabled;
 
         public QuestionTimer(double durationSeconds)
         {
-            if (durationSeconds < 0d || double.IsNaN(durationSeconds) || double.IsInfinity(durationSeconds))
-            {
-                throw new ArgumentOutOfRangeException(nameof(durationSeconds));
-            }
-
-            RemainingSeconds = durationSeconds;
-            isEnabled = durationSeconds > 0d;
+            Reset(durationSeconds);
         }
 
         public event Action Expired;
@@ -24,6 +18,19 @@ namespace Agrovator.PitchSimulator.Core
         public bool IsPaused { get; private set; }
 
         public bool HasExpired { get; private set; }
+
+        public void Reset(double durationSeconds)
+        {
+            if (durationSeconds < 0d || double.IsNaN(durationSeconds) || double.IsInfinity(durationSeconds))
+            {
+                throw new ArgumentOutOfRangeException(nameof(durationSeconds));
+            }
+
+            RemainingSeconds = durationSeconds;
+            isEnabled = durationSeconds > 0d;
+            IsPaused = false;
+            HasExpired = false;
+        }
 
         public void Pause()
         {

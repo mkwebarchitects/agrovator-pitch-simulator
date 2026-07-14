@@ -13,7 +13,7 @@ This checklist mirrors `docs/plans/2026-07-14-pitch-simulator-vertical-slice.md`
 - [x] Task 7: LMS contracts, serialization and mock bridge
 - [x] Task 8: Localization catalog and save-data versioning
 - [x] Task 9: Smart School Garden content and JSON import
-- [ ] Task 10: Session controller orchestration
+- [x] Task 10: Session controller orchestration
 
 ## P1 - Playable experience and integrations
 
@@ -87,7 +87,13 @@ This checklist mirrors `docs/plans/2026-07-14-pitch-simulator-vertical-slice.md`
 - 2026-07-14 Task 9 second-review RED against `120271a`: after correcting one test-harness assertion that could not count a lazy sequence, the valid focused content fixture reported `8/11` passed with exactly three intended failures. Every route had 3 Strong answers in the shortest position instead of 2, authored nodes had 4 middle-ranked Strong answers instead of the allowed 2–3, and the authored tier-mean length spread was `20.625` characters against the `≤12` guard. The complete 389-line log contained `0` compile/exception markers.
 - 2026-07-14 Task 9 second-review GREEN: authored Strong-answer length ranks are now exactly 2 shortest, 3 middle and 3 longest. Mean response lengths are Strong `119.125`, Developing `125.75` and NeedsWork `123.125`, a `6.625`-character spread. All 486 standard and 243 recovery routes contain exactly 2 Strong answers at each rank; standard route tier means are `117.333/125.333/123.5` (spread `8.0`) and recovery means are `121.167/125.333/129.833` (spread `8.667`). All remain within the route-level `≤12` guard, with existing 729-path, six-question, three-choice, zero-dead-end/destination-loss checks unchanged and exact 109-key pending Malay fallback parity preserved.
 - 2026-07-14 Task 9 second-review verification: the Task 9 aggregate reported `21/21` passed with `0` failures, skips or inconclusive tests and a complete 367-line log with `0` failure markers. The canonical full EditMode wrapper reported `264/264` passed; independent XML parsing confirmed `Passed` with `0` failures, skips or inconclusive tests, and the complete 365-line log contained `0` failure markers.
+- 2026-07-14 Task 10 RED: the focused `PitchSessionControllerTests` run produced no XML and reached the expected missing-production-type boundary with `CS0246` for `PitchSessionController`; the complete 727-line log ended with `Scripts have compiler errors.`
+- 2026-07-14 Task 10 focused GREEN: the orchestration fixture reported `10/10` passed with `0` failures, skips or inconclusive tests; independent XML parsing confirmed `Passed`, and the complete 431-line Unity log contained `0` matches for `error CS\d+|Compilation failed|Unhandled Exception`.
+- 2026-07-14 Task 10 all Edit Mode GREEN: the canonical wrapper reported `274/274` passed with `0` failures, skips or inconclusive tests; independent XML parsing confirmed `Passed`, and the complete 366-line log contained `0` failure markers.
+- 2026-07-14 Task 10 orchestration checks: launch enters Title only with a valid matching LMS configuration; start creates a fresh Briefing run; tutorial traversal is unscored; authored responses update capped rubric scores and confidence; reaction is published before feedback; conditional destinations are respected; terminal feedback builds a validator-clean completion payload; synchronous submission success reaches Complete; retry increments the attempt and clears dialogue flags, scores, confidence, timer, timeouts, selected IDs, presentation state, result and payload.
+- 2026-07-14 Task 10 timeout contract: expiry chooses the first available `Developing` response (or stable first available response) solely as a deterministic graph traversal seam. It applies no authored score/confidence, records no learner-selected response ID, increments the timeout count and publishes a typed neutral timeout reaction/feedback event.
+- 2026-07-14 Task 10 assembly adaptation: orchestration sources remain under `Assets/Scripts/Core/Session` and namespace `Agrovator.PitchSimulator.Core`, but compile in child `Agrovator.PitchSimulator.Session` with explicit Core, Dialogue, Scoring, Accessibility and LMS references. The foundational Core assembly remains acyclic and engine-free; the Session sources and asmdef contain `0` Unity engine type references and declare `noEngineReferences: true`.
 
 ## Next action
 
-Begin Task 10 by writing the failing session-controller orchestration tests.
+Begin Task 11 by writing the failing Play Mode bootstrap test.

@@ -51,6 +51,13 @@ namespace Agrovator.PitchSimulator.Scoring
 
         public int OverallScore => PitchingScore + CommunicationsScore;
 
+        public void Reset()
+        {
+            Array.Clear(scores, 0, scores.Length);
+            competencyTags.Clear();
+            competencyTagSet.Clear();
+        }
+
         public static int GetMaximum(ScoreCategory category)
         {
             switch (category)

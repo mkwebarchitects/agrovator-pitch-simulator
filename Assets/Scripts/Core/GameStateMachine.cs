@@ -15,6 +15,7 @@ namespace Agrovator.PitchSimulator.Core
                 [(GameState.AskingQuestion, GameCommand.Continue)] = GameState.AwaitingResponse,
                 [(GameState.AwaitingResponse, GameCommand.SelectResponse)] = GameState.ShowingReaction,
                 [(GameState.ShowingReaction, GameCommand.Continue)] = GameState.ShowingFeedback,
+                [(GameState.ShowingFeedback, GameCommand.Continue)] = GameState.AskingQuestion,
                 [(GameState.ShowingFeedback, GameCommand.FinishScenario)] = GameState.Results,
                 [(GameState.Results, GameCommand.SubmitResults)] = GameState.Submitting,
                 [(GameState.Results, GameCommand.Retry)] = GameState.Briefing,

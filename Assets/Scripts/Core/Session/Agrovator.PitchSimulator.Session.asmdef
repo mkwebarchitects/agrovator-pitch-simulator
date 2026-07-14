@@ -1,26 +1,20 @@
 {
-    "name": "Agrovator.PitchSimulator.EditModeTests",
-    "rootNamespace": "Agrovator.PitchSimulator.Tests.EditMode",
+    "name": "Agrovator.PitchSimulator.Session",
+    "rootNamespace": "Agrovator.PitchSimulator.Core",
     "references": [
         "Agrovator.PitchSimulator.Core",
-        "Agrovator.PitchSimulator.Session",
         "Agrovator.PitchSimulator.Dialogue",
         "Agrovator.PitchSimulator.Scoring",
         "Agrovator.PitchSimulator.Accessibility",
         "Agrovator.PitchSimulator.LMS"
     ],
-    "includePlatforms": [
-        "Editor"
-    ],
+    "includePlatforms": [],
     "excludePlatforms": [],
     "allowUnsafeCode": false,
     "overrideReferences": false,
     "precompiledReferences": [],
-    "autoReferenced": false,
+    "autoReferenced": true,
     "defineConstraints": [],
     "versionDefines": [],
-    "noEngineReferences": false,
-    "optionalUnityReferences": [
-        "TestAssemblies"
-    ]
+    "noEngineReferences": true
 }
