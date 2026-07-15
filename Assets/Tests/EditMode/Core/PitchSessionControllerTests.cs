@@ -454,7 +454,7 @@ namespace Agrovator.PitchSimulator.Tests.EditMode.Core
             var scenario = new ScenarioDefinitionDto
             {
                 Id = "scenario",
-                Version = 1,
+                Version = 2,
                 InitialConfidence = 50,
                 OpeningNodeId = "tutorial",
                 Nodes = new[]
@@ -476,7 +476,7 @@ namespace Agrovator.PitchSimulator.Tests.EditMode.Core
             return RuntimeScenario.Compile(new ScenarioDefinitionDto
             {
                 Id = "scenario",
-                Version = 1,
+                Version = 2,
                 InitialConfidence = 50,
                 OpeningNodeId = "tutorial",
                 Nodes = new[]
@@ -563,7 +563,7 @@ namespace Agrovator.PitchSimulator.Tests.EditMode.Core
                 ReducedMotion = false,
                 MusicVolume = 0.75f,
                 SfxVolume = 0.8f,
-                ContentVersion = 1,
+                ContentVersion = 2,
                 LaunchReference = "lref_opaque_ref_17",
             };
         }
