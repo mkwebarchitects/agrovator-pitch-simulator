@@ -7,11 +7,11 @@ Use a keyboard or pointer for the locally verified Chrome/Edge development flow.
 ## Complete an attempt
 
 1. Select Start on the Title screen. This user gesture unlocks browser-safe audio hooks.
-2. Read the briefing and tutorial.
+2. Read the briefing, then complete the dedicated three-page Tutorial: **Build your pitch**, **Choose your response**, and **Learn from feedback**. Back changes only the tutorial page, Next advances locally, and the final action becomes Start Practice. Skip is available on every page. The Tutorial appears again from page one on every new attempt, including Retry.
 3. At each question, choose one of the visible numbered responses. The response pool has at most three slots.
 4. Read Judge Aya's reaction, feedback, and explanation, then continue.
 5. On Results, review overall score, final confidence, competency rollups, strengths, improvements, and ordered answer history.
-6. Submit completion. If submission fails or expires, retain the result and retry submission. Use Retry to clear attempt state and begin again.
+6. Submit completion. If submission fails or expires, retain the result and retry submission. Use Retry to clear attempt state and begin again at Briefing; the Tutorial is deliberately shown again and may be completed or skipped.
 
 ## Launch-configured preferences
 

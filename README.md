@@ -6,7 +6,7 @@ This repository is intentionally independent of the external AGROVATOR LMS repos
 
 ## Current status
 
-The Task 20 vertical-slice audit is recorded for Unity `6000.5.3f1`. Fresh post-review evidence from 2026-07-15 is EditMode `308/308` in `27.5 s`, PlayMode `36/36` in `48.7 s`, a successful `92,361,436`-byte development WebGL build, and passing local smoke runs in Chrome and Edge with zero console/page errors. This accepts the standalone implementation evidence, not a production release: the same-origin mock harness is not proof of production LMS compatibility, Malay remains `pending_human_review`, all audio clips remain placeholders, and human release gates remain open.
+The Task 20 vertical-slice audit and the subsequent UI-polish gate are recorded for Unity `6000.5.3f1`. Fresh 2026-07-15 evidence is EditMode `310/310`, PlayMode `39/39`, Node `11/11`, a `Succeeded` `92,374,202`-byte development WebGL BuildReport in `00:06:03.3210118` with zero warnings/errors, and passing local smoke runs in Chrome `150.0.7871.116` and Edge `150.0.4078.65` with zero console/page errors. The learner now sees a dedicated three-page tutorial on every attempt, with Back, Skip, Next, and Start Practice behavior, while all six game screens use centered, contained cards. This accepts standalone local implementation evidence, not a production release: the same-origin mock harness is not proof of production LMS compatibility, Malay remains `pending_human_review`, all audio clips remain placeholders, and human release gates remain open.
 
 See [vertical-slice acceptance](docs/18-VERTICAL-SLICE-ACCEPTANCE.md) and [task evidence](TASKS.md).
 

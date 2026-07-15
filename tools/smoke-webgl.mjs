@@ -281,8 +281,8 @@ async function mouseResponse(page, canvas, timeoutMs) {
   const before = await controlRegionHash(page, canvas);
   const bounds = await canvas.boundingBox();
   if (!bounds) throw new Error("Unity canvas has no pointer bounds.");
-  // Measured generated 1280x720 contract: tutorial response spans ~73%-84% canvas height.
-  await canvas.click({ position: { x: bounds.width * 0.5, y: bounds.height * 0.78 }, delay: 120 });
+  // Measured centered layout contract: tutorial response spans ~68%-78% canvas height.
+  await canvas.click({ position: { x: bounds.width * 0.5, y: bounds.height * 0.73 }, delay: 120 });
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
     const current = await controlRegionHash(page, canvas);
@@ -300,7 +300,7 @@ async function mouseContinue(page, canvas, timeoutMs, label, expectControlChange
   const bounds = await canvas.boundingBox();
   if (!bounds) throw new Error("Unity canvas has no Continue-control bounds.");
   // Generated layout contract: active pitch-room Continue spans the bottom control row.
-  await canvas.click({ position: { x: bounds.width * 0.5, y: bounds.height * 0.91 }, delay: 120 });
+  await canvas.click({ position: { x: bounds.width * 0.5, y: bounds.height * 0.86 }, delay: 120 });
   if (!expectControlChange) {
     await new Promise(resolveWait => setTimeout(resolveWait, 180));
     return null;
@@ -406,7 +406,7 @@ async function playAttempt(page, frame, canvas, options, browserName) {
   }, delay: 120 });
   await waitForCanvasChange(canvas, retryBriefingBefore, options.timeoutMs,
     "retry Briefing pointer Continue");
-  await pointerAction(page, 0.50, 0.82, canvas, options.timeoutMs,
+  await pointerAction(page, 0.40, 0.79, canvas, options.timeoutMs,
     "retry Tutorial Skip", { delay: 120 });
   await mouseContinue(page, canvas, options.timeoutMs, "retry Judge introduction");
   await mouseContinue(page, canvas, options.timeoutMs, "retry Tutorial response reveal", true);
@@ -458,7 +458,7 @@ async function runBrowser(playwright, definition, server, options) {
     warnings: [],
     completionSummary: null,
     modes: { success: false, failure: false, missingConfig: false, expired: "not-exercised" },
-    interactionContract: "Measured Start pointer at (0.50, 0.61), Briefing pointer at (0.50, 0.66); three focused Enter presses held 120ms complete Tutorial; pitch-room Continue pointer at (0.50, 0.91); tutorial pointer response at (0.50, 0.78); six focused Enter responses held 120ms; Continue x3 between Q1-Q5 and x2 after Q6 to Results. After successful completion, Retry uses pointer-only Briefing and Tutorial Skip at (0.50, 0.82), then proves the downstream pointer-only practice sequence through fresh Q1 reveal, preventing focus-tint-only false positives. Stable lower-control-region changes plus 220ms settle gate observable swaps; 180ms bounded waits cover internal reaction/feedback transitions.",
+    interactionContract: "Measured Start pointer at (0.50, 0.61), Briefing pointer at (0.50, 0.66); three focused Enter presses held 120ms complete Tutorial; pitch-room Continue pointer at (0.50, 0.86); tutorial pointer response at (0.50, 0.73); six focused Enter responses held 120ms; Continue x3 between Q1-Q5 and x2 after Q6 to Results. After successful completion, Retry uses pointer-only Briefing and Tutorial Skip at (0.40, 0.79), then proves the downstream pointer-only practice sequence through fresh Q1 reveal, preventing focus-tint-only false positives. Stable lower-control-region changes plus 220ms settle gate observable swaps; 180ms bounded waits cover internal reaction/feedback transitions.",
     screenshot: null,
   };
   if (!definition.path || !existsSync(definition.path)) {

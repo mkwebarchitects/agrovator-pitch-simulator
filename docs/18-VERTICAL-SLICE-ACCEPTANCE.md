@@ -1,28 +1,29 @@
 # Assess Vertical Slice Acceptance
 
-## Task 20 decision and evidence boundary
+## Task 20 and UI-polish evidence boundary
 
-On 2026-07-15 (`Asia/Kuala_Lumpur`), Task 20 accepted the standalone vertical-slice implementation and local development evidence for Unity `6000.5.3f1`. This is not production WebGL/LMS release approval. The external AGROVATOR LMS repository was not inspected, and real LMS submission, deployment, legal, language, audio, classroom, accessibility, browser-support, and human release decisions remain outside this acceptance.
+On 2026-07-15 (`Asia/Kuala_Lumpur`), Task 20 accepted the standalone vertical-slice implementation and the later UI-polish gate recorded the dedicated Tutorial and centered-card experience for Unity `6000.5.3f1`. This is not production WebGL/LMS release approval. The external AGROVATOR LMS repository was not inspected, and real LMS submission, deployment, legal, language, audio, classroom, accessibility, browser-support, and human release decisions remain outside this acceptance.
 
 Fresh execution evidence:
 
-- Canonical EditMode passed `308/308` in `27.5 s`; canonical PlayMode passed `36/36` in `48.7 s`.
-- `tools/Build-WebGL.ps1` exited `0` in `81.1 s`. BuildReport was `Succeeded`, `92,361,436` bytes, `00:00:53.9826352`, with zero warnings and zero errors.
-- The build contained exactly seven files: `index.html` `5,367`; `style.css` `2,571`; `layout.js` `1,083`; loader `58,622`; framework `711,897`; data `9,289,560`; wasm `82,292,336` bytes.
-- The matrix generated at `2026-07-14T23:33:03.670Z` (`2026-07-15 07:33:03.670` local) used Playwright `1.61.1`. Chrome `150.0.7871.116` passed in `6,566 ms`; Edge `150.0.4078.65` passed in `6,316 ms`. Both recorded zero console/page errors; launch, Success, Failure, Missing Configuration, and successful-completion Retry through a fresh Question 1 reveal were present; the server stopped cleanly with zero stderr.
+- Canonical EditMode passed `310/310`; canonical PlayMode passed `39/39`; Node passed `11/11`. Unity XML recorded zero failures, skips, or inconclusive tests, and both complete logs had zero compile/exception markers.
+- `tools/Build-WebGL.ps1` exited `0` in `395.3 s`. BuildReport was `Succeeded`, `92,374,202` bytes, `00:06:03.3210118`, with zero warnings and zero errors.
+- The build contained exactly seven files: `index.html` `5,505`; `style.css` `2,717`; `layout.js` `1,115`; loader `58,622`; framework `711,897`; data `9,293,377`; wasm `82,300,969` bytes.
+- The matrix generated at `2026-07-15T07:02:09.224Z` (`2026-07-15 15:02:09.224` local) used Playwright `1.61.1`. Chrome `150.0.7871.116` passed with `8,901 ms` Unity-ready and `38.362 s` total; Edge `150.0.4078.65` passed with `8,244 ms` Unity-ready and `37.439 s` total. Both recorded zero console/page errors; all three Tutorial pages, launch, Success, Failure, Missing Configuration, pointer-only Retry Tutorial Skip, and a fresh Question 1 reveal were present; the server stopped cleanly with zero stderr.
 - Firefox was unavailable at standard Windows paths. Safari is unavailable on Windows. Neither is claimed as passed.
 
-The earlier Task 18 measurements remain historical evidence in [web deployment](10-WEB-DEPLOYMENT.md); they are not substituted for the fresh Task 20 build.
+The earlier Task 18 measurements remain historical evidence in [web deployment](10-WEB-DEPLOYMENT.md); they are not substituted for the fresh UI-polish build.
 
 ## Line-by-line acceptance
 
 An independent source/test/scenario review plus the final repair review through commit `616e2ed` found direct automated or authored-data evidence for every requested implementation capability. Fresh broad suites, build, and browser smoke above provide the final execution checkpoint.
 
-| Requirement | Task 20 status | Evidence summary |
+| Requirement | Current status | Evidence summary |
 | --- | --- | --- |
 | Title | Pass | Generated Title is initially active/focused; launch-to-Title is covered by Bootstrap and session-controller tests. |
 | Briefing | Pass | Start routes to Briefing and focuses Continue; session tests assert fresh tutorial state. |
-| Tutorial | Pass | Exactly one zero-timer, zero-score, zero-confidence tutorial opening is authored and traversed without score/confidence change. |
+| Tutorial | Pass | A dedicated three-page UI appears from page one on every attempt. Back/Next mutate only the page index; Skip is available on every page; Start Practice and Skip each advance once. The existing zero-timer, zero-score, zero-confidence practice opening remains unchanged. |
+| Centered layouts | Pass | Title `760x500`, Briefing `880x520`, Tutorial `920x560`, Settings `720x420`, and capped `960x680` PitchRoom/Results cards are centered and contained at the 1280x720 reference; all actions remain at least 64px high, and the Results scrollbar has a 64px target plus `14.09:1` selected-focus contrast. |
 | Judge | Pass | Generated PitchRoom contains configured Judge Aya with active talk-loop behavior. |
 | Five-or-more scored questions | Pass | All `729` playable paths terminate with exactly six scored questions. |
 | Three choices | Pass | Every scored question has exactly three respectful responses; runtime uses a fixed three-view pool. |
@@ -41,11 +42,11 @@ An independent source/test/scenario review plus the final repair review through 
 
 ## Privacy, secret, and asset audit
 
-The independent pre-record audit searched `Assets`, `WebHarness`, `docs`, `tools`, and the root release records while excluding `.meta` from text-pattern scans. It found zero email-like values, zero production AWS/OpenAI/GitHub/private-key/JWT secrets, zero credential-shaped query parameters, and zero secret-named tracked files. Keyword/pattern review found only policy/test prose plus deliberate malformed rejection fixtures: `Bearer abcdefghijklmnop` and `eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxIn0.signature`. Pseudonymous `local_*`, `test_*`, `learner-*`, `session-*`, and `lref_*` fixtures are intentionally non-production. No learner name, email, school, date of birth, address, credential, raw answer text, or open-ended learner input field exists in the launch/completion DTOs.
+The fresh UI-polish scan searched `Assets`, `WebHarness`, `docs`, `tools`, and the root release records while excluding `.meta` and PNG binaries. It found zero email-like, AWS, OpenAI, GitHub, private-key, credential-query, or secret-named tracked-file hits. The only bearer/JWT-shaped matches were the deliberate malformed rejection literals `Bearer abcdefghijklmnop` and `eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxIn0.signature`, once in the LMS negative test and once in this explanatory record; therefore the unexpected-secret count is zero. Pseudonymous `local_*`, `test_*`, `learner-*`, `session-*`, and `lref_*` fixtures are intentionally non-production. Fresh DTO inspection confirms no learner name, email, school, date of birth, address, credential, raw answer text, or open-ended learner input field exists in launch/completion payloads.
 
 Selected response IDs remain learning records, so production purpose, retention, access, and privacy approval are still required. Browser/harness sinks remain allowlisted and sanitized; no launch reference is put in URLs or full payloads in logs/UI.
 
-The post-review asset reconciliation found `107` logical files plus `143` meta sidecars, with no missing/orphaned meta. All `13` non-code logical assets are individually covered by [the consolidated asset manifest](16-ASSET-MANIFEST.md). All four PNG paths/dimensions match their detailed provenance records; no third-party binary media, remote font/media dependency, or audio binary was identified.
+The fresh UI-polish asset reconciliation found `109` logical files plus `145` meta sidecars, with no missing/orphaned meta. All `13` non-code logical assets are individually covered by [the consolidated asset manifest](16-ASSET-MANIFEST.md). All four PNG paths/dimensions match their detailed provenance records; no third-party binary media, remote font/media dependency, or audio binary was identified.
 
 ## Known gaps and warnings
 
@@ -57,6 +58,6 @@ The post-review asset reconciliation found `107` logical files plus `143` meta s
 
 ## Decision
 
-Task 20 is complete for the repository's standalone vertical-slice acceptance record: the implementation checklist, fresh tests, development build, Chrome/Edge local smoke, privacy scan, asset reconciliation, provenance gaps, and known limitations are recorded consistently. The project remains not approved for production WebGL/LMS distribution until the human and environment gates above are closed.
+The standalone vertical slice plus UI-polish implementation record now includes fresh tests, a development build, Chrome/Edge local smoke, actual PNG inspection, mobile containment metrics, privacy scanning, asset reconciliation, provenance gaps, and known limitations. This is a local evidence gate only. The project remains not approved for production WebGL/LMS distribution until the human and environment gates above are closed.
 
 See [QA plan](13-QA-PLAN.md), [deployment](10-WEB-DEPLOYMENT.md), [asset manifest/release governance](16-ASSET-MANIFEST.md), and [production roadmap](15-PRODUCTION-ROADMAP.md).

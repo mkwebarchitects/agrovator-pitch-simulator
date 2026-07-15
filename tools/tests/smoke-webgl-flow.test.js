@@ -101,6 +101,18 @@ function assertOrdered(...positions) {
 }
 
 const playAttempt = extractFunction(source, "playAttempt", "verifyMissingConfigRecovery");
+const mouseResponse = extractFunction(source, "mouseResponse", "mouseContinue");
+const mouseContinue = extractFunction(source, "mouseContinue", "canvasMetrics");
+
+test("practice response click stays inside the measured centered control", () => {
+  assert.match(mouseResponse,
+    /position\s*:\s*\{\s*x\s*:\s*bounds\.width\s*\*\s*0\.5\s*,\s*y\s*:\s*bounds\.height\s*\*\s*0\.73\s*\}/s);
+});
+
+test("pitch-room Continue click stays inside the measured centered control", () => {
+  assert.match(mouseContinue,
+    /position\s*:\s*\{\s*x\s*:\s*bounds\.width\s*\*\s*0\.5\s*,\s*y\s*:\s*bounds\.height\s*\*\s*0\.86\s*\}/s);
+});
 
 function assertTutorialContract(attempt) {
   const screenshots = findCalls(attempt, "page.screenshot");
@@ -209,7 +221,7 @@ test("Retry uses pointerAction Skip and remains pointer-only through fresh Quest
   const freshQ1 = callWithLabel(mouseContinueCalls, "retry Question 1 response reveal");
 
   assert.match(skip.text,
-    /^await\s+pointerAction\s*\(\s*page\s*,\s*0\.50\s*,\s*0\.82\s*,\s*canvas\s*,\s*options\.timeoutMs\s*,\s*["']retry Tutorial Skip["']\s*,\s*\{\s*delay\s*:\s*120\s*\}\s*\)$/);
+    /^await\s+pointerAction\s*\(\s*page\s*,\s*0\.40\s*,\s*0\.79\s*,\s*canvas\s*,\s*options\.timeoutMs\s*,\s*["']retry Tutorial Skip["']\s*,\s*\{\s*delay\s*:\s*120\s*\}\s*\)$/);
   assert.ok(response, "missing executable retry practice response");
   assert.match(reveal.text, /,\s*true\s*\)$/s);
   assert.match(freshQ1.text, /,\s*true\s*\)$/s);

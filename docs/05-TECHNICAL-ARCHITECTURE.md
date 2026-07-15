@@ -2,7 +2,7 @@
 
 ## Composition
 
-`Assets/Scenes/Bootstrap.unity` owns the persistent `Bootstrapper`, LMS bridge selection, settings/localization construction, audio service, and additive loading of `Game`. `Assets/Scenes/Game.unity` owns one Canvas, one EventSystem, the `GameScreenRouter`, and five screen panels. `Assets/Scenes/WebIntegrationTest.unity` is a generated diagnostic scene and is excluded from default build order.
+`Assets/Scenes/Bootstrap.unity` owns the persistent `Bootstrapper`, LMS bridge selection, settings/localization construction, audio service, and additive loading of `Game`. `Assets/Scenes/Game.unity` owns one Canvas, one EventSystem, the `GameScreenRouter`, and six screen panels: Title, Briefing, Tutorial, PitchRoom, Results, and Settings. `Assets/Scenes/WebIntegrationTest.unity` is a generated diagnostic scene and is excluded from default build order.
 
 ## Assembly boundaries
 
@@ -17,6 +17,8 @@
 - `Agrovator.PitchSimulator.UI`: thin uGUI presenters and composition.
 
 The `PitchSessionController` owns game rules and emits immutable snapshots/events. `Bootstrapper` is the sole production unscaled clock bridge. Presenters render snapshots and forward commands; they do not duplicate session rules.
+
+`TutorialPresenter` owns only its three-page local index. Back and Next do not mutate the session; Skip and Start Practice each invoke the existing session Continue command once. Generated screen cards are centered at the 1280x720 reference: Title `760x500`, Briefing `880x520`, Tutorial `920x560`, Settings `720x420`, and PitchRoom/Results at no more than `960x680`. Gameplay responses are capped at `680px`; normal actions are capped at `520px`; Tutorial navigation renders at `180/180/420px` for Back/Skip/Next.
 
 ## Change rules
 
