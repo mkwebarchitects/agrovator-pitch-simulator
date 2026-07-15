@@ -149,9 +149,12 @@ namespace Agrovator.PitchSimulator.Editor
                     .GetComponent<Button>();
                 var pitchDefault = pitch.transform.Find("Content Frame/Responses/Response 1").GetComponent<Button>();
                 var pitchContinueDefault = pitch.transform.Find("Content Frame/Continue Button").GetComponent<Button>();
-                var resultsDefault = results.transform.Find("Footer/Submit Button").GetComponent<Button>();
-                var resultsSubmittingDefault = results.transform.Find("Results Scroll/Scrollbar").GetComponent<Scrollbar>();
-                var resultsCompleteDefault = results.transform.Find("Footer/Retry Button").GetComponent<Button>();
+                var resultsDefault = results.transform.Find("Content Frame/Footer/Submit Button")
+                    .GetComponent<Button>();
+                var resultsSubmittingDefault = results.transform.Find("Content Frame/Results Scroll/Scrollbar")
+                    .GetComponent<Scrollbar>();
+                var resultsCompleteDefault = results.transform.Find("Content Frame/Footer/Retry Button")
+                    .GetComponent<Button>();
                 var settingsDefault = settings.transform.Find("Content Frame/Close Button").GetComponent<Button>();
 
                 SetReference(router, "titlePanel", title);
@@ -534,23 +537,23 @@ namespace Agrovator.PitchSimulator.Editor
 
         private static GameObject CreateResultsScreen(Transform parent, out ResultsPresenter presenter)
         {
-            var panel = CreateLegacyLayoutScreen("Results", parent);
+            var panel = CreateScreen("Results", parent);
             presenter = panel.AddComponent<ResultsPresenter>();
-            var panelLayout = panel.GetComponent<VerticalLayoutGroup>();
-            panelLayout.padding = new RectOffset(72, 72, 20, 20);
-            panelLayout.spacing = 12f;
+            var contentFrame = CreateContentFrame(
+                panel.transform, 960f, 680f, horizontalPadding: 32, verticalPadding: 20, spacing: 12f);
 
-            var heading = CreateLabel("Heading", panel.transform, "Results", 36, FontStyle.Bold);
+            var heading = CreateLabel("Heading", contentFrame.transform, "Results", 36, FontStyle.Bold);
             heading.GetComponent<LayoutElement>().preferredHeight = 50f;
 
             var scrollObject = new GameObject("Results Scroll", typeof(RectTransform), typeof(Image),
                 typeof(ScrollRect), typeof(LayoutElement));
-            scrollObject.transform.SetParent(panel.transform, false);
+            scrollObject.transform.SetParent(contentFrame.transform, false);
             scrollObject.GetComponent<Image>().color = new Color(0.075f, 0.12f, 0.15f, 1f);
             var scrollLayout = scrollObject.GetComponent<LayoutElement>();
             scrollLayout.minHeight = 280f;
             scrollLayout.preferredHeight = 450f;
             scrollLayout.flexibleHeight = 1f;
+            scrollLayout.preferredWidth = 860f;
 
             var viewportObject = new GameObject("Viewport", typeof(RectTransform), typeof(Image), typeof(RectMask2D));
             viewportObject.transform.SetParent(scrollObject.transform, false);
@@ -646,21 +649,27 @@ namespace Agrovator.PitchSimulator.Editor
                 text.alignment = TextAnchor.MiddleLeft;
             }
 
-            var status = CreateLabel("Submission Status", panel.transform, "", 22, FontStyle.Bold);
+            var status = CreateLabel("Submission Status", contentFrame.transform, "", 22, FontStyle.Bold);
             status.GetComponent<LayoutElement>().preferredHeight = 40f;
             var footer = new GameObject("Footer", typeof(RectTransform), typeof(HorizontalLayoutGroup),
                 typeof(LayoutElement));
-            footer.transform.SetParent(panel.transform, false);
+            footer.transform.SetParent(contentFrame.transform, false);
             var footerLayout = footer.GetComponent<HorizontalLayoutGroup>();
             footerLayout.spacing = 20f;
             footerLayout.childAlignment = TextAnchor.MiddleCenter;
             footerLayout.childControlWidth = true;
             footerLayout.childControlHeight = true;
-            footerLayout.childForceExpandWidth = true;
+            footerLayout.childForceExpandWidth = false;
             footerLayout.childForceExpandHeight = false;
             footer.GetComponent<LayoutElement>().preferredHeight = 64f;
             var submit = CreateButton("Submit Button", footer.transform, "Submit Results");
             var retry = CreateButton("Retry Button", footer.transform, "Try Again");
+            foreach (var button in new[] { submit, retry })
+            {
+                var layout = button.GetComponent<LayoutElement>();
+                layout.preferredWidth = 260f;
+                layout.preferredHeight = 64f;
+            }
             ConfigureVerticalNavigation(scrollbar, submit, retry);
             SetReference(presenter, "headingText", heading);
             SetReference(presenter, "levelText", level);

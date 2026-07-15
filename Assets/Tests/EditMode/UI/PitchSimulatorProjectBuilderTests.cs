@@ -36,6 +36,14 @@ namespace Agrovator.PitchSimulator.Tests.EditMode.UI
         }
 
         [Test]
+        public void GeneratedResults_UsesContainedFrameAtReferenceResolution()
+        {
+            var scene = EditorSceneManager.OpenScene(GamePath, OpenSceneMode.Single);
+
+            AssertResultsFrame(scene);
+        }
+
+        [Test]
         public void BatchBuild_Twice_PreservesUnownedRootAndKeepsContractSingular()
         {
             var originalSceneBytes = new Dictionary<string, byte[]>();
@@ -181,34 +189,101 @@ namespace Agrovator.PitchSimulator.Tests.EditMode.UI
             var resultsPresenter = results.GetComponent<ResultsPresenter>();
             Assert.That(resultsPresenter, Is.Not.Null);
             Assert.That(resultsPresenter.ValidateContract(), Is.True);
-            var resultsScroll = results.Find("Results Scroll").GetComponent<ScrollRect>();
-            Assert.That(resultsScroll, Is.Not.Null);
-            Assert.That(resultsScroll.vertical, Is.True);
-            Assert.That(resultsScroll.horizontal, Is.False);
-            Assert.That(resultsScroll.viewport, Is.Not.Null);
-            Assert.That(resultsScroll.content, Is.Not.Null);
-            Assert.That(resultsScroll.verticalScrollbar, Is.Not.Null);
-            Assert.That(resultsScroll.verticalScrollbar, Is.TypeOf<KeyboardReviewScrollbar>());
-            Assert.That(resultsScroll.verticalScrollbar.gameObject.activeSelf, Is.True);
-            Assert.That(resultsScroll.verticalScrollbar.interactable, Is.True);
-            Assert.That(resultsScroll.verticalScrollbar.direction, Is.EqualTo(Scrollbar.Direction.BottomToTop));
-            Assert.That(resultsScroll.verticalScrollbar.navigation.mode, Is.EqualTo(Navigation.Mode.Explicit));
-            Assert.That(resultsScroll.content.GetComponentsInChildren<QuestionReviewItemView>(true),
-                Has.Length.EqualTo(6));
-            Assert.That(results.Find("Footer/Submit Button").GetComponent<Button>().navigation.mode,
-                Is.EqualTo(Navigation.Mode.Explicit));
-            Assert.That(results.Find("Footer/Retry Button").GetComponent<Button>().navigation.mode,
-                Is.EqualTo(Navigation.Mode.Explicit));
+            AssertResultsFrame(scene);
 
-            var resultsRect = results.GetComponent<RectTransform>();
-            LayoutRebuilder.ForceRebuildLayoutImmediate(resultsRect);
-            Assert.That(RequiredVerticalHeight(results), Is.LessThanOrEqualTo(720f),
-                "Results chrome must fit the 1280x720 reference while review content scrolls.");
-            foreach (Transform child in results)
+        }
+
+        private static void AssertResultsFrame(Scene scene)
+        {
+            var generated = scene.GetRootGameObjects().Single(root => root.name == "Generated UI");
+            var canvas = generated.transform.Find("Canvas");
+            var canvasRect = canvas.GetComponent<RectTransform>();
+            canvas.GetComponent<Canvas>().renderMode = RenderMode.WorldSpace;
+            canvasRect.sizeDelta = canvas.GetComponent<CanvasScaler>().referenceResolution;
+
+            var results = canvas.Find("Results");
+            Assert.That(results, Is.Not.Null);
+            var wasActive = results.gameObject.activeSelf;
+            results.gameObject.SetActive(true);
+            try
             {
-                AssertContained(resultsRect, child.GetComponent<RectTransform>());
-            }
+                var frame = results.Find("Content Frame");
+                Assert.That(frame, Is.Not.Null, "Results must own a direct Content Frame child.");
+                Assert.That(frame.parent, Is.EqualTo(results));
+                Assert.That(results.Cast<Transform>().Select(child => child.name),
+                    Is.EqualTo(new[] { "Content Frame" }));
+                Assert.That(frame.Cast<Transform>().Select(child => child.name),
+                    Is.EqualTo(new[] { "Heading", "Results Scroll", "Submission Status", "Footer" }));
 
+                var heading = frame.Find("Heading");
+                var scrollTransform = frame.Find("Results Scroll");
+                var status = frame.Find("Submission Status");
+                var footer = frame.Find("Footer");
+                Assert.That(new[] { heading, scrollTransform, status, footer }, Has.None.Null);
+
+                var resultsRect = results.GetComponent<RectTransform>();
+                var frameRect = frame.GetComponent<RectTransform>();
+                var scrollRectTransform = scrollTransform.GetComponent<RectTransform>();
+                var footerRect = footer.GetComponent<RectTransform>();
+                Canvas.ForceUpdateCanvases();
+                LayoutRebuilder.ForceRebuildLayoutImmediate(resultsRect);
+                LayoutRebuilder.ForceRebuildLayoutImmediate(frameRect);
+                LayoutRebuilder.ForceRebuildLayoutImmediate(scrollRectTransform);
+                LayoutRebuilder.ForceRebuildLayoutImmediate(footerRect);
+                Canvas.ForceUpdateCanvases();
+
+                Assert.That(frameRect.rect.width, Is.LessThanOrEqualTo(960f));
+                Assert.That(frameRect.rect.height, Is.LessThanOrEqualTo(680f));
+                var frameLayout = frame.GetComponent<VerticalLayoutGroup>();
+                Assert.That(frameLayout.padding.left, Is.EqualTo(32));
+                Assert.That(frameLayout.padding.right, Is.EqualTo(32));
+                Assert.That(frameLayout.padding.top, Is.EqualTo(20));
+                Assert.That(frameLayout.padding.bottom, Is.EqualTo(20));
+                Assert.That(scrollRectTransform.rect.width, Is.LessThanOrEqualTo(860f));
+
+                var scroll = scrollTransform.GetComponent<ScrollRect>();
+                Assert.That(scroll, Is.Not.Null);
+                Assert.That(scroll.vertical, Is.True);
+                Assert.That(scroll.horizontal, Is.False);
+                Assert.That(scroll.viewport, Is.Not.Null);
+                Assert.That(scroll.content, Is.Not.Null);
+                Assert.That(scroll.verticalScrollbar, Is.Not.Null);
+                Assert.That(scroll.verticalScrollbar, Is.TypeOf<KeyboardReviewScrollbar>());
+                Assert.That(scroll.verticalScrollbar.gameObject.activeInHierarchy, Is.True);
+                Assert.That(scroll.verticalScrollbar.interactable, Is.True);
+                Assert.That(scroll.verticalScrollbar.direction, Is.EqualTo(Scrollbar.Direction.BottomToTop));
+                Assert.That(scroll.verticalScrollbar.navigation.mode, Is.EqualTo(Navigation.Mode.Explicit));
+                Assert.That(scroll.content.GetComponentsInChildren<QuestionReviewItemView>(true),
+                    Has.Length.EqualTo(6));
+
+                var footerLayout = footer.GetComponent<HorizontalLayoutGroup>();
+                Assert.That(footerLayout.childForceExpandWidth, Is.False);
+                var submit = footer.Find("Submit Button").GetComponent<Button>();
+                var retry = footer.Find("Retry Button").GetComponent<Button>();
+                foreach (var button in new[] { submit, retry })
+                {
+                    var buttonRect = button.GetComponent<RectTransform>();
+                    Assert.That(buttonRect.rect.width, Is.LessThanOrEqualTo(280f),
+                        button.name + " must remain a compact Results action.");
+                    Assert.That(buttonRect.rect.height, Is.GreaterThanOrEqualTo(64f),
+                        button.name + " must remain a 64px minimum target.");
+                    AssertContained(footerRect, buttonRect);
+                    Assert.That(button.navigation.mode, Is.EqualTo(Navigation.Mode.Explicit));
+                }
+
+                foreach (var chrome in new[] { heading, status, footer })
+                {
+                    AssertContained(frameRect, chrome.GetComponent<RectTransform>());
+                }
+                AssertContained(resultsRect, frameRect);
+                AssertContained(frameRect, scrollRectTransform);
+                AssertContained(scrollRectTransform, scroll.viewport);
+                AssertContained(scrollRectTransform, scroll.verticalScrollbar.GetComponent<RectTransform>());
+            }
+            finally
+            {
+                results.gameObject.SetActive(wasActive);
+            }
         }
 
         private static void AssertPitchRoomFrame(Scene scene)
@@ -428,22 +503,6 @@ namespace Agrovator.PitchSimulator.Tests.EditMode.UI
             var ratio = ContrastRatio(text.color, backing.color);
             Assert.That(ratio, Is.GreaterThanOrEqualTo(minimum),
                 $"{text.name} contrast was {ratio:F2}:1.");
-        }
-
-        private static float RequiredVerticalHeight(Transform root)
-        {
-            var layout = root.GetComponent<VerticalLayoutGroup>();
-            var height = (float)(layout.padding.top + layout.padding.bottom);
-            var count = 0;
-            foreach (Transform child in root)
-            {
-                if (!child.gameObject.activeSelf) continue;
-                var element = child.GetComponent<LayoutElement>();
-                if (element != null && element.ignoreLayout) continue;
-                height += LayoutUtility.GetPreferredHeight(child.GetComponent<RectTransform>());
-                count++;
-            }
-            return height + Mathf.Max(0, count - 1) * layout.spacing;
         }
 
         private static void AssertContained(RectTransform parent, RectTransform child)

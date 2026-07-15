@@ -246,10 +246,10 @@ namespace Agrovator.PitchSimulator.Tests.PlayMode
             var router = roots.SelectMany(root => root.GetComponentsInChildren<GameScreenRouter>(true)).Single();
             var eventSystem = roots.SelectMany(root => root.GetComponentsInChildren<EventSystem>(true)).Single();
             var results = roots.SelectMany(root => root.GetComponentsInChildren<ResultsPresenter>(true)).Single().transform;
-            var submit = results.Find("Footer/Submit Button").GetComponent<Button>();
-            var retry = results.Find("Footer/Retry Button").GetComponent<Button>();
-            var scrollbar = results.Find("Results Scroll/Scrollbar").GetComponent<Scrollbar>();
-            var scroll = results.Find("Results Scroll").GetComponent<ScrollRect>();
+            var submit = results.Find("Content Frame/Footer/Submit Button").GetComponent<Button>();
+            var retry = results.Find("Content Frame/Footer/Retry Button").GetComponent<Button>();
+            var scrollbar = results.Find("Content Frame/Results Scroll/Scrollbar").GetComponent<Scrollbar>();
+            var scroll = results.Find("Content Frame/Results Scroll").GetComponent<ScrollRect>();
             var bridge = new DeferredBridge();
             var controller = CreateController(bridge);
             MoveToResults(controller, "opening-strong", "strong-finish");
