@@ -332,9 +332,9 @@ namespace Agrovator.PitchSimulator.Editor
             var back = CreateButton("Back Button", navigation.transform, "Back");
             var skip = CreateButton("Skip Button", navigation.transform, "Skip");
             var next = CreateButton("Next Button", navigation.transform, "Next");
-            SetPreferredWidth(back, 420f);
-            SetPreferredWidth(skip, 420f);
-            SetPreferredWidth(next, 520f);
+            SetPreferredWidth(back, 180f);
+            SetPreferredWidth(skip, 180f);
+            SetPreferredWidth(next, 420f);
             ConfigureHorizontalNavigation(back, skip, next);
 
             SetReference(presenter, "stepText", step);
@@ -715,7 +715,7 @@ namespace Agrovator.PitchSimulator.Editor
         {
             var panel = CreateScreen("Settings", parent);
             presenter = panel.AddComponent<SettingsPresenter>();
-            var frame = CreateContentFrame(panel.transform, 720f, 420f);
+            var frame = CreateContentFrame(panel.transform, 720f, 420f, horizontalPadding: 20);
             var heading = CreateLabel("Heading", frame.transform, "Settings", 40, FontStyle.Bold);
             var note = CreateLabel("Foundation Note", frame.transform,
                 "Timer, motion, audio and language controls arrive in the next slice.", 24);

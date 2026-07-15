@@ -231,30 +231,86 @@ namespace Agrovator.PitchSimulator.Tests.EditMode.UI
             var canvasComponent = canvas.GetComponent<Canvas>();
             canvasComponent.renderMode = RenderMode.WorldSpace;
             canvasRect.sizeDelta = canvas.GetComponent<CanvasScaler>().referenceResolution;
-            foreach (var screenName in new[] { "Title", "Briefing", "Tutorial", "Settings" })
+            var effectiveWidthMismatches = new List<string>();
+            var expectedFrameSizes = new Dictionary<string, Vector2>
             {
+                { "Title", new Vector2(760f, 500f) },
+                { "Briefing", new Vector2(880f, 520f) },
+                { "Tutorial", new Vector2(920f, 560f) },
+                { "Settings", new Vector2(720f, 420f) },
+            };
+            foreach (var pair in expectedFrameSizes)
+            {
+                var screenName = pair.Key;
                 var screen = canvas.Find(screenName);
                 Assert.That(screen, Is.Not.Null, $"Missing {screenName} screen.");
-                var screenRect = screen.GetComponent<RectTransform>();
-                LayoutRebuilder.ForceRebuildLayoutImmediate(screenRect);
-                Assert.That(screenRect.anchorMin, Is.EqualTo(Vector2.zero),
-                    $"{screenName} must remain stretched under the Canvas.");
-                Assert.That(screenRect.anchorMax, Is.EqualTo(Vector2.one),
-                    $"{screenName} must remain stretched under the Canvas.");
-                Assert.That(screenRect.rect.width, Is.EqualTo(canvasRect.rect.width).Within(0.1f));
-                Assert.That(screenRect.rect.height, Is.EqualTo(canvasRect.rect.height).Within(0.1f));
-
-                var frameTransform = screen.Find("Content Frame");
-                Assert.That(frameTransform, Is.Not.Null, $"{screenName} must own a Content Frame.");
-                var frame = frameTransform.GetComponent<RectTransform>();
-                Assert.That(frame.rect.width, Is.LessThanOrEqualTo(960f));
-                Assert.That(frame.rect.width, Is.GreaterThanOrEqualTo(680f));
-                AssertContained(screenRect, frame);
-                foreach (var button in frame.GetComponentsInChildren<Button>(true))
+                var wasActive = screen.gameObject.activeSelf;
+                screen.gameObject.SetActive(true);
+                try
                 {
-                    Assert.That(button.GetComponent<RectTransform>().rect.width, Is.LessThanOrEqualTo(520f),
-                        $"{screenName}/{button.name} must use a constrained card width.");
+                    var screenRect = screen.GetComponent<RectTransform>();
+                    Canvas.ForceUpdateCanvases();
+                    LayoutRebuilder.ForceRebuildLayoutImmediate(screenRect);
+                    Assert.That(screenRect.anchorMin, Is.EqualTo(Vector2.zero),
+                        $"{screenName} must remain stretched under the Canvas.");
+                    Assert.That(screenRect.anchorMax, Is.EqualTo(Vector2.one),
+                        $"{screenName} must remain stretched under the Canvas.");
+                    Assert.That(screenRect.rect.width, Is.EqualTo(canvasRect.rect.width).Within(0.1f));
+                    Assert.That(screenRect.rect.height, Is.EqualTo(canvasRect.rect.height).Within(0.1f));
+
+                    var frameTransform = screen.Find("Content Frame");
+                    Assert.That(frameTransform, Is.Not.Null, $"{screenName} must own a Content Frame.");
+                    var frame = frameTransform.GetComponent<RectTransform>();
+                    Assert.That(frame.rect.width, Is.EqualTo(pair.Value.x).Within(0.1f));
+                    Assert.That(frame.rect.height, Is.EqualTo(pair.Value.y).Within(0.1f));
+                    AssertContained(screenRect, frame);
+                    foreach (var button in frame.GetComponentsInChildren<Button>(true))
+                    {
+                        var buttonRect = button.GetComponent<RectTransform>();
+                        Assert.That(buttonRect.rect.width, Is.LessThanOrEqualTo(520f),
+                            $"{screenName}/{button.name} must use a constrained card width.");
+                        Assert.That(buttonRect.rect.height, Is.GreaterThanOrEqualTo(64f),
+                            $"{screenName}/{button.name} must remain a 64px minimum target.");
+                    }
+
+                    if (screenName == "Tutorial")
+                    {
+                        CollectEffectiveWidthMismatch(
+                            frameTransform, "Navigation/Back Button", 180f, effectiveWidthMismatches);
+                        CollectEffectiveWidthMismatch(
+                            frameTransform, "Navigation/Skip Button", 180f, effectiveWidthMismatches);
+                        CollectEffectiveWidthMismatch(
+                            frameTransform, "Navigation/Next Button", 420f, effectiveWidthMismatches);
+                    }
+                    else if (screenName == "Settings")
+                    {
+                        CollectEffectiveWidthMismatch(
+                            frameTransform, "Heading", 680f, effectiveWidthMismatches);
+                        CollectEffectiveWidthMismatch(
+                            frameTransform, "Foundation Note", 680f, effectiveWidthMismatches);
+                    }
                 }
+                finally
+                {
+                    screen.gameObject.SetActive(wasActive);
+                }
+                Assert.That(screen.gameObject.activeSelf, Is.EqualTo(wasActive),
+                    $"{screenName} active state must be restored after layout assertions.");
+            }
+
+            Assert.That(effectiveWidthMismatches, Is.Empty,
+                string.Join(Environment.NewLine, effectiveWidthMismatches));
+        }
+
+        private static void CollectEffectiveWidthMismatch(
+            Transform parent, string path, float expected, ICollection<string> mismatches)
+        {
+            var target = parent.Find(path);
+            Assert.That(target, Is.Not.Null, $"Missing {parent.name}/{path}.");
+            var actual = target.GetComponent<RectTransform>().rect.width;
+            if (Mathf.Abs(actual - expected) > 0.1f)
+            {
+                mismatches.Add($"{parent.name}/{path} expected {expected:F1}px but rendered {actual:F3}px.");
             }
         }
 
