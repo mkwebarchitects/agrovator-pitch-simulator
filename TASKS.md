@@ -213,3 +213,26 @@ Preserve the Task 20 evidence and close the documented human/environment gates b
 - 2026-07-15 public-demo favicon TDD GREEN: a focused Node test first failed `0/1` because `WebHarness/index.html` had no deployment-safe favicon declaration. The minimal inline `data:,` favicon then passed focused `1/1` and the full Node suite `15/15`, with zero failures, skips or todos. No Unity runtime, scene, content, generated WebGL binary or LMS payload behavior changed.
 - 2026-07-15 public-demo final GREEN: public source `main` points to the tested favicon fix, isolated deployment commit `bd425cd` reached `gh-pages`, and GitHub Pages workflow `29415864996` completed successfully across build, deploy and status jobs. The unchanged hosted game then passed the complete Chrome `150.0.7871.116` smoke flow in `33.1 s`, reached readiness in `7,558 ms`, exercised tutorial, six questions, Results, Failure/Success submission, Retry, Missing Configuration recovery and desktop/mobile containment, and recorded zero console or page errors.
 - Next unchecked UI-polish action: create the approved guided-pitch-builder implementation plan in a fresh Codex task, preserving the standalone repository boundary and public-demo baseline.
+
+## Guided Pitch Builder
+
+- [x] Planning: approved Primary/Secondary guided-builder TDD implementation plan
+- [ ] Task 1: Engine-independent pitch draft, revision, and assessment
+- [ ] Task 2: Validated Primary/Secondary guided content and localization
+- [ ] Task 3: Guided session phases, LMS compatibility, and Retry
+- [ ] Task 4: Reusable four-part board, cards, coaching, and responsive rules
+- [ ] Task 5: Guided presenter, mode selection, flow routing, and recovery
+- [ ] Task 6: Constructive four-dimension Results and resubmission
+- [ ] Task 7: Deterministic guided scenes and generated layout contracts
+- [ ] Task 8: DPR-sharp WebGL sizing and Chrome/Edge guided smoke
+- [ ] Task 9: Documentation, acceptance, privacy, and educator-review boundary
+
+## Guided Pitch Builder verification evidence
+
+- 2026-07-15 planning baseline: the worktree was clean and detached at exact source commit `ce7f8ac4f69aaf0b3645277041234938d6caaaa4`; `ce7f8ac` is also the `codex/pitch-simulator-ui-polish` and `origin/main` baseline named in the handoff.
+- 2026-07-15 planning scope: `AGENTS.md` and the approved `docs/plans/2026-07-15-guided-pitch-builder-design.md` were read before repository mapping. No AGROVATOR LMS repository path was accessed, and no production source, content, scene, package, build, or test artifact was changed.
+- 2026-07-15 plan artifact: `docs/superpowers/plans/2026-07-15-guided-pitch-builder.md` contains `9` independently reviewable TDD tasks, `53` checkbox steps, `9` planned task commits, exact file/interface/RED/GREEN/verification instructions, stable Primary/Secondary content IDs and copy, and the required execution sub-skill header.
+- 2026-07-15 design self-review: all approved sections—Purpose, Core Learning Flow, modes, feedback/assessment, visual direction, technical boundary, errors, verification, and non-goals—map to explicit plan tasks. The review repaired the guided audio-event adapter, exact Node path, generated-builder command, viewport-metrics ownership, asset/meta/privacy commands, and pre-commit whole-diff boundary.
+- 2026-07-15 plan quality gates: the placeholder scan returned `NO_PLACEHOLDERS`; the command scan returned `NO_BAD_COMMANDS`; all required design terms were present; `106` Markdown fence markers were balanced; and `git diff --check` exited `0` with no output before this TASKS update.
+- 2026-07-15 planning verification boundary: Unity, Node, WebGL build, browser smoke, and visual suites were not rerun because this commit changes planning records only and intentionally implements no production code. Their exact RED/GREEN gates are specified task-by-task in the plan.
+- Next unchecked guided-builder action: execute Task 1, beginning with failing EditMode tests for the engine-independent pitch draft and assessment model.
