@@ -258,13 +258,17 @@ namespace Agrovator.PitchSimulator.GuidedPitch
                 }
 
                 ValidateLocalizationKey(option.TextKey, optionPath + ".TextKey", localizationKeys, issues);
-                if (mode == LearnerMode.Primary && localizationValues != null &&
+                if (localizationValues != null &&
                     option.TextKey != null && localizationValues.TryGetValue(option.TextKey, out var text))
                 {
                     var wordCount = CountWords(text);
-                    if (wordCount < 12 || wordCount > 16)
+                    if (mode == LearnerMode.Primary && (wordCount < 12 || wordCount > 16))
                     {
                         issues.Add(Error("guided.primary_word_count_invalid", optionPath + ".TextKey"));
+                    }
+                    else if (mode == LearnerMode.Secondary && wordCount > 32)
+                    {
+                        issues.Add(Error("guided.secondary_word_count_invalid", optionPath + ".TextKey"));
                     }
                 }
 

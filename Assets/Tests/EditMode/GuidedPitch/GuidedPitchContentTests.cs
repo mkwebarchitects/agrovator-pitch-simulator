@@ -195,6 +195,22 @@ namespace Agrovator.PitchSimulator.Tests.EditMode.GuidedPitch
         }
 
         [Test]
+        public void Validate_SecondarySentenceOver32WordsReturnsStructuredError()
+        {
+            var dto = ReadDto();
+            var values = EnglishValues();
+            var secondaryOption = dto.Modes.Single(mode => mode.Mode == "Secondary").Parts[0].Options[0];
+            values[secondaryOption.TextKey] = string.Join(" ", Enumerable.Repeat("word", 33));
+
+            var issue = GuidedPitchContentValidator.ValidateWithLocalizationValues(dto, values)
+                .SingleOrDefault(item => item.Code == "guided.secondary_word_count_invalid");
+
+            Assert.That(issue, Is.Not.Null);
+            Assert.That(issue.Path, Is.EqualTo("Modes[1].Parts[0].Options[0].TextKey"));
+            Assert.That(issue.Severity, Is.EqualTo(GuidedPitchContentIssueSeverity.Error));
+        }
+
+        [Test]
         public void Load_KeyOnlyContractRejectsValidationErrorsBeforeCompilation()
         {
             var json = ReadAuthoredJson().Replace(
