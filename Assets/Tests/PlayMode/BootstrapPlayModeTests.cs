@@ -94,7 +94,7 @@ namespace Agrovator.PitchSimulator.Tests.PlayMode
             Assert.That(GetController(bootstrapper).Snapshot.State, Is.EqualTo(GameState.JudgeIntro));
             var pitchRoom = canvasRoot.Find("PitchRoom");
             Assert.That(pitchRoom.gameObject.activeInHierarchy, Is.True);
-            var pitchContinue = pitchRoom.Find("Continue Button").GetComponent<Button>();
+            var pitchContinue = pitchRoom.Find("Content Frame/Continue Button").GetComponent<Button>();
             for (var step = 0; step < 2; step++)
             {
                 Assert.That(pitchContinue.gameObject.activeInHierarchy, Is.True);
@@ -102,8 +102,9 @@ namespace Agrovator.PitchSimulator.Tests.PlayMode
                 yield return null;
             }
 
-            var responseList = pitchRoom.Find("Responses").GetComponent<ResponseListView>();
-            var responseViews = pitchRoom.Find("Responses").GetComponentsInChildren<ResponseButtonView>(true);
+            var responseList = pitchRoom.Find("Content Frame/Responses").GetComponent<ResponseListView>();
+            var responseViews = pitchRoom.Find("Content Frame/Responses")
+                .GetComponentsInChildren<ResponseButtonView>(true);
             Assert.That(responseViews, Has.Length.EqualTo(3));
             Assert.That(responseViews.Count(view => view.gameObject.activeSelf), Is.EqualTo(1));
             responseViews[0].Button.onClick.Invoke();
@@ -128,9 +129,9 @@ namespace Agrovator.PitchSimulator.Tests.PlayMode
             Assert.That(pitchRoom.GetComponentInChildren<TimerView>(), Is.Not.Null);
             Assert.That(pitchRoom.GetComponentInChildren<ConfidenceView>(), Is.Not.Null);
             Assert.That(pitchRoom.Find("Environment").GetComponent<Image>().sprite, Is.Not.Null);
-            Assert.That(pitchRoom.Find("Dialogue Panel").GetComponent<Image>().type,
+            Assert.That(pitchRoom.Find("Content Frame/Dialogue Panel").GetComponent<Image>().type,
                 Is.EqualTo(Image.Type.Sliced));
-            var judgeView = pitchRoom.Find("Judge Aya").GetComponent<JudgeReactionView>();
+            var judgeView = pitchRoom.Find("Content Frame/Judge Aya").GetComponent<JudgeReactionView>();
             Assert.That(judgeView.IsConfigured, Is.True);
             Assert.That(judgeView.IsTalkLoopActive, Is.True);
 
@@ -190,14 +191,15 @@ namespace Agrovator.PitchSimulator.Tests.PlayMode
             yield return null;
 
             var pitchRoom = canvas.Find("PitchRoom");
-            var pitchContinue = pitchRoom.Find("Continue Button").GetComponent<Button>();
+            var pitchContinue = pitchRoom.Find("Content Frame/Continue Button").GetComponent<Button>();
             for (var step = 0; step < 2; step++)
             {
                 pitchContinue.onClick.Invoke();
                 yield return null;
             }
 
-            var responseViews = pitchRoom.Find("Responses").GetComponentsInChildren<ResponseButtonView>(true);
+            var responseViews = pitchRoom.Find("Content Frame/Responses")
+                .GetComponentsInChildren<ResponseButtonView>(true);
             responseViews[0].Button.onClick.Invoke();
             for (var step = 0; step < 3; step++)
             {
@@ -206,7 +208,7 @@ namespace Agrovator.PitchSimulator.Tests.PlayMode
             }
 
             var timer = pitchRoom.GetComponentInChildren<TimerView>();
-            var timerFill = pitchRoom.Find("Timer/Fill").GetComponent<Image>();
+            var timerFill = pitchRoom.Find("Content Frame/Metrics/Timer/Fill").GetComponent<Image>();
             var initialSeconds = timer.DisplayedSeconds;
             var initialFill = timerFill.fillAmount;
             Assert.That(initialSeconds, Is.GreaterThan(5));

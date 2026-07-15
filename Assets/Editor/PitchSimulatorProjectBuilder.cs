@@ -147,8 +147,8 @@ namespace Agrovator.PitchSimulator.Editor
                 var briefingDefault = briefing.transform.Find("Content Frame/Continue Button").GetComponent<Button>();
                 var tutorialDefault = tutorial.transform.Find("Content Frame/Navigation/Next Button")
                     .GetComponent<Button>();
-                var pitchDefault = pitch.transform.Find("Responses/Response 1").GetComponent<Button>();
-                var pitchContinueDefault = pitch.transform.Find("Continue Button").GetComponent<Button>();
+                var pitchDefault = pitch.transform.Find("Content Frame/Responses/Response 1").GetComponent<Button>();
+                var pitchContinueDefault = pitch.transform.Find("Content Frame/Continue Button").GetComponent<Button>();
                 var resultsDefault = results.transform.Find("Footer/Submit Button").GetComponent<Button>();
                 var resultsSubmittingDefault = results.transform.Find("Results Scroll/Scrollbar").GetComponent<Scrollbar>();
                 var resultsCompleteDefault = results.transform.Find("Footer/Retry Button").GetComponent<Button>();
@@ -349,11 +349,8 @@ namespace Agrovator.PitchSimulator.Editor
 
         private static GameObject CreatePitchRoomScreen(Transform parent, out PitchRoomPresenter presenter)
         {
-            var panel = CreateLegacyLayoutScreen("PitchRoom", parent);
+            var panel = CreateScreen("PitchRoom", parent);
             presenter = panel.AddComponent<PitchRoomPresenter>();
-            var pitchLayout = panel.GetComponent<VerticalLayoutGroup>();
-            pitchLayout.padding = new RectOffset(18, 18, 18, 18);
-            pitchLayout.spacing = 6f;
             var environmentObject = new GameObject("Environment", typeof(RectTransform),
                 typeof(Image), typeof(LayoutElement));
             environmentObject.transform.SetParent(panel.transform, false);
@@ -365,21 +362,25 @@ namespace Agrovator.PitchSimulator.Editor
             environmentImage.color = Color.white;
             environmentImage.raycastTarget = false;
 
+            var contentFrame = CreateContentFrame(
+                panel.transform, 960f, 680f, horizontalPadding: 24, verticalPadding: 24, spacing: 8f);
+
             var statusBacking = new GameObject("Status Backing", typeof(RectTransform),
                 typeof(Image), typeof(LayoutElement));
-            statusBacking.transform.SetParent(panel.transform, false);
+            statusBacking.transform.SetParent(contentFrame.transform, false);
             statusBacking.GetComponent<Image>().color = Ink;
             statusBacking.GetComponent<Image>().raycastTarget = false;
-            statusBacking.GetComponent<LayoutElement>().preferredHeight = 48f;
+            statusBacking.GetComponent<LayoutElement>().preferredHeight = 40f;
+            SetPreferredWidth(statusBacking.transform, 860f);
             var status = CreateLabel("Status", statusBacking.transform, "Score 0", 22);
             status.color = Cream;
             Stretch(status.GetComponent<RectTransform>());
             var judgeObject = new GameObject("Judge Aya", typeof(RectTransform), typeof(Image),
                 typeof(LayoutElement), typeof(JudgeReactionView));
-            judgeObject.transform.SetParent(panel.transform, false);
+            judgeObject.transform.SetParent(contentFrame.transform, false);
             var judgeLayout = judgeObject.GetComponent<LayoutElement>();
             judgeLayout.preferredWidth = 240f;
-            judgeLayout.preferredHeight = 150f;
+            judgeLayout.preferredHeight = 112f;
             var judgeImage = judgeObject.GetComponent<Image>();
             judgeImage.preserveAspect = true;
             judgeImage.raycastTarget = false;
@@ -389,12 +390,13 @@ namespace Agrovator.PitchSimulator.Editor
 
             var dialoguePanel = new GameObject("Dialogue Panel", typeof(RectTransform),
                 typeof(Image), typeof(LayoutElement));
-            dialoguePanel.transform.SetParent(panel.transform, false);
+            dialoguePanel.transform.SetParent(contentFrame.transform, false);
             var dialogueImage = dialoguePanel.GetComponent<Image>();
             dialogueImage.sprite = LoadSprite(DialoguePanelArtPath);
             dialogueImage.type = Image.Type.Sliced;
             dialogueImage.raycastTarget = false;
             dialoguePanel.GetComponent<LayoutElement>().preferredHeight = 96f;
+            SetPreferredWidth(dialoguePanel.transform, 860f);
             var promptBacking = new GameObject("Prompt Backing", typeof(RectTransform), typeof(Image));
             promptBacking.transform.SetParent(dialoguePanel.transform, false);
             var promptBackingRect = promptBacking.GetComponent<RectTransform>();
@@ -409,7 +411,21 @@ namespace Agrovator.PitchSimulator.Editor
             prompt.color = Ink;
             Stretch(prompt.GetComponent<RectTransform>());
 
-            var confidenceRoot = CreateIndicatorRoot("Confidence", panel.transform);
+            var metrics = new GameObject("Metrics", typeof(RectTransform),
+                typeof(HorizontalLayoutGroup), typeof(LayoutElement));
+            metrics.transform.SetParent(contentFrame.transform, false);
+            var metricsLayout = metrics.GetComponent<HorizontalLayoutGroup>();
+            metricsLayout.spacing = 20f;
+            metricsLayout.childAlignment = TextAnchor.MiddleCenter;
+            metricsLayout.childControlWidth = true;
+            metricsLayout.childControlHeight = true;
+            metricsLayout.childForceExpandWidth = false;
+            metricsLayout.childForceExpandHeight = false;
+            metrics.GetComponent<LayoutElement>().preferredHeight = 48f;
+            SetPreferredWidth(metrics.transform, 680f);
+
+            var confidenceRoot = CreateIndicatorRoot("Confidence", metrics.transform);
+            SetPreferredWidth(confidenceRoot.transform, 330f);
             var confidenceIcon = CreateLabel("Icon", confidenceRoot.transform, "[:]", 22, FontStyle.Bold);
             confidenceIcon.color = Cream;
             var confidenceArtworkObject = new GameObject("Artwork Icon", typeof(RectTransform),
@@ -425,15 +441,16 @@ namespace Agrovator.PitchSimulator.Editor
             confidenceLabel.color = Cream;
             var confidenceFill = CreateFilledBar("Fill", confidenceRoot.transform);
             var confidenceView = confidenceRoot.AddComponent<ConfidenceView>();
-            confidenceRoot.GetComponent<LayoutElement>().preferredHeight = 42f;
+            confidenceRoot.GetComponent<LayoutElement>().preferredHeight = 48f;
             SetReference(confidenceView, "stateLabel", confidenceLabel);
             SetReference(confidenceView, "iconLabel", confidenceIcon);
             SetReference(confidenceView, "iconImage", confidenceArtwork);
             SetReferenceArray(confidenceView, "iconSprites", LoadSprites(ConfidenceArtPath));
             SetReference(confidenceView, "fillImage", confidenceFill);
 
-            var timerRoot = CreateIndicatorRoot("Timer", panel.transform);
-            timerRoot.GetComponent<LayoutElement>().preferredHeight = 42f;
+            var timerRoot = CreateIndicatorRoot("Timer", metrics.transform);
+            SetPreferredWidth(timerRoot.transform, 330f);
+            timerRoot.GetComponent<LayoutElement>().preferredHeight = 48f;
             var timerSeconds = CreateLabel("Seconds", timerRoot.transform, "0", 22, FontStyle.Bold);
             timerSeconds.color = Cream;
             var timerFill = CreateFilledBar("Fill", timerRoot.transform);
@@ -444,15 +461,16 @@ namespace Agrovator.PitchSimulator.Editor
 
             var responseRoot = new GameObject("Responses", typeof(RectTransform),
                 typeof(VerticalLayoutGroup), typeof(LayoutElement), typeof(ResponseListView));
-            responseRoot.transform.SetParent(panel.transform, false);
+            responseRoot.transform.SetParent(contentFrame.transform, false);
             var responseLayout = responseRoot.GetComponent<VerticalLayoutGroup>();
             responseLayout.spacing = 12f;
             responseLayout.childAlignment = TextAnchor.MiddleCenter;
             responseLayout.childControlWidth = true;
             responseLayout.childControlHeight = true;
-            responseLayout.childForceExpandWidth = true;
+            responseLayout.childForceExpandWidth = false;
             responseLayout.childForceExpandHeight = false;
-            responseRoot.GetComponent<LayoutElement>().preferredHeight = 170f;
+            responseRoot.GetComponent<LayoutElement>().preferredHeight = 186f;
+            SetPreferredWidth(responseRoot.transform, 680f);
             var slots = new ResponseButtonView[3];
             for (var index = 0; index < slots.Length; index++)
             {
@@ -465,8 +483,9 @@ namespace Agrovator.PitchSimulator.Editor
             var responseList = responseRoot.GetComponent<ResponseListView>();
             SetReferenceArray(responseList, "slots", slots);
 
-            var continueButton = CreateButton("Continue Button", panel.transform, "Continue");
-            continueButton.GetComponent<LayoutElement>().preferredHeight = 64f;
+            var continueButton = CreateButton("Continue Button", contentFrame.transform, "Continue");
+            continueButton.GetComponent<LayoutElement>().preferredHeight = 58f;
+            SetPreferredWidth(continueButton.transform, 520f);
             SetReference(presenter, "promptText", prompt);
             SetReference(presenter, "statusText", status);
             SetReference(presenter, "responseList", responseList);
@@ -489,7 +508,7 @@ namespace Agrovator.PitchSimulator.Editor
             layout.padding = new RectOffset(12, 12, 4, 4);
             layout.spacing = 12f;
             layout.childAlignment = TextAnchor.MiddleCenter;
-            layout.childControlWidth = false;
+            layout.childControlWidth = true;
             layout.childControlHeight = true;
             layout.childForceExpandWidth = false;
             layout.childForceExpandHeight = false;

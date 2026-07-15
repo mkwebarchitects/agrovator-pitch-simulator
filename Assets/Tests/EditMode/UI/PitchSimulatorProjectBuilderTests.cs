@@ -28,6 +28,14 @@ namespace Agrovator.PitchSimulator.Tests.EditMode.UI
         };
 
         [Test]
+        public void GeneratedPitchRoom_UsesContainedFrameAtReferenceResolution()
+        {
+            var scene = EditorSceneManager.OpenScene(GamePath, OpenSceneMode.Single);
+
+            AssertPitchRoomFrame(scene);
+        }
+
+        [Test]
         public void BatchBuild_Twice_PreservesUnownedRootAndKeepsContractSingular()
         {
             var originalSceneBytes = new Dictionary<string, byte[]>();
@@ -159,12 +167,14 @@ namespace Agrovator.PitchSimulator.Tests.EditMode.UI
             Assert.That(scaler.referenceResolution, Is.EqualTo(new Vector2(1280f, 720f)));
             Assert.That(pitchRoom.Find("Environment").GetComponent<Image>().sprite.name,
                 Is.EqualTo("pitch-room"));
-            Assert.That(pitchRoom.Find("Dialogue Panel").GetComponent<Image>().type,
+            Assert.That(pitchRoom.Find("Content Frame/Dialogue Panel").GetComponent<Image>().type,
                 Is.EqualTo(Image.Type.Sliced));
-            var judge = pitchRoom.Find("Judge Aya").GetComponent<JudgeReactionView>();
+            var judge = pitchRoom.Find("Content Frame/Judge Aya").GetComponent<JudgeReactionView>();
             Assert.That(judge, Is.Not.Null);
             Assert.That(judge.IsConfigured, Is.True);
-            Assert.That(pitchRoom.Find("Confidence/Artwork Icon").GetComponent<Image>(), Is.Not.Null);
+            Assert.That(pitchRoom.Find("Content Frame/Metrics/Confidence/Artwork Icon")
+                .GetComponent<Image>(), Is.Not.Null);
+            AssertPitchRoomFrame(scene);
 
             var results = generated.transform.Find("Canvas/Results");
             Assert.That(results, Is.Not.Null);
@@ -199,29 +209,125 @@ namespace Agrovator.PitchSimulator.Tests.EditMode.UI
                 AssertContained(resultsRect, child.GetComponent<RectTransform>());
             }
 
-            AssertTextContrast(
-                pitchRoom.Find("Status Backing/Status").GetComponent<Text>(),
-                pitchRoom.Find("Status Backing").GetComponent<Image>(), 4.5f);
-            AssertTextContrast(
-                pitchRoom.Find("Dialogue Panel/Prompt Backing/Prompt").GetComponent<Text>(),
-                pitchRoom.Find("Dialogue Panel/Prompt Backing").GetComponent<Image>(), 4.5f);
-            AssertTextContrast(
-                pitchRoom.Find("Confidence/Label").GetComponent<Text>(),
-                pitchRoom.Find("Confidence").GetComponent<Image>(), 4.5f);
-            AssertTextContrast(
-                pitchRoom.Find("Timer/Seconds").GetComponent<Text>(),
-                pitchRoom.Find("Timer").GetComponent<Image>(), 4.5f);
+        }
 
-            var pitchRect = pitchRoom.GetComponent<RectTransform>();
-            LayoutRebuilder.ForceRebuildLayoutImmediate(pitchRect);
-            var requiredHeight = RequiredVerticalHeight(pitchRoom);
-            Assert.That(requiredHeight, Is.LessThanOrEqualTo(720f),
-                "PitchRoom layout must fit the 1280x720 reference canvas.");
-            foreach (Transform child in pitchRoom)
+        private static void AssertPitchRoomFrame(Scene scene)
+        {
+            var generated = scene.GetRootGameObjects().Single(root => root.name == "Generated UI");
+            var canvas = generated.transform.Find("Canvas");
+            var canvasRect = canvas.GetComponent<RectTransform>();
+            canvas.GetComponent<Canvas>().renderMode = RenderMode.WorldSpace;
+            canvasRect.sizeDelta = canvas.GetComponent<CanvasScaler>().referenceResolution;
+
+            var pitchRoom = canvas.Find("PitchRoom");
+            Assert.That(pitchRoom, Is.Not.Null);
+            var wasActive = pitchRoom.gameObject.activeSelf;
+            pitchRoom.gameObject.SetActive(true);
+            try
             {
-                var element = child.GetComponent<LayoutElement>();
-                if (element != null && element.ignoreLayout) continue;
-                AssertContained(pitchRect, child.GetComponent<RectTransform>());
+                var environment = pitchRoom.Find("Environment");
+                var frame = pitchRoom.Find("Content Frame");
+                Assert.That(environment, Is.Not.Null);
+                Assert.That(environment.parent, Is.EqualTo(pitchRoom));
+                Assert.That(environment.GetComponent<LayoutElement>().ignoreLayout, Is.True);
+                Assert.That(frame, Is.Not.Null, "PitchRoom must own a direct Content Frame child.");
+                Assert.That(frame.parent, Is.EqualTo(pitchRoom));
+                Assert.That(pitchRoom.Cast<Transform>().Select(child => child.name),
+                    Is.EqualTo(new[] { "Environment", "Content Frame" }));
+                Assert.That(frame.Cast<Transform>().Select(child => child.name),
+                    Is.EqualTo(new[]
+                    {
+                        "Status Backing",
+                        "Judge Aya",
+                        "Dialogue Panel",
+                        "Metrics",
+                        "Responses",
+                        "Continue Button",
+                    }));
+
+                var status = frame.Find("Status Backing");
+                var judge = frame.Find("Judge Aya");
+                var dialogue = frame.Find("Dialogue Panel");
+                var metrics = frame.Find("Metrics");
+                var confidence = metrics.Find("Confidence");
+                var timer = metrics.Find("Timer");
+                var responses = frame.Find("Responses");
+                var continueButton = frame.Find("Continue Button");
+                Assert.That(new[] { status, judge, dialogue, metrics, confidence, timer, responses, continueButton },
+                    Has.None.Null);
+                Assert.That(metrics.Cast<Transform>().Select(child => child.name),
+                    Is.EqualTo(new[] { "Confidence", "Timer" }));
+
+                var pitchRect = pitchRoom.GetComponent<RectTransform>();
+                var environmentRect = environment.GetComponent<RectTransform>();
+                var frameRect = frame.GetComponent<RectTransform>();
+                var metricsRect = metrics.GetComponent<RectTransform>();
+                var responsesRect = responses.GetComponent<RectTransform>();
+                Canvas.ForceUpdateCanvases();
+                LayoutRebuilder.ForceRebuildLayoutImmediate(pitchRect);
+                LayoutRebuilder.ForceRebuildLayoutImmediate(frameRect);
+                LayoutRebuilder.ForceRebuildLayoutImmediate(metricsRect);
+                LayoutRebuilder.ForceRebuildLayoutImmediate(responsesRect);
+                Canvas.ForceUpdateCanvases();
+
+                Assert.That(environmentRect.rect.width, Is.EqualTo(pitchRect.rect.width).Within(0.1f));
+                Assert.That(environmentRect.rect.height, Is.EqualTo(pitchRect.rect.height).Within(0.1f));
+                Assert.That(frameRect.rect.width, Is.LessThanOrEqualTo(960f));
+                Assert.That(frameRect.rect.height, Is.LessThanOrEqualTo(680f));
+                var frameLayout = frame.GetComponent<VerticalLayoutGroup>();
+                Assert.That(frameLayout.padding.left, Is.EqualTo(24));
+                Assert.That(frameLayout.padding.right, Is.EqualTo(24));
+                Assert.That(frameLayout.padding.top, Is.EqualTo(24));
+                Assert.That(frameLayout.padding.bottom, Is.EqualTo(24));
+                Assert.That(frameLayout.spacing, Is.EqualTo(8f));
+                Assert.That(status.GetComponent<RectTransform>().rect.width, Is.LessThanOrEqualTo(860f));
+                Assert.That(dialogue.GetComponent<RectTransform>().rect.width, Is.LessThanOrEqualTo(860f));
+                Assert.That(metricsRect.rect.width, Is.LessThanOrEqualTo(680f),
+                    $"Metrics rendered {metricsRect.rect.width:F1}px; layout min/preferred " +
+                    $"{LayoutUtility.GetMinWidth(metricsRect):F1}/{LayoutUtility.GetPreferredWidth(metricsRect):F1}, " +
+                    $"Confidence {LayoutUtility.GetMinWidth(confidence.GetComponent<RectTransform>()):F1}/" +
+                    $"{LayoutUtility.GetPreferredWidth(confidence.GetComponent<RectTransform>()):F1}, " +
+                    $"Timer {LayoutUtility.GetMinWidth(timer.GetComponent<RectTransform>()):F1}/" +
+                    $"{LayoutUtility.GetPreferredWidth(timer.GetComponent<RectTransform>()):F1}.");
+                Assert.That(confidence.GetComponent<RectTransform>().rect.width, Is.LessThanOrEqualTo(330f));
+                Assert.That(timer.GetComponent<RectTransform>().rect.width, Is.LessThanOrEqualTo(330f));
+                Assert.That(responsesRect.rect.width, Is.LessThanOrEqualTo(680f));
+                Assert.That(continueButton.GetComponent<RectTransform>().rect.width, Is.LessThanOrEqualTo(520f));
+                Assert.That(continueButton.GetComponent<RectTransform>().rect.height, Is.GreaterThanOrEqualTo(64f));
+                foreach (var response in responses.GetComponentsInChildren<Button>(true))
+                {
+                    var responseRect = response.GetComponent<RectTransform>();
+                    Assert.That(responseRect.rect.width, Is.LessThanOrEqualTo(680f),
+                        response.name + " escaped the response width cap.");
+                    Assert.That(responseRect.rect.height, Is.GreaterThanOrEqualTo(64f),
+                        response.name + " must remain a 64px minimum target.");
+                    AssertContained(responsesRect, responseRect);
+                }
+
+                foreach (var child in frame.GetComponentsInChildren<RectTransform>(true))
+                {
+                    if (child == frameRect) continue;
+                    AssertContained(frameRect, child);
+                }
+                AssertContained(pitchRect, frameRect);
+                Assert.That(confidence.gameObject.activeInHierarchy, Is.True);
+                Assert.That(timer.gameObject.activeInHierarchy, Is.True);
+                Assert.That(confidence.GetComponent<RectTransform>().rect.width, Is.GreaterThan(0f));
+                Assert.That(timer.GetComponent<RectTransform>().rect.width, Is.GreaterThan(0f));
+
+                AssertTextContrast(
+                    status.Find("Status").GetComponent<Text>(), status.GetComponent<Image>(), 4.5f);
+                AssertTextContrast(
+                    dialogue.Find("Prompt Backing/Prompt").GetComponent<Text>(),
+                    dialogue.Find("Prompt Backing").GetComponent<Image>(), 4.5f);
+                AssertTextContrast(
+                    confidence.Find("Label").GetComponent<Text>(), confidence.GetComponent<Image>(), 4.5f);
+                AssertTextContrast(
+                    timer.Find("Seconds").GetComponent<Text>(), timer.GetComponent<Image>(), 4.5f);
+            }
+            finally
+            {
+                pitchRoom.gameObject.SetActive(wasActive);
             }
         }
 
