@@ -313,7 +313,7 @@ async function canvasMetrics(page, frame, canvas, viewport) {
   return { viewport, iframeViewport: inner, bounds, aspect };
 }
 
-async function playAttempt(page, frame, canvas, options) {
+async function playAttempt(page, frame, canvas, options, browserName) {
   const titleBounds = await canvas.boundingBox();
   if (!titleBounds) throw new Error("Unity canvas has no Title-control bounds.");
   const titleBefore = await canvasHash(canvas);
@@ -327,13 +327,27 @@ async function playAttempt(page, frame, canvas, options) {
   await waitForCanvasChange(canvas, briefingBefore, options.timeoutMs, "Briefing pointer Continue");
   await new Promise(resolveWait => setTimeout(resolveWait, 300));
 
-  await mouseContinue(page, canvas, options.timeoutMs, "Tutorial");
+  if (browserName === "chrome") {
+    await page.screenshot({
+      path: join(options.outputDirectory, "chrome-tutorial.png"),
+      fullPage: true,
+    });
+  }
+  await keyboardAction(page, canvas, "Enter", options.timeoutMs, "Tutorial page 1 Next");
+  await keyboardAction(page, canvas, "Enter", options.timeoutMs, "Tutorial page 2 Next");
+  await keyboardAction(page, canvas, "Enter", options.timeoutMs, "Tutorial page 3 Start Practice");
   await mouseContinue(page, canvas, options.timeoutMs, "Judge introduction");
   await mouseContinue(page, canvas, options.timeoutMs, "Tutorial response reveal", true);
   await mouseResponse(page, canvas, options.timeoutMs);
   await mouseContinue(page, canvas, options.timeoutMs, "Tutorial reaction");
   await mouseContinue(page, canvas, options.timeoutMs, "Tutorial feedback");
   await mouseContinue(page, canvas, options.timeoutMs, "Question 1 response reveal", true);
+  if (browserName === "chrome") {
+    await page.screenshot({
+      path: join(options.outputDirectory, "chrome-pitch.png"),
+      fullPage: true,
+    });
+  }
 
   for (let question = 1; question <= 6; question += 1) {
     await keyboardAction(page, canvas, "Enter", options.timeoutMs, `question ${question} keyboard response`);
@@ -369,7 +383,14 @@ async function playAttempt(page, frame, canvas, options) {
   }, delay: 120 });
   await waitForCanvasChange(canvas, retryBriefingBefore, options.timeoutMs,
     "retry Briefing pointer Continue");
-  await mouseContinue(page, canvas, options.timeoutMs, "retry Tutorial");
+  const retryTutorialBounds = await canvas.boundingBox();
+  if (!retryTutorialBounds) throw new Error("Retry Tutorial canvas has no pointer bounds.");
+  const retryTutorialBefore = await canvasHash(canvas);
+  await canvas.click({ position: {
+    x: retryTutorialBounds.width * 0.50,
+    y: retryTutorialBounds.height * 0.82,
+  }, delay: 120 });
+  await waitForCanvasChange(canvas, retryTutorialBefore, options.timeoutMs, "retry Tutorial Skip");
   await mouseContinue(page, canvas, options.timeoutMs, "retry Judge introduction");
   await mouseContinue(page, canvas, options.timeoutMs, "retry Tutorial response reveal", true);
   await mouseResponse(page, canvas, options.timeoutMs);
@@ -420,7 +441,7 @@ async function runBrowser(playwright, definition, server, options) {
     warnings: [],
     completionSummary: null,
     modes: { success: false, failure: false, missingConfig: false, expired: "not-exercised" },
-    interactionContract: "Measured Start pointer at (0.50, 0.61), Briefing pointer at (0.50, 0.66); pitch-room Continue pointer at (0.50, 0.91) x3 to tutorial; tutorial pointer response at (0.50, 0.78); Continue x3 to Q1; six focused Enter responses held 120ms; Continue x3 between Q1-Q5 and x2 after Q6 to Results. After successful completion, Retry must support a downstream pointer-only Briefing/tutorial/response sequence through fresh Q1 reveal, preventing focus-tint-only false positives. Stable lower-control-region changes plus 220ms settle gate observable swaps; 180ms bounded waits cover internal reaction/feedback transitions.",
+    interactionContract: "Measured Start pointer at (0.50, 0.61), Briefing pointer at (0.50, 0.66); three focused Enter presses held 120ms complete Tutorial; pitch-room Continue pointer at (0.50, 0.91); tutorial pointer response at (0.50, 0.78); six focused Enter responses held 120ms; Continue x3 between Q1-Q5 and x2 after Q6 to Results. After successful completion, Retry uses pointer-only Briefing and Tutorial Skip at (0.50, 0.82), then proves the downstream pointer-only practice sequence through fresh Q1 reveal, preventing focus-tint-only false positives. Stable lower-control-region changes plus 220ms settle gate observable swaps; 180ms bounded waits cover internal reaction/feedback transitions.",
     screenshot: null,
   };
   if (!definition.path || !existsSync(definition.path)) {
@@ -466,7 +487,7 @@ async function runBrowser(playwright, definition, server, options) {
     result.mobile = await canvasMetrics(page, frame, canvas, { width: 390, height: 844 });
     await canvasMetrics(page, frame, canvas, { width: 1440, height: 1000 });
 
-    result.completionSummary = await playAttempt(page, frame, canvas, options);
+    result.completionSummary = await playAttempt(page, frame, canvas, options, definition.name);
     result.modes.failure = true;
     result.modes.success = true;
     result.modes.missingConfig = await verifyMissingConfigRecovery(page, options);
