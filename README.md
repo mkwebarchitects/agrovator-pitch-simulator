@@ -6,9 +6,22 @@ This repository is intentionally independent of the external AGROVATOR LMS repos
 
 ## Current status
 
-The Task 20 vertical-slice audit and the subsequent UI-polish gate are recorded for Unity `6000.5.3f1`. Fresh 2026-07-15 final-review evidence is EditMode `311/311`, PlayMode `39/39`, Node `14/14`, a `Succeeded` `92,374,282`-byte development WebGL BuildReport in `00:00:07.2820626` with zero warnings/errors, and passing local smoke runs in Chrome `150.0.7871.116` and Edge `150.0.4078.65` with zero console/page errors. The learner now sees a dedicated three-page tutorial on every attempt, with Back, Skip, Next, and Start Practice behavior, while all six game screens use centered, contained cards. The final Pitch Room regression iterates every authored prompt/outcome, response, and confidence label at `1280x720`; the retained Chrome checkpoint visibly includes the complete `system?`, `inconsistent.`, and `Curious` endings. This accepts standalone local implementation evidence, not a production release: the same-origin mock harness is not proof of production LMS compatibility, Malay remains `pending_human_review`, all audio clips remain placeholders, and human release gates remain open.
+The Task 20 vertical-slice audit and the subsequent UI-polish gate are recorded for Unity `6000.5.3f1`. Fresh 2026-07-15 final-review evidence is EditMode `311/311`, PlayMode `39/39`, Node `15/15`, a `Succeeded` `92,374,282`-byte development WebGL BuildReport in `00:00:07.2820626` with zero warnings/errors, and passing local smoke runs in Chrome `150.0.7871.116` and Edge `150.0.4078.65` with zero console/page errors. The learner now sees a dedicated three-page tutorial on every attempt, with Back, Skip, Next, and Start Practice behavior, while all six game screens use centered, contained cards. The final Pitch Room regression iterates every authored prompt/outcome, response, and confidence label at `1280x720`; the retained Chrome checkpoint visibly includes the complete `system?`, `inconsistent.`, and `Curious` endings. This accepts standalone local implementation evidence, not a production release: the same-origin mock harness is not proof of production LMS compatibility, Malay remains `pending_human_review`, all audio clips remain placeholders, and human release gates remain open.
 
 See [vertical-slice acceptance](docs/18-VERTICAL-SLICE-ACCEPTANCE.md) and [task evidence](TASKS.md).
+
+## Test the public demo
+
+Open the [GitHub Pages demo](https://mkwebarchitects.github.io/agrovator-pitch-simulator/), preferably in desktop Chrome or Edge. The first load downloads approximately 92 MB and may take several seconds.
+
+1. Leave Harness mode on **Success** and wait for **Embedded build connected**.
+2. Select **Start**, continue through the Briefing, and complete or skip the three Tutorial pages.
+3. Choose one response per question and use **Continue** after Aya's reaction and feedback.
+4. On Results, review the score and answer history, then submit the completion.
+5. Confirm the harness shows **Status Completed**, an overall score, attempt number, seven competencies, and timeout count.
+6. Use **Retry** to confirm a fresh attempt returns through Briefing and Tutorial.
+
+To test submission recovery, choose **Failure** before submitting Results, confirm the failed state is preserved, change the harness to **Success**, select **Resend launch configuration**, and submit again. Audio is intentionally silent because final clips are not yet included. This hosted page is a development demo with a mock LMS boundary, not the production AGROVATOR LMS integration.
 
 ## Requirements
 
