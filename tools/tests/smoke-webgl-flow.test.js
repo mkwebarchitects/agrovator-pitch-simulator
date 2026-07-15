@@ -34,10 +34,11 @@ function escapedCallee(callee) {
     .join("\\s*\\.\\s*");
 }
 
-function findCalls(value, callee, { awaited = true } = {}) {
+function findCalls(value, callee, { awaited = true, constructed = false } = {}) {
   const masked = maskNonCode(value);
   const prefix = awaited ? "\\bawait\\s+" : "\\b";
-  const pattern = new RegExp(`${prefix}${escapedCallee(callee)}\\s*\\(`, "g");
+  const constructor = constructed ? "new\\s+" : "";
+  const pattern = new RegExp(`${prefix}${constructor}${escapedCallee(callee)}\\s*\\(`, "g");
   const calls = [];
   let match;
 
@@ -101,6 +102,47 @@ function assertOrdered(...positions) {
 
 const playAttempt = extractFunction(source, "playAttempt", "verifyMissingConfigRecovery");
 
+function assertTutorialContract(attempt) {
+  const screenshots = findCalls(attempt, "page.screenshot");
+  const tutorialScreenshot = callWithLabel(screenshots, "chrome-tutorial.png");
+  const judgeIntroduction = callWithLabel(findCalls(attempt, "mouseContinue"), "Judge introduction");
+  const insideTutorialWindow = call =>
+    call.start > tutorialScreenshot.end && call.end < judgeIntroduction.start;
+  const enterCalls = findCalls(attempt, "keyboardAction")
+    .filter(insideTutorialWindow)
+    .filter(call => /^await\s+keyboardAction\s*\(\s*page\s*,\s*canvas\s*,\s*["']Enter["']\s*,/s
+      .test(call.text));
+  const waits = findCalls(attempt, "Promise", { constructed: true })
+    .filter(insideTutorialWindow)
+    .filter(call => /^await\s+new\s+Promise\s*\(\s*\(?\s*([A-Za-z_$][\w$]*)\s*\)?\s*=>\s*setTimeout\s*\(\s*\1\s*,\s*250\s*\)\s*\)$/s
+      .test(call.text));
+
+  assert.equal(enterCalls.length, 3, "exactly three executable Tutorial Enter actions are required");
+  assert.equal(waits.length, 3, "exactly three awaited 250ms Tutorial settles are required");
+  for (const [index, label] of [
+    "Tutorial page 1 Next",
+    "Tutorial page 2 Next",
+    "Tutorial page 3 Start Practice",
+  ].entries()) {
+    assert.match(enterCalls[index].text,
+      new RegExp(`^await\\s+keyboardAction\\s*\\(\\s*page\\s*,\\s*canvas\\s*,\\s*["']Enter["']\\s*,\\s*options\\.timeoutMs\\s*,\\s*["']${label}["']\\s*\\)$`));
+  }
+  assert.match(tutorialScreenshot.text,
+    /path\s*:\s*join\s*\(\s*options\.outputDirectory\s*,\s*["']chrome-tutorial\.png["']\s*\)/s);
+  assertOrdered(
+    tutorialScreenshot.end,
+    enterCalls[0].start, waits[0].start,
+    enterCalls[1].start, waits[1].start,
+    enterCalls[2].start, waits[2].start,
+    judgeIntroduction.start,
+  );
+
+  const chromeGuards = findIfBlocks(attempt)
+    .filter(block => /^if\s*\(\s*browserName\s*===\s*["']chrome["']\s*\)\s*$/.test(block.header));
+  assert.ok(chromeGuards.some(block =>
+    tutorialScreenshot.start > block.start && tutorialScreenshot.end < block.end));
+}
+
 test("call extraction rejects comments and dead strings", () => {
   const fixture = `
     // await keyboardAction(page, canvas, "Enter", timeout, "comment");
@@ -115,40 +157,24 @@ test("call extraction rejects comments and dead strings", () => {
 });
 
 test("main attempt captures Chrome tutorial before three ordered Enter advances with settles", () => {
-  const keyboardCalls = findCalls(playAttempt, "keyboardAction");
-  const tutorialCalls = keyboardCalls.filter(call => call.text.includes("Tutorial page"));
-  const enterCalls = keyboardCalls.filter(call => /,\s*["']Enter["']\s*,/s.test(call.text));
-  const waits = findCalls(playAttempt, "setTimeout", { awaited: false })
-    .filter(call => /,\s*250\s*\)$/s.test(call.text));
-  const screenshots = findCalls(playAttempt, "page.screenshot");
-  const tutorialScreenshot = callWithLabel(screenshots, "chrome-tutorial.png");
-  const judgeIntroduction = callWithLabel(findCalls(playAttempt, "mouseContinue"), "Judge introduction");
+  assertTutorialContract(playAttempt);
+});
 
-  assert.equal(tutorialCalls.length, 3);
-  assert.equal(waits.length, 3);
-  for (const [index, label] of [
-    "Tutorial page 1 Next",
-    "Tutorial page 2 Next",
-    "Tutorial page 3 Start Practice",
-  ].entries()) {
-    assert.match(tutorialCalls[index].text,
-      new RegExp(`^await\\s+keyboardAction\\s*\\(\\s*page\\s*,\\s*canvas\\s*,\\s*["']Enter["']\\s*,\\s*options\\.timeoutMs\\s*,\\s*["']${label}["']\\s*\\)$`));
-  }
-  assert.equal(enterCalls[0].start, tutorialCalls[0].start);
-  assert.match(tutorialScreenshot.text,
-    /path\s*:\s*join\s*\(\s*options\.outputDirectory\s*,\s*["']chrome-tutorial\.png["']\s*\)/s);
-  assertOrdered(
-    tutorialScreenshot.end,
-    tutorialCalls[0].start, waits[0].start,
-    tutorialCalls[1].start, waits[1].start,
-    tutorialCalls[2].start, waits[2].start,
-    judgeIntroduction.start,
-  );
+test("tutorial contract rejects an extra executable Enter inside the tutorial window", () => {
+  const firstEnter = callWithLabel(findCalls(playAttempt, "keyboardAction"), "Tutorial page 1 Next");
+  const statementEnd = playAttempt.indexOf(";", firstEnter.end) + 1;
+  const mutated = `${playAttempt.slice(0, statementEnd)}
+  await keyboardAction(page, canvas, "Enter", options.timeoutMs, "Unexpected Enter");${playAttempt.slice(statementEnd)}`;
 
-  const chromeGuards = findIfBlocks(playAttempt)
-    .filter(block => /^if\s*\(\s*browserName\s*===\s*["']chrome["']\s*\)\s*$/.test(block.header));
-  assert.ok(chromeGuards.some(block =>
-    tutorialScreenshot.start > block.start && tutorialScreenshot.end < block.end));
+  assert.throws(() => assertTutorialContract(mutated), /exactly three executable Tutorial Enter actions/);
+});
+
+test("tutorial contract rejects an unawaited 250ms settle", () => {
+  const awaitedSettle = "await new Promise(resolveWait => setTimeout(resolveWait, 250))";
+  assert.ok(playAttempt.includes(awaitedSettle), "missing mutation source settle");
+  const mutated = playAttempt.replace(awaitedSettle, "setTimeout(resolveWait, 250)");
+
+  assert.throws(() => assertTutorialContract(mutated), /exactly three awaited 250ms Tutorial settles/);
 });
 
 test("main attempt captures Chrome pitch after the Question 1 reveal gate", () => {
