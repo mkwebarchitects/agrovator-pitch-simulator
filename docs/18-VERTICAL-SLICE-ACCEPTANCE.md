@@ -6,10 +6,10 @@ On 2026-07-15 (`Asia/Kuala_Lumpur`), Task 20 accepted the standalone vertical-sl
 
 Fresh execution evidence:
 
-- Canonical EditMode passed `310/310`; canonical PlayMode passed `39/39`; Node passed `14/14`. Unity XML recorded zero failures, skips, or inconclusive tests, and both complete logs had zero compile/exception markers.
-- `tools/Build-WebGL.ps1` exited `0` in `395.3 s`. BuildReport was `Succeeded`, `92,374,202` bytes, `00:06:03.3210118`, with zero warnings and zero errors.
-- The build contained exactly seven files: `index.html` `5,505`; `style.css` `2,717`; `layout.js` `1,115`; loader `58,622`; framework `711,897`; data `9,293,377`; wasm `82,300,969` bytes.
-- The repaired matrix generated at `2026-07-15T07:32:44.156Z` (`2026-07-15 15:32:44.156` local) used Playwright `1.61.1`. Chrome `150.0.7871.116` passed with `6,716 ms` Unity-ready and `33.438 s` total; Edge `150.0.4078.65` passed with `6,542 ms` Unity-ready and `32.951 s` total. Both recorded zero console/page errors; all three Tutorial pages, launch, Success, Failure, Missing Configuration, pointer-only Retry Tutorial Skip, and a fresh Question 1 reveal were present; the server stopped cleanly with zero stderr. Final capture followed a bounded three-sample stable-content/control repaint gate.
+- Canonical EditMode passed `311/311`; canonical PlayMode passed `39/39`; Node passed `14/14`. Unity XML recorded zero failures, skips, or inconclusive tests, and both complete logs had zero compile/exception markers. The additional generated-layout regression assigns every authored Pitch Room prompt/outcome and response string plus all five confidence labels at `1280x720` and requires complete UGUI TextGenerator character counts.
+- `tools/Build-WebGL.ps1` exited `0` in `48.8 s`. BuildReport was `Succeeded`, `92,374,282` bytes, `00:00:07.2820626`, with zero warnings and zero errors.
+- The build contained exactly seven files: `index.html` `5,505`; `style.css` `2,717`; `layout.js` `1,115`; loader `58,622`; framework `711,897`; data `9,293,457`; wasm `82,300,969` bytes.
+- The repaired matrix generated at `2026-07-15T08:38:15.819Z` (`2026-07-15 16:38:15.819` local) used Playwright `1.61.1`. Chrome `150.0.7871.116` passed with `7,293 ms` Unity-ready and `36.210 s` total; Edge `150.0.4078.65` passed with `7,549 ms` Unity-ready and `36.559 s` total. Both recorded zero console/page errors; all three Tutorial pages, launch, Success, Failure, Missing Configuration, pointer-only Retry Tutorial Skip, and a fresh Question 1 reveal were present; the server stopped cleanly with zero stderr. Final capture followed a bounded three-sample stable-content/control repaint gate. An initial Edge attempt sampled stale desktop canvas bounds before its asynchronous mobile resize; the later screenshot showed the contained mobile canvas, and the unchanged full rerun passed.
 - Firefox was unavailable at standard Windows paths. Safari is unavailable on Windows. Neither is claimed as passed.
 
 The earlier Task 18 measurements remain historical evidence in [web deployment](10-WEB-DEPLOYMENT.md); they are not substituted for the fresh UI-polish build.
@@ -23,14 +23,14 @@ An independent source/test/scenario review plus the final repair review through 
 | Title | Pass | Generated Title is initially active/focused; launch-to-Title is covered by Bootstrap and session-controller tests. |
 | Briefing | Pass | Start routes to Briefing and focuses Continue; session tests assert fresh tutorial state. |
 | Tutorial | Pass | A dedicated three-page UI appears from page one on every attempt. Back/Next mutate only the page index; Skip is available on every page; Start Practice and Skip each advance once. The existing zero-timer, zero-score, zero-confidence practice opening remains unchanged. |
-| Centered layouts | Pass | Title `760x500`, Briefing `880x520`, Tutorial `920x560`, Settings `720x420`, and capped `960x680` PitchRoom/Results cards are centered and contained at the 1280x720 reference; all actions remain at least 64px high, and the Results scrollbar has a 64px target plus `14.09:1` selected-focus contrast. |
+| Centered layouts | Pass | Title `760x500`, Briefing `880x520`, Tutorial `920x560`, Settings `720x420`, and capped `960x680` PitchRoom/Results cards are centered and contained at the 1280x720 reference; all actions remain at least 64px high, and the Results scrollbar has a 64px target plus `14.09:1` selected-focus contrast. Pitch Room text uses a readable `22px` minimum, 72px response targets, and complete generated character-count coverage. |
 | Judge | Pass | Generated PitchRoom contains configured Judge Aya with active talk-loop behavior. |
 | Five-or-more scored questions | Pass | All `729` playable paths terminate with exactly six scored questions. |
 | Three choices | Pass | Every scored question has exactly three respectful responses; runtime uses a fixed three-view pool. |
 | Two-or-more branches | Pass | Conditional standard/recovery gates provide at least two authored branch behaviors. |
 | Recovery | Pass | The unique `weak_claim_made` recovery route is tested through Results history and retry reset. |
 | Timers | Pass | Authored `20`, `15`, and `12` second timers, final-five presentation, reduced-motion behavior, and neutral expiry are covered. |
-| Confidence | Pass | Exact five bands, fill/art fallback, and scored confidence changes are covered. |
+| Confidence | Pass | Exact five bands, fill/art fallback, scored confidence changes, and full rendering of every state label are covered. |
 | Reactions | Pass | All 11 typed reactions, authored mappings, fallback, talk/blink, one-shot, and reduced-motion behavior are covered. |
 | Audio hooks | Pass for hooks only | Exact nine-hook inventory, first-gesture music, response/reaction, once-per-question timer warning, feedback/results, completion routing, and null safety are covered; final audible/licensed clips are absent. |
 | Scoring | Pass | Seven category caps, 100 overall clamp, rollups, confidence bounds, levels, and feedback selection are covered. |

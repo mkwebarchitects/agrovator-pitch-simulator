@@ -21,6 +21,7 @@ The Task 20 audit and UI-polish gate record the completed standalone vertical-sl
 
 ### Fixed
 
+- Pitch Room prompt/outcome text, response labels, and all five confidence labels now render every authored character at the `1280x720` reference instead of truncating vertically; a generated-layout regression covers the complete current English catalog surface used by that screen.
 - Final browser capture now waits for recovered Briefing content and control regions to both change from Title and remain stable for three bounded samples, preventing a first partial WebGL repaint from being recorded as visual evidence.
 - Measured Continue/response coordinate contracts now inspect exactly one executable `canvas.click` with `120 ms` dwell and reject comment, dead-string, or altered-dwell mutations.
 

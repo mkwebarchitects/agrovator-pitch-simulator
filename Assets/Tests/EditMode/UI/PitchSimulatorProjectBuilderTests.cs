@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using Agrovator.PitchSimulator.Accessibility;
+using Agrovator.PitchSimulator.Dialogue;
 using Agrovator.PitchSimulator.Editor;
 using Agrovator.PitchSimulator.Audio;
 using Agrovator.PitchSimulator.LMS;
@@ -33,6 +35,81 @@ namespace Agrovator.PitchSimulator.Tests.EditMode.UI
             var scene = EditorSceneManager.OpenScene(GamePath, OpenSceneMode.Single);
 
             AssertPitchRoomFrame(scene);
+        }
+
+        [Test]
+        public void GeneratedPitchRoom_RendersEveryAuthoredStringWithoutTruncationAtReferenceResolution()
+        {
+            var catalog = LocalizationCatalog.Load(
+                File.ReadAllText("Assets/Content/Localization/en.json"));
+            var scenarioResult = ScenarioJsonLoader.Load(
+                File.ReadAllText("Assets/Content/Scenarios/smart-school-garden.en.json"),
+                catalog.GetKeys("en"));
+            Assert.That(scenarioResult.IsSuccess, Is.True);
+
+            var scene = EditorSceneManager.OpenScene(GamePath, OpenSceneMode.Single);
+            var generated = scene.GetRootGameObjects().Single(root => root.name == "Generated UI");
+            var canvas = generated.transform.Find("Canvas");
+            canvas.GetComponent<Canvas>().renderMode = RenderMode.WorldSpace;
+            canvas.GetComponent<RectTransform>().sizeDelta = new Vector2(1280f, 720f);
+            var pitchRoom = canvas.Find("PitchRoom");
+            var wasActive = pitchRoom.gameObject.activeSelf;
+            pitchRoom.gameObject.SetActive(true);
+            try
+            {
+                ForcePitchRoomLayout(pitchRoom);
+                var prompt = pitchRoom.Find("Content Frame/Dialogue Panel/Prompt Backing/Prompt")
+                    .GetComponent<Text>();
+                var responseLabels = pitchRoom.Find("Content Frame/Responses")
+                    .GetComponentsInChildren<ResponseButtonView>(true)
+                    .Select(slot => slot.GetComponentInChildren<Text>(true))
+                    .ToArray();
+                var failures = new List<string>();
+
+                foreach (var node in scenarioResult.Scenario.Nodes.Values)
+                {
+                    AssertFullyRendered(prompt, node.TextKey, catalog.Resolve("en", node.TextKey),
+                        pitchRoom, failures);
+                    for (var responseIndex = 0; responseIndex < node.Responses.Count; responseIndex++)
+                    {
+                        var response = node.Responses[responseIndex];
+                        AssertFullyRendered(
+                            responseLabels[responseIndex],
+                            response.TextKey,
+                            $"{responseIndex + 1}. {catalog.Resolve("en", response.TextKey)}",
+                            pitchRoom,
+                            failures);
+                        AssertFullyRendered(prompt, response.FeedbackKey,
+                            catalog.Resolve("en", response.FeedbackKey), pitchRoom, failures);
+                        AssertFullyRendered(prompt, response.ExplanationKey,
+                            catalog.Resolve("en", response.ExplanationKey), pitchRoom, failures);
+                    }
+                }
+
+                var confidence = pitchRoom.Find("Content Frame/Metrics/Confidence");
+                var confidenceView = confidence.GetComponent<ConfidenceView>();
+                var confidenceLabel = confidence.Find("Label").GetComponent<Text>();
+                var confidenceKeys = new[]
+                {
+                    "ui.confidence.getting_started",
+                    "ui.confidence.listening",
+                    "ui.confidence.curious",
+                    "ui.confidence.interested",
+                    "ui.confidence.convinced",
+                };
+                for (var index = 0; index < confidenceKeys.Length; index++)
+                {
+                    confidenceView.Render(index * 20, key => catalog.Resolve("en", key));
+                    AssertFullyRendered(confidenceLabel, confidenceKeys[index],
+                        catalog.Resolve("en", confidenceKeys[index]), pitchRoom, failures);
+                }
+
+                Assert.That(failures, Is.Empty, string.Join(Environment.NewLine, failures));
+            }
+            finally
+            {
+                pitchRoom.gameObject.SetActive(wasActive);
+            }
         }
 
         [Test]
@@ -454,6 +531,39 @@ namespace Agrovator.PitchSimulator.Tests.EditMode.UI
             {
                 pitchRoom.gameObject.SetActive(wasActive);
             }
+        }
+
+        private static void AssertFullyRendered(
+            Text text,
+            string key,
+            string value,
+            Transform pitchRoom,
+            ICollection<string> failures)
+        {
+            text.text = value;
+            ForcePitchRoomLayout(pitchRoom);
+            var generator = text.cachedTextGenerator;
+            generator.Populate(value, text.GetGenerationSettings(text.rectTransform.rect.size));
+            if (generator.characterCount != value.Length + 1 || generator.characterCountVisible != value.Length)
+            {
+                failures.Add(
+                    $"{key}: rendered {generator.characterCountVisible}/{value.Length} characters " +
+                    $"in {text.rectTransform.rect.width:F1}x{text.rectTransform.rect.height:F1}px " +
+                    $"(preferred {text.preferredWidth:F1}x{text.preferredHeight:F1}px).");
+            }
+        }
+
+        private static void ForcePitchRoomLayout(Transform pitchRoom)
+        {
+            Canvas.ForceUpdateCanvases();
+            LayoutRebuilder.ForceRebuildLayoutImmediate(pitchRoom.GetComponent<RectTransform>());
+            LayoutRebuilder.ForceRebuildLayoutImmediate(
+                pitchRoom.Find("Content Frame").GetComponent<RectTransform>());
+            LayoutRebuilder.ForceRebuildLayoutImmediate(
+                pitchRoom.Find("Content Frame/Metrics").GetComponent<RectTransform>());
+            LayoutRebuilder.ForceRebuildLayoutImmediate(
+                pitchRoom.Find("Content Frame/Responses").GetComponent<RectTransform>());
+            Canvas.ForceUpdateCanvases();
         }
 
         private static void AssertSimpleScreenFrames(Transform canvas)

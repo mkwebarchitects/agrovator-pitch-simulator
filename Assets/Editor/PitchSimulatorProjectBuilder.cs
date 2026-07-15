@@ -412,6 +412,9 @@ namespace Agrovator.PitchSimulator.Editor
             var prompt = CreateLabel("Prompt", promptBacking.transform,
                 "Preparing your pitch…", 30, FontStyle.Bold);
             prompt.color = Ink;
+            prompt.resizeTextForBestFit = true;
+            prompt.resizeTextMinSize = 22;
+            prompt.resizeTextMaxSize = 24;
             Stretch(prompt.GetComponent<RectTransform>());
 
             var metrics = new GameObject("Metrics", typeof(RectTransform),
@@ -442,7 +445,11 @@ namespace Agrovator.PitchSimulator.Editor
             confidenceArtworkLayout.preferredHeight = 48f;
             var confidenceLabel = CreateLabel("Label", confidenceRoot.transform, "Curious", 22, FontStyle.Bold);
             confidenceLabel.color = Cream;
+            var confidenceLabelLayout = confidenceLabel.GetComponent<LayoutElement>();
+            confidenceLabelLayout.minWidth = 160f;
+            confidenceLabelLayout.preferredWidth = 160f;
             var confidenceFill = CreateFilledBar("Fill", confidenceRoot.transform);
+            confidenceFill.GetComponent<LayoutElement>().preferredWidth = 72f;
             var confidenceView = confidenceRoot.AddComponent<ConfidenceView>();
             confidenceRoot.GetComponent<LayoutElement>().preferredHeight = 48f;
             SetReference(confidenceView, "stateLabel", confidenceLabel);
@@ -472,16 +479,22 @@ namespace Agrovator.PitchSimulator.Editor
             responseLayout.childControlHeight = true;
             responseLayout.childForceExpandWidth = false;
             responseLayout.childForceExpandHeight = false;
-            responseRoot.GetComponent<LayoutElement>().preferredHeight = 186f;
+            responseRoot.GetComponent<LayoutElement>().preferredHeight = 240f;
             SetPreferredWidth(responseRoot.transform, 680f);
             var slots = new ResponseButtonView[3];
             for (var index = 0; index < slots.Length; index++)
             {
                 var button = CreateButton($"Response {index + 1}", responseRoot.transform,
                     $"Response {index + 1}");
+                var buttonLayout = button.GetComponent<LayoutElement>();
+                buttonLayout.minHeight = 72f;
+                buttonLayout.preferredHeight = 72f;
+                var responseLabel = button.GetComponentInChildren<Text>();
+                responseLabel.fontSize = 22;
+                responseLabel.lineSpacing = 0.9f;
                 slots[index] = button.gameObject.AddComponent<ResponseButtonView>();
                 SetReference(slots[index], "button", button);
-                SetReference(slots[index], "label", button.GetComponentInChildren<Text>());
+                SetReference(slots[index], "label", responseLabel);
             }
             var responseList = responseRoot.GetComponent<ResponseListView>();
             SetReferenceArray(responseList, "slots", slots);
