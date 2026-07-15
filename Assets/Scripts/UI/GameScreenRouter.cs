@@ -11,16 +11,19 @@ namespace Agrovator.PitchSimulator.UI
     {
         [SerializeField] private GameObject titlePanel;
         [SerializeField] private GameObject briefingPanel;
+        [SerializeField] private GameObject tutorialPanel;
         [SerializeField] private GameObject pitchRoomPanel;
         [SerializeField] private GameObject resultsPanel;
         [SerializeField] private GameObject settingsPanel;
         [SerializeField] private TitlePresenter titlePresenter;
         [SerializeField] private BriefingPresenter briefingPresenter;
+        [SerializeField] private TutorialPresenter tutorialPresenter;
         [SerializeField] private PitchRoomPresenter pitchRoomPresenter;
         [SerializeField] private ResultsPresenter resultsPresenter;
         [SerializeField] private SettingsPresenter settingsPresenter;
         [SerializeField] private Selectable titleDefault;
         [SerializeField] private Selectable briefingDefault;
+        [SerializeField] private Selectable tutorialDefault;
         [SerializeField] private Selectable pitchRoomDefault;
         [SerializeField] private Selectable pitchRoomContinueDefault;
         [SerializeField] private Selectable resultsDefault;
@@ -53,6 +56,7 @@ namespace Agrovator.PitchSimulator.UI
             controller = sessionController;
             titlePresenter.Initialize(controller, Refresh, OpenSettings, onTitleUserGesture);
             briefingPresenter.Initialize(controller, Refresh);
+            tutorialPresenter.Initialize(controller, Refresh, localize);
             pitchRoomPresenter.Initialize(controller, Refresh, localize);
             resultsPresenter.Initialize(controller, Refresh,
                 localize ?? (key => "Localization text is unavailable."));
@@ -64,11 +68,13 @@ namespace Agrovator.PitchSimulator.UI
 
         public bool ValidateContract(out string reason)
         {
-            var panels = new[] { titlePanel, briefingPanel, pitchRoomPanel, resultsPanel, settingsPanel };
+            var panels = new[]
+                { titlePanel, briefingPanel, tutorialPanel, pitchRoomPanel, resultsPanel, settingsPanel };
             var presenters = new MonoBehaviour[]
             {
                 titlePresenter,
                 briefingPresenter,
+                tutorialPresenter,
                 pitchRoomPresenter,
                 resultsPresenter,
                 settingsPresenter,
@@ -77,6 +83,7 @@ namespace Agrovator.PitchSimulator.UI
             {
                 titleDefault,
                 briefingDefault,
+                tutorialDefault,
                 pitchRoomDefault,
                 resultsDefault,
                 settingsDefault,
@@ -148,6 +155,7 @@ namespace Agrovator.PitchSimulator.UI
             var snapshot = controller.Snapshot;
             titlePresenter.Refresh(snapshot);
             briefingPresenter.Refresh(snapshot);
+            tutorialPresenter.Refresh(snapshot);
             pitchRoomPresenter.Refresh(snapshot);
             resultsPresenter.Refresh(snapshot);
             Show(GetPanel(snapshot.State));
@@ -187,6 +195,8 @@ namespace Agrovator.PitchSimulator.UI
                     return titlePanel;
                 case GameState.Briefing:
                     return briefingPanel;
+                case GameState.Tutorial:
+                    return tutorialPanel;
                 case GameState.Results:
                 case GameState.Submitting:
                 case GameState.Complete:
@@ -198,7 +208,7 @@ namespace Agrovator.PitchSimulator.UI
 
         private GameObject CurrentPanel()
         {
-            foreach (var panel in new[] { titlePanel, briefingPanel, pitchRoomPanel, resultsPanel })
+            foreach (var panel in new[] { titlePanel, briefingPanel, tutorialPanel, pitchRoomPanel, resultsPanel })
             {
                 if (panel != null && panel.activeSelf)
                 {
@@ -211,7 +221,8 @@ namespace Agrovator.PitchSimulator.UI
 
         private void Show(GameObject selected)
         {
-            foreach (var panel in new[] { titlePanel, briefingPanel, pitchRoomPanel, resultsPanel, settingsPanel })
+            foreach (var panel in new[]
+                     { titlePanel, briefingPanel, tutorialPanel, pitchRoomPanel, resultsPanel, settingsPanel })
             {
                 if (panel != null)
                 {
@@ -232,6 +243,7 @@ namespace Agrovator.PitchSimulator.UI
         {
             if (panel == titlePanel) return titleDefault;
             if (panel == briefingPanel) return briefingDefault;
+            if (panel == tutorialPanel) return tutorialDefault;
             if (panel == pitchRoomPanel)
             {
                 return controller != null && controller.Snapshot.State == GameState.AwaitingResponse

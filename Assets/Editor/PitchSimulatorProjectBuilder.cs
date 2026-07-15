@@ -138,12 +138,15 @@ namespace Agrovator.PitchSimulator.Editor
                 var router = canvasObject.AddComponent<GameScreenRouter>();
                 var title = CreateTitleScreen(canvasObject.transform, out var titlePresenter);
                 var briefing = CreateBriefingScreen(canvasObject.transform, out var briefingPresenter);
+                var tutorial = CreateTutorialScreen(canvasObject.transform, out var tutorialPresenter);
                 var pitch = CreatePitchRoomScreen(canvasObject.transform, out var pitchPresenter);
                 var results = CreateResultsScreen(canvasObject.transform, out var resultsPresenter);
                 var settings = CreateSettingsScreen(canvasObject.transform, out var settingsPresenter);
 
                 var titleDefault = title.transform.Find("Start Button").GetComponent<Button>();
                 var briefingDefault = briefing.transform.Find("Continue Button").GetComponent<Button>();
+                var tutorialDefault = tutorial.transform.Find("Content Frame/Navigation/Next Button")
+                    .GetComponent<Button>();
                 var pitchDefault = pitch.transform.Find("Responses/Response 1").GetComponent<Button>();
                 var pitchContinueDefault = pitch.transform.Find("Continue Button").GetComponent<Button>();
                 var resultsDefault = results.transform.Find("Footer/Submit Button").GetComponent<Button>();
@@ -153,16 +156,19 @@ namespace Agrovator.PitchSimulator.Editor
 
                 SetReference(router, "titlePanel", title);
                 SetReference(router, "briefingPanel", briefing);
+                SetReference(router, "tutorialPanel", tutorial);
                 SetReference(router, "pitchRoomPanel", pitch);
                 SetReference(router, "resultsPanel", results);
                 SetReference(router, "settingsPanel", settings);
                 SetReference(router, "titlePresenter", titlePresenter);
                 SetReference(router, "briefingPresenter", briefingPresenter);
+                SetReference(router, "tutorialPresenter", tutorialPresenter);
                 SetReference(router, "pitchRoomPresenter", pitchPresenter);
                 SetReference(router, "resultsPresenter", resultsPresenter);
                 SetReference(router, "settingsPresenter", settingsPresenter);
                 SetReference(router, "titleDefault", titleDefault);
                 SetReference(router, "briefingDefault", briefingDefault);
+                SetReference(router, "tutorialDefault", tutorialDefault);
                 SetReference(router, "pitchRoomDefault", pitchDefault);
                 SetReference(router, "pitchRoomContinueDefault", pitchContinueDefault);
                 SetReference(router, "resultsDefault", resultsDefault);
@@ -173,6 +179,7 @@ namespace Agrovator.PitchSimulator.Editor
 
                 title.SetActive(true);
                 briefing.SetActive(false);
+                tutorial.SetActive(false);
                 pitch.SetActive(false);
                 results.SetActive(false);
                 settings.SetActive(false);
@@ -277,6 +284,61 @@ namespace Agrovator.PitchSimulator.Editor
                 "Pitch the Smart School Garden to a friendly youth innovation mentor.", 25);
             var continueButton = CreateButton("Continue Button", panel.transform, "Enter Pitch Room");
             SetReference(presenter, "continueButton", continueButton);
+            return panel;
+        }
+
+        private static GameObject CreateTutorialScreen(Transform parent, out TutorialPresenter presenter)
+        {
+            var panel = CreateScreen("Tutorial", parent);
+            presenter = panel.AddComponent<TutorialPresenter>();
+
+            var contentFrame = new GameObject("Content Frame", typeof(RectTransform), typeof(Image),
+                typeof(VerticalLayoutGroup), typeof(LayoutElement));
+            contentFrame.transform.SetParent(panel.transform, false);
+            contentFrame.GetComponent<Image>().color = Cream;
+            var frameLayout = contentFrame.GetComponent<VerticalLayoutGroup>();
+            frameLayout.padding = new RectOffset(48, 48, 36, 36);
+            frameLayout.spacing = 16f;
+            frameLayout.childAlignment = TextAnchor.MiddleCenter;
+            frameLayout.childControlWidth = true;
+            frameLayout.childControlHeight = true;
+            frameLayout.childForceExpandWidth = true;
+            frameLayout.childForceExpandHeight = false;
+            contentFrame.GetComponent<LayoutElement>().preferredHeight = 580f;
+
+            var step = CreateLabel("Step", contentFrame.transform, string.Empty, 22, FontStyle.Bold);
+            var heading = CreateLabel("Heading", contentFrame.transform, string.Empty, 40, FontStyle.Bold);
+            var body = CreateLabel("Body", contentFrame.transform, string.Empty, 26);
+            body.GetComponent<LayoutElement>().preferredHeight = 190f;
+            foreach (var text in new[] { step, heading, body })
+            {
+                text.color = Ink;
+            }
+
+            var navigation = new GameObject("Navigation", typeof(RectTransform),
+                typeof(HorizontalLayoutGroup), typeof(LayoutElement));
+            navigation.transform.SetParent(contentFrame.transform, false);
+            var navigationLayout = navigation.GetComponent<HorizontalLayoutGroup>();
+            navigationLayout.spacing = 16f;
+            navigationLayout.childAlignment = TextAnchor.MiddleCenter;
+            navigationLayout.childControlWidth = true;
+            navigationLayout.childControlHeight = true;
+            navigationLayout.childForceExpandWidth = true;
+            navigationLayout.childForceExpandHeight = false;
+            navigation.GetComponent<LayoutElement>().preferredHeight = 72f;
+
+            var back = CreateButton("Back Button", navigation.transform, "Back");
+            var skip = CreateButton("Skip Button", navigation.transform, "Skip");
+            var next = CreateButton("Next Button", navigation.transform, "Next");
+            ConfigureHorizontalNavigation(back, skip, next);
+
+            SetReference(presenter, "stepText", step);
+            SetReference(presenter, "headingText", heading);
+            SetReference(presenter, "bodyText", body);
+            SetReference(presenter, "backButton", back);
+            SetReference(presenter, "skipButton", skip);
+            SetReference(presenter, "nextButton", next);
+            SetReference(presenter, "nextButtonText", next.transform.Find("Label").GetComponent<Text>());
             return panel;
         }
 
@@ -732,6 +794,18 @@ namespace Agrovator.PitchSimulator.Editor
                 navigation.mode = Navigation.Mode.Explicit;
                 navigation.selectOnUp = controls[(index - 1 + controls.Length) % controls.Length];
                 navigation.selectOnDown = controls[(index + 1) % controls.Length];
+                controls[index].navigation = navigation;
+            }
+        }
+
+        private static void ConfigureHorizontalNavigation(params Selectable[] controls)
+        {
+            for (var index = 0; index < controls.Length; index++)
+            {
+                var navigation = controls[index].navigation;
+                navigation.mode = Navigation.Mode.Explicit;
+                navigation.selectOnLeft = index > 0 ? controls[index - 1] : null;
+                navigation.selectOnRight = index < controls.Length - 1 ? controls[index + 1] : null;
                 controls[index].navigation = navigation;
             }
         }

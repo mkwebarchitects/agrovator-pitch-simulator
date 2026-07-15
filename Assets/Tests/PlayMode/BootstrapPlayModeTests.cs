@@ -49,7 +49,7 @@ namespace Agrovator.PitchSimulator.Tests.PlayMode
             Assert.That(title, Is.Not.Null);
             Assert.That(title.gameObject.activeInHierarchy, Is.True);
 
-            foreach (var screenName in new[] { "Briefing", "PitchRoom", "Results", "Settings" })
+            foreach (var screenName in new[] { "Briefing", "Tutorial", "PitchRoom", "Results", "Settings" })
             {
                 var screen = canvasRoot.Find(screenName);
                 Assert.That(screen, Is.Not.Null, $"Missing {screenName} screen.");
@@ -83,10 +83,19 @@ namespace Agrovator.PitchSimulator.Tests.PlayMode
 
             briefingContinue.onClick.Invoke();
             yield return null;
+            var tutorial = canvasRoot.Find("Tutorial");
+            Assert.That(tutorial.gameObject.activeInHierarchy, Is.True);
+            var next = tutorial.Find("Content Frame/Navigation/Next Button").GetComponent<Button>();
+            Assert.That(EventSystem.current.currentSelectedGameObject, Is.EqualTo(next.gameObject));
+            next.onClick.Invoke();
+            next.onClick.Invoke();
+            next.onClick.Invoke();
+            yield return null;
+            Assert.That(GetController(bootstrapper).Snapshot.State, Is.EqualTo(GameState.JudgeIntro));
             var pitchRoom = canvasRoot.Find("PitchRoom");
             Assert.That(pitchRoom.gameObject.activeInHierarchy, Is.True);
             var pitchContinue = pitchRoom.Find("Continue Button").GetComponent<Button>();
-            for (var step = 0; step < 3; step++)
+            for (var step = 0; step < 2; step++)
             {
                 Assert.That(pitchContinue.gameObject.activeInHierarchy, Is.True);
                 pitchContinue.onClick.Invoke();
@@ -173,9 +182,16 @@ namespace Agrovator.PitchSimulator.Tests.PlayMode
             briefing.Find("Continue Button").GetComponent<Button>().onClick.Invoke();
             yield return null;
 
+            var tutorial = canvas.Find("Tutorial");
+            var tutorialNext = tutorial.Find("Content Frame/Navigation/Next Button").GetComponent<Button>();
+            tutorialNext.onClick.Invoke();
+            tutorialNext.onClick.Invoke();
+            tutorialNext.onClick.Invoke();
+            yield return null;
+
             var pitchRoom = canvas.Find("PitchRoom");
             var pitchContinue = pitchRoom.Find("Continue Button").GetComponent<Button>();
-            for (var step = 0; step < 3; step++)
+            for (var step = 0; step < 2; step++)
             {
                 pitchContinue.onClick.Invoke();
                 yield return null;

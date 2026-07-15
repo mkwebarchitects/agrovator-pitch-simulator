@@ -146,6 +146,10 @@ namespace Agrovator.PitchSimulator.Tests.EditMode.UI
             Assert.That(FindInScene<EventSystem>(scene), Has.Length.EqualTo(1));
             Assert.That(FindInScene<GameScreenRouter>(scene), Has.Length.EqualTo(1));
             var generated = scene.GetRootGameObjects().Single(root => root.name == "Generated UI");
+            var tutorial = generated.transform.Find("Canvas/Tutorial");
+            Assert.That(tutorial, Is.Not.Null);
+            Assert.That(tutorial.GetComponent<TutorialPresenter>(), Is.Not.Null);
+            Assert.That(tutorial.Find("Content Frame/Navigation/Next Button").GetComponent<Button>(), Is.Not.Null);
             var pitchRoom = generated.transform.Find("Canvas/PitchRoom");
             Assert.That(pitchRoom, Is.Not.Null);
             var scaler = generated.transform.Find("Canvas").GetComponent<CanvasScaler>();
