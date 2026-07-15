@@ -56,6 +56,59 @@ namespace Agrovator.PitchSimulator.Tests.EditMode.Accessibility
         }
 
         [Test]
+        public void PendingMalayCatalog_UsesExactEnglishFallbackValuesForGuidedContent()
+        {
+            var catalog = LoadAuthoredCatalogs();
+            var guidedKeys = catalog.GetKeys("en").Where(key => key.StartsWith("guided.", StringComparison.Ordinal));
+
+            Assert.That(guidedKeys, Is.Not.Empty);
+            foreach (var key in guidedKeys)
+            {
+                Assert.That(catalog.Resolve("ms", key), Is.EqualTo(catalog.Resolve("en", key)), key);
+            }
+        }
+
+        [Test]
+        public void GuidedCatalog_ContainsExactLearningLabelsAndTransferPrompt()
+        {
+            var catalog = LoadAuthoredCatalogs();
+            var expected = new Dictionary<string, string>
+            {
+                ["guided.part.problem.label"] = "Problem / Spot it",
+                ["guided.part.evidence.label"] = "Evidence / Prove it",
+                ["guided.part.solution.label"] = "Solution / Solve it",
+                ["guided.part.value.label"] = "Value / Show why it matters",
+                ["guided.mastery.clear"] = "Clear",
+                ["guided.mastery.developing"] = "Developing",
+                ["guided.mastery.needs_practice"] = "Needs Practice",
+                ["guided.pitch_readiness"] = "Pitch Readiness",
+                ["guided.feedback.worked"] = "What worked",
+                ["guided.feedback.missing"] = "What is missing",
+                ["guided.feedback.improve"] = "How to improve",
+                ["guided.action.strengthen"] = "Strengthen this part",
+                ["guided.action.present"] = "Present my pitch",
+                ["guided.transfer_prompt"] = "Use these four parts when your team plans its real pitch: name the problem, prove it, explain the solution, and show why it matters.",
+            };
+
+            foreach (var pair in expected)
+            {
+                Assert.That(catalog.Resolve("en", pair.Key), Is.EqualTo(pair.Value), pair.Key);
+            }
+        }
+
+        [Test]
+        public void GuidedCatalog_DoesNotJudgeLearnerAbility()
+        {
+            var catalog = LoadAuthoredCatalogs();
+            var guidedValues = catalog.GetKeys("en")
+                .Where(key => key.StartsWith("guided.", StringComparison.Ordinal))
+                .Select(key => catalog.Resolve("en", key).ToLowerInvariant());
+
+            Assert.That(guidedValues, Has.None.Contains("you are bad at pitching"));
+            Assert.That(guidedValues, Has.None.Contains("you failed this part"));
+        }
+
+        [Test]
         public void EnglishCatalog_ContainsEveryCurrentResultAndMinimalUiKey()
         {
             var keys = LoadAuthoredCatalogs().GetKeys("en");
