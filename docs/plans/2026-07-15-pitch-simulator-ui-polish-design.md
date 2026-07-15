@@ -1,7 +1,7 @@
 # Pitch Simulator Tutorial and UI Polish Design
 
-**Date:** 2026-07-15  
-**Branch:** `codex/pitch-simulator-ui-polish`  
+**Date:** 2026-07-15
+**Branch:** `codex/pitch-simulator-ui-polish`
 **Base:** completed standalone vertical slice at `3271adf`
 
 ## Goal
