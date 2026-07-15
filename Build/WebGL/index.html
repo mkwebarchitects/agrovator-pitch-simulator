@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="theme-color" content="#0e171f">
+    <title>Pitch Simulator</title>
+    <link rel="stylesheet" href="TemplateData/style.css">
+    <script src="TemplateData/layout.js"></script>
+  </head>
+  <body>
+    <main id="unity-shell" aria-label="AGROVATOR Pitch Simulator">
+      <div id="unity-stage">
+        <canvas id="unity-canvas" width=1280 height=720 tabindex="0"
+                aria-label="Pitch Simulator game"></canvas>
+        <div id="unity-loading" role="status" aria-live="polite">
+          <p id="unity-status">Loading Pitch Simulator&hellip;</p>
+          <div id="unity-progress-track" aria-hidden="true">
+            <div id="unity-progress-bar"></div>
+          </div>
+        </div>
+        <div id="unity-warning" role="alert" aria-live="assertive" hidden></div>
+      </div>
+      <button id="unity-fullscreen" type="button" disabled>Enter fullscreen</button>
+    </main>
+
+    <script>
+      "use strict";
+
+      const shell = document.querySelector("#unity-shell");
+      const stage = document.querySelector("#unity-stage");
+      const canvas = document.querySelector("#unity-canvas");
+      const loading = document.querySelector("#unity-loading");
+      const status = document.querySelector("#unity-status");
+      const progressBar = document.querySelector("#unity-progress-bar");
+      const warning = document.querySelector("#unity-warning");
+      const fullscreen = document.querySelector("#unity-fullscreen");
+
+      function readPixels(style, property) {
+        const value = Number.parseFloat(style.getPropertyValue(property));
+        return Number.isFinite(value) ? value : 0;
+      }
+
+      function fitCanvas() {
+        const bodyStyle = getComputedStyle(document.body);
+        const shellStyle = getComputedStyle(shell);
+        const controlStyle = getComputedStyle(fullscreen);
+        const viewportHeight = window.visualViewport
+          ? window.visualViewport.height
+          : window.innerHeight;
+        const width = AgrovatorLayout.calculateStageWidth({
+          shellWidth: shell.clientWidth,
+          viewportHeight,
+          bodyPaddingTop: readPixels(bodyStyle, "padding-top"),
+          bodyPaddingBottom: readPixels(bodyStyle, "padding-bottom"),
+          shellRowGap: readPixels(shellStyle, "row-gap"),
+          controlHeight: fullscreen.getBoundingClientRect().height,
+          controlMarginTop: readPixels(controlStyle, "margin-top"),
+          controlMarginBottom: readPixels(controlStyle, "margin-bottom"),
+        });
+        const nextWidth = `${width}px`;
+        if (stage.style.width !== nextWidth) {
+          stage.style.width = nextWidth;
+        }
+      }
+
+      function showBanner(message, type) {
+        warning.textContent = message;
+        warning.dataset.type = type || "warning";
+        warning.hidden = false;
+        if (type !== "error") {
+          window.setTimeout(() => {
+            warning.hidden = true;
+            warning.textContent = "";
+          }, 5000);
+        }
+      }
+
+      let layoutFrame = 0;
+      function requestLayout() {
+        if (layoutFrame !== 0) {
+          return;
+        }
+        layoutFrame = window.requestAnimationFrame(() => {
+          layoutFrame = 0;
+          fitCanvas();
+        });
+      }
+
+      window.addEventListener("resize", requestLayout, { passive: true });
+      window.addEventListener("orientationchange", requestLayout, { passive: true });
+      if (window.visualViewport) {
+        window.visualViewport.addEventListener("resize", requestLayout, { passive: true });
+      }
+      const resizeObserver = new ResizeObserver(requestLayout);
+      resizeObserver.observe(shell);
+      requestLayout();
+
+      const buildUrl = "Build";
+      const loaderUrl = `${buildUrl}/WebGL.loader.js`;
+      const config = {
+        arguments: [],
+        dataUrl: `${buildUrl}/WebGL.data`,
+        frameworkUrl: `${buildUrl}/WebGL.framework.js`,
+        codeUrl: `${buildUrl}/WebGL.wasm`,
+        streamingAssetsUrl: "StreamingAssets",
+        companyName: "AGROVATOR",
+        productName: "Pitch Simulator",
+        productVersion: "1.0",
+        showBanner,
+      };
+
+
+      const loader = document.createElement("script");
+      loader.src = loaderUrl;
+      loader.onload = () => {
+        createUnityInstance(canvas, config, (progress) => {
+          const percentage = Math.round(progress * 100);
+          progressBar.style.width = `${percentage}%`;
+          status.textContent = `Loading Pitch Simulator: ${percentage}%`;
+        }).then((unityInstance) => {
+          loading.hidden = true;
+          fullscreen.disabled = false;
+          fullscreen.addEventListener("click", () => unityInstance.SetFullscreen(1));
+          canvas.focus();
+        }).catch(() => {
+          status.textContent = "Pitch Simulator could not be loaded.";
+          showBanner("The game could not be loaded. Please refresh or contact support.", "error");
+        });
+      };
+      loader.onerror = () => {
+        status.textContent = "Pitch Simulator loader could not be downloaded.";
+        showBanner("The game loader is unavailable. Check the server and try again.", "error");
+      };
+      document.body.appendChild(loader);
+    </script>
+  </body>
+</html>
