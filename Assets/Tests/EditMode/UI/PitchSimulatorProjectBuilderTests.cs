@@ -146,13 +146,16 @@ namespace Agrovator.PitchSimulator.Tests.EditMode.UI
             Assert.That(FindInScene<EventSystem>(scene), Has.Length.EqualTo(1));
             Assert.That(FindInScene<GameScreenRouter>(scene), Has.Length.EqualTo(1));
             var generated = scene.GetRootGameObjects().Single(root => root.name == "Generated UI");
+            var canvas = generated.transform.Find("Canvas");
+            Assert.That(canvas, Is.Not.Null);
+            AssertSimpleScreenFrames(canvas);
             var tutorial = generated.transform.Find("Canvas/Tutorial");
             Assert.That(tutorial, Is.Not.Null);
             Assert.That(tutorial.GetComponent<TutorialPresenter>(), Is.Not.Null);
             Assert.That(tutorial.Find("Content Frame/Navigation/Next Button").GetComponent<Button>(), Is.Not.Null);
             var pitchRoom = generated.transform.Find("Canvas/PitchRoom");
             Assert.That(pitchRoom, Is.Not.Null);
-            var scaler = generated.transform.Find("Canvas").GetComponent<CanvasScaler>();
+            var scaler = canvas.GetComponent<CanvasScaler>();
             Assert.That(scaler.referenceResolution, Is.EqualTo(new Vector2(1280f, 720f)));
             Assert.That(pitchRoom.Find("Environment").GetComponent<Image>().sprite.name,
                 Is.EqualTo("pitch-room"));
@@ -219,6 +222,39 @@ namespace Agrovator.PitchSimulator.Tests.EditMode.UI
                 var element = child.GetComponent<LayoutElement>();
                 if (element != null && element.ignoreLayout) continue;
                 AssertContained(pitchRect, child.GetComponent<RectTransform>());
+            }
+        }
+
+        private static void AssertSimpleScreenFrames(Transform canvas)
+        {
+            var canvasRect = canvas.GetComponent<RectTransform>();
+            var canvasComponent = canvas.GetComponent<Canvas>();
+            canvasComponent.renderMode = RenderMode.WorldSpace;
+            canvasRect.sizeDelta = canvas.GetComponent<CanvasScaler>().referenceResolution;
+            foreach (var screenName in new[] { "Title", "Briefing", "Tutorial", "Settings" })
+            {
+                var screen = canvas.Find(screenName);
+                Assert.That(screen, Is.Not.Null, $"Missing {screenName} screen.");
+                var screenRect = screen.GetComponent<RectTransform>();
+                LayoutRebuilder.ForceRebuildLayoutImmediate(screenRect);
+                Assert.That(screenRect.anchorMin, Is.EqualTo(Vector2.zero),
+                    $"{screenName} must remain stretched under the Canvas.");
+                Assert.That(screenRect.anchorMax, Is.EqualTo(Vector2.one),
+                    $"{screenName} must remain stretched under the Canvas.");
+                Assert.That(screenRect.rect.width, Is.EqualTo(canvasRect.rect.width).Within(0.1f));
+                Assert.That(screenRect.rect.height, Is.EqualTo(canvasRect.rect.height).Within(0.1f));
+
+                var frameTransform = screen.Find("Content Frame");
+                Assert.That(frameTransform, Is.Not.Null, $"{screenName} must own a Content Frame.");
+                var frame = frameTransform.GetComponent<RectTransform>();
+                Assert.That(frame.rect.width, Is.LessThanOrEqualTo(960f));
+                Assert.That(frame.rect.width, Is.GreaterThanOrEqualTo(680f));
+                AssertContained(screenRect, frame);
+                foreach (var button in frame.GetComponentsInChildren<Button>(true))
+                {
+                    Assert.That(button.GetComponent<RectTransform>().rect.width, Is.LessThanOrEqualTo(520f),
+                        $"{screenName}/{button.name} must use a constrained card width.");
+                }
             }
         }
 

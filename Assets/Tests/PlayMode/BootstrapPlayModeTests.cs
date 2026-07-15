@@ -64,13 +64,13 @@ namespace Agrovator.PitchSimulator.Tests.PlayMode
             Assert.That(routers, Has.Length.EqualTo(1));
             Assert.That(routers[0].IsInitialized, Is.True);
 
-            var startButton = title.Find("Start Button").GetComponent<Button>();
-            var settingsButton = title.Find("Settings Button").GetComponent<Button>();
+            var startButton = title.Find("Content Frame/Start Button").GetComponent<Button>();
+            var settingsButton = title.Find("Content Frame/Settings Button").GetComponent<Button>();
             Assert.That(EventSystem.current.currentSelectedGameObject, Is.EqualTo(startButton.gameObject));
             settingsButton.onClick.Invoke();
             yield return null;
             var settings = canvasRoot.Find("Settings");
-            var closeButton = settings.Find("Close Button").GetComponent<Button>();
+            var closeButton = settings.Find("Content Frame/Close Button").GetComponent<Button>();
             Assert.That(EventSystem.current.currentSelectedGameObject, Is.EqualTo(closeButton.gameObject));
             closeButton.onClick.Invoke();
             yield return null;
@@ -78,7 +78,7 @@ namespace Agrovator.PitchSimulator.Tests.PlayMode
             startButton.onClick.Invoke();
             yield return null;
             var briefing = canvasRoot.Find("Briefing");
-            var briefingContinue = briefing.Find("Continue Button").GetComponent<Button>();
+            var briefingContinue = briefing.Find("Content Frame/Continue Button").GetComponent<Button>();
             Assert.That(EventSystem.current.currentSelectedGameObject, Is.EqualTo(briefingContinue.gameObject));
 
             briefingContinue.onClick.Invoke();
@@ -176,10 +176,10 @@ namespace Agrovator.PitchSimulator.Tests.PlayMode
 
             var canvas = GameObject.Find("Generated UI").transform.Find("Canvas");
             var title = canvas.Find("Title");
-            title.Find("Start Button").GetComponent<Button>().onClick.Invoke();
+            title.Find("Content Frame/Start Button").GetComponent<Button>().onClick.Invoke();
             yield return null;
             var briefing = canvas.Find("Briefing");
-            briefing.Find("Continue Button").GetComponent<Button>().onClick.Invoke();
+            briefing.Find("Content Frame/Continue Button").GetComponent<Button>().onClick.Invoke();
             yield return null;
 
             var tutorial = canvas.Find("Tutorial");

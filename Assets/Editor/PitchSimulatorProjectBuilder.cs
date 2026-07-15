@@ -143,8 +143,8 @@ namespace Agrovator.PitchSimulator.Editor
                 var results = CreateResultsScreen(canvasObject.transform, out var resultsPresenter);
                 var settings = CreateSettingsScreen(canvasObject.transform, out var settingsPresenter);
 
-                var titleDefault = title.transform.Find("Start Button").GetComponent<Button>();
-                var briefingDefault = briefing.transform.Find("Continue Button").GetComponent<Button>();
+                var titleDefault = title.transform.Find("Content Frame/Start Button").GetComponent<Button>();
+                var briefingDefault = briefing.transform.Find("Content Frame/Continue Button").GetComponent<Button>();
                 var tutorialDefault = tutorial.transform.Find("Content Frame/Navigation/Next Button")
                     .GetComponent<Button>();
                 var pitchDefault = pitch.transform.Find("Responses/Response 1").GetComponent<Button>();
@@ -152,7 +152,7 @@ namespace Agrovator.PitchSimulator.Editor
                 var resultsDefault = results.transform.Find("Footer/Submit Button").GetComponent<Button>();
                 var resultsSubmittingDefault = results.transform.Find("Results Scroll/Scrollbar").GetComponent<Scrollbar>();
                 var resultsCompleteDefault = results.transform.Find("Footer/Retry Button").GetComponent<Button>();
-                var settingsDefault = settings.transform.Find("Close Button").GetComponent<Button>();
+                var settingsDefault = settings.transform.Find("Content Frame/Close Button").GetComponent<Button>();
 
                 SetReference(router, "titlePanel", title);
                 SetReference(router, "briefingPanel", briefing);
@@ -210,7 +210,7 @@ namespace Agrovator.PitchSimulator.Editor
                 scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
                 scaler.referenceResolution = new Vector2(1280f, 720f);
 
-                var panel = CreateScreen("Diagnostics", canvasObject.transform);
+                var panel = CreateLegacyLayoutScreen("Diagnostics", canvasObject.transform);
                 CreateLabel("Heading", panel.transform, "Web LMS Integration Test", 40, FontStyle.Bold);
                 var label = CreateLabel("Status", panel.transform,
                     "LMS bridge waiting for launch configuration.", 28);
@@ -265,10 +265,16 @@ namespace Agrovator.PitchSimulator.Editor
         {
             var panel = CreateScreen("Title", parent);
             presenter = panel.AddComponent<TitlePresenter>();
-            CreateLabel("Heading", panel.transform, "Pitch Simulator", 44, FontStyle.Bold);
-            CreateLabel("Subtitle", panel.transform, "Practise a clear, confident innovation pitch.", 24);
-            var start = CreateButton("Start Button", panel.transform, "Start Pitch");
-            var settings = CreateButton("Settings Button", panel.transform, "Settings");
+            var frame = CreateContentFrame(panel.transform, 760f, 500f);
+            var heading = CreateLabel("Heading", frame.transform, "Pitch Simulator", 44, FontStyle.Bold);
+            var subtitle = CreateLabel("Subtitle", frame.transform,
+                "Practise a clear, confident innovation pitch.", 24);
+            var start = CreateButton("Start Button", frame.transform, "Start Pitch");
+            var settings = CreateButton("Settings Button", frame.transform, "Settings");
+            SetPreferredWidth(heading, 680f);
+            SetPreferredWidth(subtitle, 680f);
+            SetPreferredWidth(start, 520f);
+            SetPreferredWidth(settings, 420f);
             ConfigureVerticalNavigation(start, settings);
             SetReference(presenter, "startButton", start);
             SetReference(presenter, "settingsButton", settings);
@@ -279,10 +285,14 @@ namespace Agrovator.PitchSimulator.Editor
         {
             var panel = CreateScreen("Briefing", parent);
             presenter = panel.AddComponent<BriefingPresenter>();
-            CreateLabel("Heading", panel.transform, "Your Brief", 40, FontStyle.Bold);
-            CreateLabel("Brief", panel.transform,
+            var frame = CreateContentFrame(panel.transform, 880f, 520f);
+            var heading = CreateLabel("Heading", frame.transform, "Your Brief", 40, FontStyle.Bold);
+            var brief = CreateLabel("Brief", frame.transform,
                 "Pitch the Smart School Garden to a friendly youth innovation mentor.", 25);
-            var continueButton = CreateButton("Continue Button", panel.transform, "Enter Pitch Room");
+            var continueButton = CreateButton("Continue Button", frame.transform, "Enter Pitch Room");
+            SetPreferredWidth(heading, 680f);
+            SetPreferredWidth(brief, 820f);
+            SetPreferredWidth(continueButton, 520f);
             SetReference(presenter, "continueButton", continueButton);
             return panel;
         }
@@ -292,27 +302,18 @@ namespace Agrovator.PitchSimulator.Editor
             var panel = CreateScreen("Tutorial", parent);
             presenter = panel.AddComponent<TutorialPresenter>();
 
-            var contentFrame = new GameObject("Content Frame", typeof(RectTransform), typeof(Image),
-                typeof(VerticalLayoutGroup), typeof(LayoutElement));
-            contentFrame.transform.SetParent(panel.transform, false);
-            contentFrame.GetComponent<Image>().color = Cream;
-            var frameLayout = contentFrame.GetComponent<VerticalLayoutGroup>();
-            frameLayout.padding = new RectOffset(48, 48, 36, 36);
-            frameLayout.spacing = 16f;
-            frameLayout.childAlignment = TextAnchor.MiddleCenter;
-            frameLayout.childControlWidth = true;
-            frameLayout.childControlHeight = true;
-            frameLayout.childForceExpandWidth = true;
-            frameLayout.childForceExpandHeight = false;
-            contentFrame.GetComponent<LayoutElement>().preferredHeight = 580f;
+            var contentFrame = CreateContentFrame(panel.transform, 920f, 560f);
 
             var step = CreateLabel("Step", contentFrame.transform, string.Empty, 22, FontStyle.Bold);
             var heading = CreateLabel("Heading", contentFrame.transform, string.Empty, 40, FontStyle.Bold);
             var body = CreateLabel("Body", contentFrame.transform, string.Empty, 26);
             body.GetComponent<LayoutElement>().preferredHeight = 190f;
+            SetPreferredWidth(step, 680f);
+            SetPreferredWidth(heading, 680f);
+            SetPreferredWidth(body, 820f);
             foreach (var text in new[] { step, heading, body })
             {
-                text.color = Ink;
+                text.color = Cream;
             }
 
             var navigation = new GameObject("Navigation", typeof(RectTransform),
@@ -323,13 +324,17 @@ namespace Agrovator.PitchSimulator.Editor
             navigationLayout.childAlignment = TextAnchor.MiddleCenter;
             navigationLayout.childControlWidth = true;
             navigationLayout.childControlHeight = true;
-            navigationLayout.childForceExpandWidth = true;
+            navigationLayout.childForceExpandWidth = false;
             navigationLayout.childForceExpandHeight = false;
             navigation.GetComponent<LayoutElement>().preferredHeight = 72f;
+            SetPreferredWidth(navigation.GetComponent<RectTransform>(), 820f);
 
             var back = CreateButton("Back Button", navigation.transform, "Back");
             var skip = CreateButton("Skip Button", navigation.transform, "Skip");
             var next = CreateButton("Next Button", navigation.transform, "Next");
+            SetPreferredWidth(back, 420f);
+            SetPreferredWidth(skip, 420f);
+            SetPreferredWidth(next, 520f);
             ConfigureHorizontalNavigation(back, skip, next);
 
             SetReference(presenter, "stepText", step);
@@ -344,7 +349,7 @@ namespace Agrovator.PitchSimulator.Editor
 
         private static GameObject CreatePitchRoomScreen(Transform parent, out PitchRoomPresenter presenter)
         {
-            var panel = CreateScreen("PitchRoom", parent);
+            var panel = CreateLegacyLayoutScreen("PitchRoom", parent);
             presenter = panel.AddComponent<PitchRoomPresenter>();
             var pitchLayout = panel.GetComponent<VerticalLayoutGroup>();
             pitchLayout.padding = new RectOffset(18, 18, 18, 18);
@@ -510,7 +515,7 @@ namespace Agrovator.PitchSimulator.Editor
 
         private static GameObject CreateResultsScreen(Transform parent, out ResultsPresenter presenter)
         {
-            var panel = CreateScreen("Results", parent);
+            var panel = CreateLegacyLayoutScreen("Results", parent);
             presenter = panel.AddComponent<ResultsPresenter>();
             var panelLayout = panel.GetComponent<VerticalLayoutGroup>();
             panelLayout.padding = new RectOffset(72, 72, 20, 20);
@@ -710,21 +715,61 @@ namespace Agrovator.PitchSimulator.Editor
         {
             var panel = CreateScreen("Settings", parent);
             presenter = panel.AddComponent<SettingsPresenter>();
-            CreateLabel("Heading", panel.transform, "Settings", 40, FontStyle.Bold);
-            CreateLabel("Foundation Note", panel.transform,
+            var frame = CreateContentFrame(panel.transform, 720f, 420f);
+            var heading = CreateLabel("Heading", frame.transform, "Settings", 40, FontStyle.Bold);
+            var note = CreateLabel("Foundation Note", frame.transform,
                 "Timer, motion, audio and language controls arrive in the next slice.", 24);
-            var close = CreateButton("Close Button", panel.transform, "Back");
+            var close = CreateButton("Close Button", frame.transform, "Back");
+            SetPreferredWidth(heading, 680f);
+            SetPreferredWidth(note, 680f);
+            SetPreferredWidth(close, 420f);
             SetReference(presenter, "closeButton", close);
             return panel;
         }
 
         private static GameObject CreateScreen(string name, Transform parent)
         {
-            var panel = new GameObject(name, typeof(RectTransform), typeof(Image), typeof(VerticalLayoutGroup));
+            var panel = new GameObject(name, typeof(RectTransform), typeof(Image));
             panel.transform.SetParent(parent, false);
             Stretch(panel.GetComponent<RectTransform>());
             panel.GetComponent<Image>().color = new Color(0.055f, 0.09f, 0.12f, 1f);
-            var layout = panel.GetComponent<VerticalLayoutGroup>();
+            return panel;
+        }
+
+        private static GameObject CreateContentFrame(
+            Transform parent, float width = 920f, float height = 600f,
+            int horizontalPadding = 36, int verticalPadding = 32, float spacing = 18f)
+        {
+            var frame = new GameObject("Content Frame", typeof(RectTransform), typeof(Image),
+                typeof(VerticalLayoutGroup));
+            frame.transform.SetParent(parent, false);
+            var rect = frame.GetComponent<RectTransform>();
+            rect.anchorMin = rect.anchorMax = new Vector2(0.5f, 0.5f);
+            rect.pivot = new Vector2(0.5f, 0.5f);
+            rect.sizeDelta = new Vector2(width, height);
+            frame.GetComponent<Image>().color = new Color(0.055f, 0.105f, 0.13f, 0.96f);
+            var layout = frame.GetComponent<VerticalLayoutGroup>();
+            layout.padding = new RectOffset(horizontalPadding, horizontalPadding, verticalPadding, verticalPadding);
+            layout.spacing = spacing;
+            layout.childAlignment = TextAnchor.MiddleCenter;
+            layout.childControlWidth = true;
+            layout.childControlHeight = true;
+            layout.childForceExpandWidth = false;
+            layout.childForceExpandHeight = false;
+            return frame;
+        }
+
+        private static void SetPreferredWidth(Component component, float width)
+        {
+            var element = component.GetComponent<LayoutElement>() ??
+                component.gameObject.AddComponent<LayoutElement>();
+            element.preferredWidth = width;
+        }
+
+        private static GameObject CreateLegacyLayoutScreen(string name, Transform parent)
+        {
+            var panel = CreateScreen(name, parent);
+            var layout = panel.AddComponent<VerticalLayoutGroup>();
             layout.padding = new RectOffset(120, 120, 70, 70);
             layout.spacing = 20f;
             layout.childAlignment = TextAnchor.MiddleCenter;
