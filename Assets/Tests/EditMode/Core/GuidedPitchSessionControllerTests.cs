@@ -283,6 +283,87 @@ namespace Agrovator.PitchSimulator.Tests.EditMode.Core
             Assert.Throws<ArgumentOutOfRangeException>(() => fixture.Controller.Tick(seconds));
         }
 
+        [Test]
+        public void Tick_DuringSessionAccumulatesPayloadDurationWithoutReplacingObservableSnapshot()
+        {
+            var fixture = CreateFixture();
+            fixture.Controller.FinishLaunch();
+            fixture.Controller.StartScenario();
+            var beforeTick = fixture.Controller.Snapshot;
+
+            fixture.Controller.Tick(1.25d);
+
+            Assert.That(fixture.Controller.Snapshot, Is.SameAs(beforeTick));
+            CompleteFromBriefing(fixture.Controller);
+            Assert.That(fixture.Controller.Snapshot.CompletionPayload.DurationSeconds, Is.EqualTo(1.25d));
+        }
+
+        [Test]
+        public void BuildFeedbackEvent_PublishesAfterTransitionAndRefreshBeforeSynchronousListener()
+        {
+            var fixture = CreateFixture();
+            EnterFirstBuild(fixture.Controller);
+            fixture.Controller.SelectPitchResponse("primary-problem-clear");
+            GuidedPitchPhase? observedPhase = null;
+            PitchPart? observedPart = null;
+            bool? reentrantResult = null;
+            var handled = false;
+            fixture.Controller.EventPublished += sessionEvent =>
+            {
+                if (sessionEvent.Type != GuidedPitchSessionEventType.FeedbackReady || handled)
+                {
+                    return;
+                }
+
+                handled = true;
+                observedPhase = fixture.Controller.Snapshot.Phase;
+                observedPart = fixture.Controller.Snapshot.ActivePart;
+                reentrantResult = fixture.Controller.Continue();
+            };
+
+            Assert.That(fixture.Controller.Continue(), Is.True);
+
+            Assert.That(observedPhase, Is.EqualTo(GuidedPitchPhase.Build));
+            Assert.That(observedPart, Is.EqualTo(PitchPart.Evidence));
+            Assert.That(reentrantResult, Is.False);
+            Assert.That(fixture.Controller.Snapshot.Phase, Is.EqualTo(GuidedPitchPhase.Build));
+            Assert.That(fixture.Controller.Snapshot.ActivePart, Is.EqualTo(PitchPart.Evidence));
+        }
+
+        [Test]
+        public void FollowUpFeedbackEvent_PublishesAfterResultsSnapshotBeforeSynchronousListener()
+        {
+            var fixture = CreateFixture();
+            MoveToFollowUpFeedback(fixture.Controller);
+            GuidedPitchPhase? observedPhase = null;
+            bool? reentrantResult = null;
+            var resultsReadyCount = 0;
+            var handled = false;
+            fixture.Controller.EventPublished += sessionEvent =>
+            {
+                if (sessionEvent.Type == GuidedPitchSessionEventType.ResultsReady)
+                {
+                    resultsReadyCount++;
+                }
+
+                if (sessionEvent.Type != GuidedPitchSessionEventType.FeedbackReady || handled)
+                {
+                    return;
+                }
+
+                handled = true;
+                observedPhase = fixture.Controller.Snapshot.Phase;
+                reentrantResult = fixture.Controller.Continue();
+            };
+
+            Assert.That(fixture.Controller.Continue(), Is.True);
+
+            Assert.That(observedPhase, Is.EqualTo(GuidedPitchPhase.Results));
+            Assert.That(reentrantResult, Is.False);
+            Assert.That(resultsReadyCount, Is.EqualTo(1));
+            Assert.That(fixture.Controller.Snapshot.CompletionPayload, Is.Not.Null);
+        }
+
         private static void SelectAndAssert(
             GuidedPitchSessionController controller,
             PitchPart part,
@@ -352,6 +433,53 @@ namespace Agrovator.PitchSimulator.Tests.EditMode.Core
             controller.SelectFollowUpResponse("primary-cost-clear");
             controller.Continue();
             Assert.That(controller.Snapshot.Phase, Is.EqualTo(GuidedPitchPhase.Results));
+        }
+
+        private static void EnterFirstBuild(GuidedPitchSessionController controller)
+        {
+            controller.FinishLaunch();
+            controller.StartScenario();
+            controller.Continue();
+            controller.SelectLearnerMode(LearnerMode.Primary);
+            controller.Continue();
+            Assert.That(controller.Snapshot.Phase, Is.EqualTo(GuidedPitchPhase.Build));
+            Assert.That(controller.Snapshot.ActivePart, Is.EqualTo(PitchPart.Problem));
+        }
+
+        private static void CompleteFromBriefing(GuidedPitchSessionController controller)
+        {
+            controller.Continue();
+            controller.SelectLearnerMode(LearnerMode.Primary);
+            controller.Continue();
+            CompleteBuildAndFollowUp(controller, stopAtFollowUpFeedback: false);
+        }
+
+        private static void MoveToFollowUpFeedback(GuidedPitchSessionController controller)
+        {
+            EnterFirstBuild(controller);
+            CompleteBuildAndFollowUp(controller, stopAtFollowUpFeedback: true);
+        }
+
+        private static void CompleteBuildAndFollowUp(
+            GuidedPitchSessionController controller,
+            bool stopAtFollowUpFeedback)
+        {
+            foreach (var responseId in new[]
+            {
+                "primary-problem-clear", "primary-evidence-clear", "primary-solution-clear", "primary-value-clear",
+            })
+            {
+                controller.SelectPitchResponse(responseId);
+                controller.Continue();
+            }
+
+            controller.PresentPitch();
+            controller.Continue();
+            controller.SelectFollowUpResponse("primary-cost-clear");
+            if (!stopAtFollowUpFeedback)
+            {
+                controller.Continue();
+            }
         }
 
         private static void MoveRevisedToResults(GuidedPitchSessionController controller)

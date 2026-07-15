@@ -97,6 +97,7 @@ namespace Agrovator.PitchSimulator.Core
                 return false;
             }
 
+            GuidedPitchSessionEvent feedbackEvent = null;
             switch (phase)
             {
                 case GuidedPitchPhase.Briefing:
@@ -107,7 +108,7 @@ namespace Agrovator.PitchSimulator.Core
                     activePart = PitchPart.Problem;
                     break;
                 case GuidedPitchPhase.BuildFeedback:
-                    PublishFeedback();
+                    feedbackEvent = CreateFeedbackEvent();
                     feedback = null;
                     if (activePart == PitchPart.Value)
                     {
@@ -124,11 +125,12 @@ namespace Agrovator.PitchSimulator.Core
                     phase = GuidedPitchPhase.FollowUp;
                     break;
                 case GuidedPitchPhase.FollowUpFeedback:
-                    PublishFeedback();
+                    feedbackEvent = CreateFeedbackEvent();
                     feedback = null;
                     phase = GuidedPitchPhase.Results;
                     completionPayload = BuildCompletionPayload();
                     RefreshSnapshot();
+                    Publish(feedbackEvent);
                     Publish(new GuidedPitchSessionEvent(GuidedPitchSessionEventType.ResultsReady));
                     return true;
                 default:
@@ -136,6 +138,7 @@ namespace Agrovator.PitchSimulator.Core
             }
 
             RefreshSnapshot();
+            Publish(feedbackEvent);
             return true;
         }
 
@@ -298,7 +301,6 @@ namespace Agrovator.PitchSimulator.Core
             if (phase >= GuidedPitchPhase.Briefing && phase < GuidedPitchPhase.Results)
             {
                 durationSeconds += seconds;
-                RefreshSnapshot();
             }
         }
 
@@ -483,19 +485,21 @@ namespace Agrovator.PitchSimulator.Core
                 option.ReactionCue));
         }
 
-        private void PublishFeedback()
+        private GuidedPitchSessionEvent CreateFeedbackEvent()
         {
-            if (feedback != null)
-            {
-                Publish(new GuidedPitchSessionEvent(
+            return feedback == null
+                ? null
+                : new GuidedPitchSessionEvent(
                     GuidedPitchSessionEventType.FeedbackReady,
-                    messageKey: feedback.ImproveKey));
-            }
+                    messageKey: feedback.ImproveKey);
         }
 
         private void Publish(GuidedPitchSessionEvent sessionEvent)
         {
-            EventPublished?.Invoke(sessionEvent);
+            if (sessionEvent != null)
+            {
+                EventPublished?.Invoke(sessionEvent);
+            }
         }
 
         private static bool IsKnownPart(PitchPart part)
