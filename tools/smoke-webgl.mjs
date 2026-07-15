@@ -257,6 +257,26 @@ async function keyboardAction(page, canvas, key, timeoutMs, label, expectControl
   throw new Error(`Stable control region did not change after ${label}.`);
 }
 
+async function pointerAction(page, normalizedX, normalizedY, canvas, timeoutMs, label, clickOptions) {
+  const before = await controlRegionHash(page, canvas);
+  const bounds = await canvas.boundingBox();
+  if (!bounds) throw new Error(`Unity canvas has no pointer bounds for ${label}.`);
+  await canvas.click({
+    ...clickOptions,
+    position: { x: bounds.width * normalizedX, y: bounds.height * normalizedY },
+  });
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    const current = await controlRegionHash(page, canvas);
+    if (current !== before) {
+      await new Promise(resolveWait => setTimeout(resolveWait, 220));
+      return current;
+    }
+    await new Promise(resolveWait => setTimeout(resolveWait, 100));
+  }
+  throw new Error(`Stable control region did not change after ${label}.`);
+}
+
 async function mouseResponse(page, canvas, timeoutMs) {
   const before = await controlRegionHash(page, canvas);
   const bounds = await canvas.boundingBox();
@@ -334,8 +354,11 @@ async function playAttempt(page, frame, canvas, options, browserName) {
     });
   }
   await keyboardAction(page, canvas, "Enter", options.timeoutMs, "Tutorial page 1 Next");
+  await new Promise(resolveWait => setTimeout(resolveWait, 250));
   await keyboardAction(page, canvas, "Enter", options.timeoutMs, "Tutorial page 2 Next");
+  await new Promise(resolveWait => setTimeout(resolveWait, 250));
   await keyboardAction(page, canvas, "Enter", options.timeoutMs, "Tutorial page 3 Start Practice");
+  await new Promise(resolveWait => setTimeout(resolveWait, 250));
   await mouseContinue(page, canvas, options.timeoutMs, "Judge introduction");
   await mouseContinue(page, canvas, options.timeoutMs, "Tutorial response reveal", true);
   await mouseResponse(page, canvas, options.timeoutMs);
@@ -383,14 +406,8 @@ async function playAttempt(page, frame, canvas, options, browserName) {
   }, delay: 120 });
   await waitForCanvasChange(canvas, retryBriefingBefore, options.timeoutMs,
     "retry Briefing pointer Continue");
-  const retryTutorialBounds = await canvas.boundingBox();
-  if (!retryTutorialBounds) throw new Error("Retry Tutorial canvas has no pointer bounds.");
-  const retryTutorialBefore = await canvasHash(canvas);
-  await canvas.click({ position: {
-    x: retryTutorialBounds.width * 0.50,
-    y: retryTutorialBounds.height * 0.82,
-  }, delay: 120 });
-  await waitForCanvasChange(canvas, retryTutorialBefore, options.timeoutMs, "retry Tutorial Skip");
+  await pointerAction(page, 0.50, 0.82, canvas, options.timeoutMs,
+    "retry Tutorial Skip", { delay: 120 });
   await mouseContinue(page, canvas, options.timeoutMs, "retry Judge introduction");
   await mouseContinue(page, canvas, options.timeoutMs, "retry Tutorial response reveal", true);
   await mouseResponse(page, canvas, options.timeoutMs);

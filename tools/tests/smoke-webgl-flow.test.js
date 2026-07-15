@@ -8,26 +8,189 @@ const test = require("node:test");
 const projectRoot = path.resolve(__dirname, "..", "..");
 const source = fs.readFileSync(path.join(projectRoot, "tools", "smoke-webgl.mjs"), "utf8");
 
-test("smoke flow advances tutorial page 1", () => {
-  assert.match(source, /Tutorial page 1 Next/);
+const lexicalToken = /"(?:\\[\s\S]|[^"\\])*"|'(?:\\[\s\S]|[^'\\])*'|`(?:\\[\s\S]|[^`\\])*`|\/\/[^\r\n]*|\/\*[\s\S]*?\*\//g;
+const blankToken = token => token.replace(/[^\r\n]/g, " ");
+const maskNonCode = value => value.replace(lexicalToken, blankToken);
+const stripComments = value => value.replace(lexicalToken,
+  token => token.startsWith("//") || token.startsWith("/*") ? blankToken(token) : token);
+
+function matchingDelimiter(masked, openIndex, open, close) {
+  let depth = 0;
+  for (let index = openIndex; index < masked.length; index += 1) {
+    if (masked[index] === open) depth += 1;
+    if (masked[index] === close) depth -= 1;
+    if (depth === 0) return index;
+  }
+  throw new Error(`Unmatched ${open} at ${openIndex}.`);
+}
+
+function escapeRegExp(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function escapedCallee(callee) {
+  return callee.split(".")
+    .map(escapeRegExp)
+    .join("\\s*\\.\\s*");
+}
+
+function findCalls(value, callee, { awaited = true } = {}) {
+  const masked = maskNonCode(value);
+  const prefix = awaited ? "\\bawait\\s+" : "\\b";
+  const pattern = new RegExp(`${prefix}${escapedCallee(callee)}\\s*\\(`, "g");
+  const calls = [];
+  let match;
+
+  while ((match = pattern.exec(masked)) !== null) {
+    const openIndex = masked.indexOf("(", match.index);
+    const closeIndex = matchingDelimiter(masked, openIndex, "(", ")");
+    calls.push({
+      start: match.index,
+      end: closeIndex + 1,
+      text: stripComments(value.slice(match.index, closeIndex + 1)),
+    });
+    pattern.lastIndex = closeIndex + 1;
+  }
+
+  return calls;
+}
+
+function findIfBlocks(value) {
+  const masked = maskNonCode(value);
+  const pattern = /\bif\s*\(/g;
+  const blocks = [];
+  let match;
+
+  while ((match = pattern.exec(masked)) !== null) {
+    const conditionOpen = masked.indexOf("(", match.index);
+    const conditionClose = matchingDelimiter(masked, conditionOpen, "(", ")");
+    const blockOpen = masked.indexOf("{", conditionClose);
+    if (blockOpen < 0 || masked.slice(conditionClose + 1, blockOpen).trim() !== "") continue;
+    const blockClose = matchingDelimiter(masked, blockOpen, "{", "}");
+    blocks.push({
+      start: match.index,
+      end: blockClose + 1,
+      header: stripComments(value.slice(match.index, blockOpen)),
+    });
+    pattern.lastIndex = blockClose + 1;
+  }
+
+  return blocks;
+}
+
+function extractFunction(value, name, nextName) {
+  const start = value.indexOf(`async function ${name}(`);
+  const end = value.indexOf(`async function ${nextName}(`, start);
+  assert.notEqual(start, -1, `missing ${name}`);
+  assert.notEqual(end, -1, `missing boundary after ${name}`);
+  return value.slice(start, end);
+}
+
+function callWithLabel(calls, label) {
+  const quotedLabel = new RegExp(`["']${escapeRegExp(label)}["']`);
+  const matches = calls.filter(call => quotedLabel.test(call.text));
+  assert.equal(matches.length, 1, `expected one executable call labelled ${label}`);
+  return matches[0];
+}
+
+function assertOrdered(...positions) {
+  for (let index = 1; index < positions.length; index += 1) {
+    assert.ok(positions[index - 1] < positions[index], "executable calls are out of order");
+  }
+}
+
+const playAttempt = extractFunction(source, "playAttempt", "verifyMissingConfigRecovery");
+
+test("call extraction rejects comments and dead strings", () => {
+  const fixture = `
+    // await keyboardAction(page, canvas, "Enter", timeout, "comment");
+    const dead = 'await keyboardAction(page, canvas, "Enter", timeout, "dead")';
+    /* await keyboardAction(page, canvas, "Enter", timeout, "block"); */
+    await keyboardAction(page, canvas, "Enter", timeout, "executable");
+  `;
+
+  const calls = findCalls(fixture, "keyboardAction");
+  assert.equal(calls.length, 1);
+  assert.match(calls[0].text, /"executable"/);
 });
 
-test("smoke flow advances tutorial page 2", () => {
-  assert.match(source, /Tutorial page 2 Next/);
+test("main attempt captures Chrome tutorial before three ordered Enter advances with settles", () => {
+  const keyboardCalls = findCalls(playAttempt, "keyboardAction");
+  const tutorialCalls = keyboardCalls.filter(call => call.text.includes("Tutorial page"));
+  const enterCalls = keyboardCalls.filter(call => /,\s*["']Enter["']\s*,/s.test(call.text));
+  const waits = findCalls(playAttempt, "setTimeout", { awaited: false })
+    .filter(call => /,\s*250\s*\)$/s.test(call.text));
+  const screenshots = findCalls(playAttempt, "page.screenshot");
+  const tutorialScreenshot = callWithLabel(screenshots, "chrome-tutorial.png");
+  const judgeIntroduction = callWithLabel(findCalls(playAttempt, "mouseContinue"), "Judge introduction");
+
+  assert.equal(tutorialCalls.length, 3);
+  assert.equal(waits.length, 3);
+  for (const [index, label] of [
+    "Tutorial page 1 Next",
+    "Tutorial page 2 Next",
+    "Tutorial page 3 Start Practice",
+  ].entries()) {
+    assert.match(tutorialCalls[index].text,
+      new RegExp(`^await\\s+keyboardAction\\s*\\(\\s*page\\s*,\\s*canvas\\s*,\\s*["']Enter["']\\s*,\\s*options\\.timeoutMs\\s*,\\s*["']${label}["']\\s*\\)$`));
+  }
+  assert.equal(enterCalls[0].start, tutorialCalls[0].start);
+  assert.match(tutorialScreenshot.text,
+    /path\s*:\s*join\s*\(\s*options\.outputDirectory\s*,\s*["']chrome-tutorial\.png["']\s*\)/s);
+  assertOrdered(
+    tutorialScreenshot.end,
+    tutorialCalls[0].start, waits[0].start,
+    tutorialCalls[1].start, waits[1].start,
+    tutorialCalls[2].start, waits[2].start,
+    judgeIntroduction.start,
+  );
+
+  const chromeGuards = findIfBlocks(playAttempt)
+    .filter(block => /^if\s*\(\s*browserName\s*===\s*["']chrome["']\s*\)\s*$/.test(block.header));
+  assert.ok(chromeGuards.some(block =>
+    tutorialScreenshot.start > block.start && tutorialScreenshot.end < block.end));
 });
 
-test("smoke flow starts practice from tutorial page 3", () => {
-  assert.match(source, /Tutorial page 3 Start Practice/);
+test("main attempt captures Chrome pitch after the Question 1 reveal gate", () => {
+  const screenshots = findCalls(playAttempt, "page.screenshot");
+  const pitchScreenshot = callWithLabel(screenshots, "chrome-pitch.png");
+  const q1Reveal = callWithLabel(findCalls(playAttempt, "mouseContinue"), "Question 1 response reveal");
+
+  assert.match(q1Reveal.text, /,\s*true\s*\)$/s);
+  assert.ok(q1Reveal.end < pitchScreenshot.start);
+  assert.match(pitchScreenshot.text,
+    /path\s*:\s*join\s*\(\s*options\.outputDirectory\s*,\s*["']chrome-pitch\.png["']\s*\)/s);
+
+  const chromeGuards = findIfBlocks(playAttempt)
+    .filter(block => /^if\s*\(\s*browserName\s*===\s*["']chrome["']\s*\)\s*$/.test(block.header));
+  assert.ok(chromeGuards.some(block =>
+    pitchScreenshot.start > block.start && pitchScreenshot.end < block.end));
 });
 
-test("smoke flow skips the tutorial by pointer after retry", () => {
-  assert.match(source, /retry Tutorial Skip/);
-});
+test("Retry uses pointerAction Skip and remains pointer-only through fresh Question 1", () => {
+  const keyboardCalls = findCalls(playAttempt, "keyboardAction");
+  const retry = callWithLabel(keyboardCalls, "Results Retry");
+  const retryBriefing = callWithLabel(findCalls(playAttempt, "waitForCanvasChange"),
+    "retry Briefing pointer Continue");
+  const skip = callWithLabel(findCalls(playAttempt, "pointerAction"), "retry Tutorial Skip");
+  const mouseContinueCalls = findCalls(playAttempt, "mouseContinue");
+  const judge = callWithLabel(mouseContinueCalls, "retry Judge introduction");
+  const reveal = callWithLabel(mouseContinueCalls, "retry Tutorial response reveal");
+  const response = findCalls(playAttempt, "mouseResponse")
+    .find(call => call.start > reveal.start);
+  const reaction = callWithLabel(mouseContinueCalls, "retry Tutorial reaction");
+  const feedback = callWithLabel(mouseContinueCalls, "retry Tutorial feedback");
+  const freshQ1 = callWithLabel(mouseContinueCalls, "retry Question 1 response reveal");
 
-test("smoke flow captures the Chrome tutorial checkpoint", () => {
-  assert.match(source, /chrome-tutorial\.png/);
-});
+  assert.match(skip.text,
+    /^await\s+pointerAction\s*\(\s*page\s*,\s*0\.50\s*,\s*0\.82\s*,\s*canvas\s*,\s*options\.timeoutMs\s*,\s*["']retry Tutorial Skip["']\s*,\s*\{\s*delay\s*:\s*120\s*\}\s*\)$/);
+  assert.ok(response, "missing executable retry practice response");
+  assert.match(reveal.text, /,\s*true\s*\)$/s);
+  assert.match(freshQ1.text, /,\s*true\s*\)$/s);
+  assertOrdered(retry.start, retryBriefing.start, skip.start, judge.start, reveal.start,
+    response.start, reaction.start, feedback.start, freshQ1.start);
 
-test("smoke flow captures the Chrome pitch checkpoint", () => {
-  assert.match(source, /chrome-pitch\.png/);
+  const retryProof = playAttempt.slice(retry.end, freshQ1.end);
+  assert.equal(findCalls(retryProof, "keyboardAction").length, 0,
+    "retry proof must remain pointer-only after activating Retry");
 });
