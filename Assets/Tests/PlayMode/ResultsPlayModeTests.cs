@@ -268,9 +268,17 @@ namespace Agrovator.PitchSimulator.Tests.PlayMode
             Assert.That(retry.navigation.selectOnUp, Is.SameAs(submit));
             Assert.That(retry.navigation.selectOnDown, Is.SameAs(scrollbar));
 
+            var normalFocusColor = RenderedGraphicColor(scrollbar.targetGraphic);
             EventSystem.current.SetSelectedGameObject(scrollbar.gameObject);
             scrollbar.value = 0f;
             yield return null;
+            var selectedFocusColor = RenderedGraphicColor(scrollbar.targetGraphic);
+            Assert.That(ContrastRatio(normalFocusColor, selectedFocusColor), Is.GreaterThanOrEqualTo(3f),
+                "Selecting the Results scrollbar must visibly change its focus indicator by at least 3:1.");
+            Assert.That(
+                ContrastRatio(selectedFocusColor, scroll.GetComponent<Image>().color),
+                Is.GreaterThanOrEqualTo(3f),
+                "The selected Results scrollbar focus indicator must contrast with the scroll background.");
             var boundaryDown = new AxisEventData(eventSystem)
             {
                 moveDir = MoveDirection.Down,
@@ -599,6 +607,38 @@ namespace Agrovator.PitchSimulator.Tests.PlayMode
         {
             ownedObjects.Add(gameObject);
             return gameObject;
+        }
+
+        private static Color RenderedGraphicColor(Graphic graphic)
+        {
+            Assert.That(graphic, Is.Not.Null);
+            var tint = graphic.canvasRenderer.GetColor();
+            return new Color(
+                Mathf.Clamp01(graphic.color.r * tint.r),
+                Mathf.Clamp01(graphic.color.g * tint.g),
+                Mathf.Clamp01(graphic.color.b * tint.b),
+                Mathf.Clamp01(graphic.color.a * tint.a));
+        }
+
+        private static float ContrastRatio(Color first, Color second)
+        {
+            var firstLuminance = RelativeLuminance(first);
+            var secondLuminance = RelativeLuminance(second);
+            return (Mathf.Max(firstLuminance, secondLuminance) + 0.05f) /
+                (Mathf.Min(firstLuminance, secondLuminance) + 0.05f);
+        }
+
+        private static float RelativeLuminance(Color color)
+        {
+            return 0.2126f * Linear(color.r) + 0.7152f * Linear(color.g) +
+                0.0722f * Linear(color.b);
+        }
+
+        private static float Linear(float value)
+        {
+            return value <= 0.04045f
+                ? value / 12.92f
+                : Mathf.Pow((value + 0.055f) / 1.055f, 2.4f);
         }
 
         private static void Set(object target, string fieldName, object value)

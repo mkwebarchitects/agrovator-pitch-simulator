@@ -548,7 +548,8 @@ namespace Agrovator.PitchSimulator.Editor
             var scrollObject = new GameObject("Results Scroll", typeof(RectTransform), typeof(Image),
                 typeof(ScrollRect), typeof(LayoutElement));
             scrollObject.transform.SetParent(contentFrame.transform, false);
-            scrollObject.GetComponent<Image>().color = new Color(0.075f, 0.12f, 0.15f, 1f);
+            var scrollBackground = new Color(0.075f, 0.12f, 0.15f, 1f);
+            scrollObject.GetComponent<Image>().color = scrollBackground;
             var scrollLayout = scrollObject.GetComponent<LayoutElement>();
             scrollLayout.minHeight = 280f;
             scrollLayout.preferredHeight = 450f;
@@ -558,7 +559,7 @@ namespace Agrovator.PitchSimulator.Editor
             var viewportObject = new GameObject("Viewport", typeof(RectTransform), typeof(Image), typeof(RectMask2D));
             viewportObject.transform.SetParent(scrollObject.transform, false);
             Stretch(viewportObject.GetComponent<RectTransform>());
-            viewportObject.GetComponent<RectTransform>().offsetMax = new Vector2(-40f, 0f);
+            viewportObject.GetComponent<RectTransform>().offsetMax = new Vector2(-64f, 0f);
             viewportObject.GetComponent<Image>().color = new Color(0f, 0f, 0f, 0.01f);
 
             var contentObject = new GameObject("Content", typeof(RectTransform), typeof(VerticalLayoutGroup),
@@ -595,10 +596,37 @@ namespace Agrovator.PitchSimulator.Editor
             scrollbarRect.anchorMax = new Vector2(1f, 1f);
             scrollbarRect.pivot = new Vector2(1f, 0.5f);
             scrollbarRect.anchoredPosition = Vector2.zero;
-            scrollbarRect.sizeDelta = new Vector2(32f, 0f);
-            scrollbarObject.GetComponent<Image>().color = new Color(0.12f, 0.19f, 0.22f, 1f);
+            scrollbarRect.sizeDelta = new Vector2(64f, 0f);
+            var scrollbarHitTarget = scrollbarObject.GetComponent<Image>();
+            scrollbarHitTarget.color = Color.clear;
+            scrollbarHitTarget.raycastTarget = true;
+
+            var focusObject = new GameObject("Focus Indicator", typeof(RectTransform), typeof(Image));
+            focusObject.transform.SetParent(scrollbarObject.transform, false);
+            var focusRect = focusObject.GetComponent<RectTransform>();
+            focusRect.anchorMin = new Vector2(0.5f, 0f);
+            focusRect.anchorMax = new Vector2(0.5f, 1f);
+            focusRect.pivot = new Vector2(0.5f, 0.5f);
+            focusRect.anchoredPosition = Vector2.zero;
+            focusRect.sizeDelta = new Vector2(48f, 0f);
+            var focusImage = focusObject.GetComponent<Image>();
+            focusImage.color = Color.white;
+            focusImage.raycastTarget = false;
+
+            var trackObject = new GameObject("Track", typeof(RectTransform), typeof(Image));
+            trackObject.transform.SetParent(scrollbarObject.transform, false);
+            var trackRect = trackObject.GetComponent<RectTransform>();
+            trackRect.anchorMin = new Vector2(0.5f, 0f);
+            trackRect.anchorMax = new Vector2(0.5f, 1f);
+            trackRect.pivot = new Vector2(0.5f, 0.5f);
+            trackRect.anchoredPosition = Vector2.zero;
+            trackRect.sizeDelta = new Vector2(32f, 0f);
+            var trackImage = trackObject.GetComponent<Image>();
+            trackImage.color = new Color(0.12f, 0.19f, 0.22f, 1f);
+            trackImage.raycastTarget = false;
+
             var slidingArea = new GameObject("Sliding Area", typeof(RectTransform));
-            slidingArea.transform.SetParent(scrollbarObject.transform, false);
+            slidingArea.transform.SetParent(trackObject.transform, false);
             Stretch(slidingArea.GetComponent<RectTransform>());
             slidingArea.GetComponent<RectTransform>().offsetMin = new Vector2(4f, 4f);
             slidingArea.GetComponent<RectTransform>().offsetMax = new Vector2(-4f, -4f);
@@ -609,7 +637,16 @@ namespace Agrovator.PitchSimulator.Editor
             handleImage.color = new Color(0.93f, 0.76f, 0.2f, 1f);
             var scrollbar = scrollbarObject.GetComponent<KeyboardReviewScrollbar>();
             scrollbar.handleRect = handleObject.GetComponent<RectTransform>();
-            scrollbar.targetGraphic = handleImage;
+            scrollbar.targetGraphic = focusImage;
+            var scrollbarColors = scrollbar.colors;
+            scrollbarColors.normalColor = scrollBackground;
+            scrollbarColors.highlightedColor = Cream;
+            scrollbarColors.pressedColor = new Color(0.93f, 0.76f, 0.2f, 1f);
+            scrollbarColors.selectedColor = Cream;
+            scrollbarColors.disabledColor = scrollBackground;
+            scrollbarColors.colorMultiplier = 1f;
+            scrollbarColors.fadeDuration = 0f;
+            scrollbar.colors = scrollbarColors;
             scrollbar.direction = Scrollbar.Direction.BottomToTop;
             scrollbar.numberOfSteps = 20;
             scrollbar.size = 0.2f;

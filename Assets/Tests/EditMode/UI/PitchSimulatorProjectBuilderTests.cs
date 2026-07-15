@@ -256,6 +256,56 @@ namespace Agrovator.PitchSimulator.Tests.EditMode.UI
                 Assert.That(scroll.content.GetComponentsInChildren<QuestionReviewItemView>(true),
                     Has.Length.EqualTo(6));
 
+                var scrollbar = scroll.verticalScrollbar;
+                var scrollbarRect = scrollbar.GetComponent<RectTransform>();
+                var scrollbarImage = scrollbar.GetComponent<Image>();
+                var track = scrollbar.transform.Find("Track");
+                var normalFocus = TintedGraphicColor(
+                    scrollbar.targetGraphic, scrollbar.colors.normalColor, scrollbar.colors.colorMultiplier);
+                var selectedFocus = TintedGraphicColor(
+                    scrollbar.targetGraphic, scrollbar.colors.selectedColor, scrollbar.colors.colorMultiplier);
+                var scrollbarAccessibilityFailures = new List<string>();
+                if (scrollbarRect.rect.width < 64f)
+                {
+                    scrollbarAccessibilityFailures.Add(
+                        $"Scrollbar target rendered {scrollbarRect.rect.width:F1}px; expected at least 64px.");
+                }
+                if (scrollbarImage == null || !scrollbarImage.raycastTarget)
+                {
+                    scrollbarAccessibilityFailures.Add("The full scrollbar target must remain raycast enabled.");
+                }
+                if (track == null)
+                {
+                    scrollbarAccessibilityFailures.Add(
+                        "The visual scrollbar track must be separate from its selectable target.");
+                }
+                else
+                {
+                    if (track.GetComponent<RectTransform>().rect.width >= scrollbarRect.rect.width)
+                    {
+                        scrollbarAccessibilityFailures.Add("The visual track must be narrower than the hit target.");
+                    }
+                    if (track.GetComponent<Image>().raycastTarget)
+                    {
+                        scrollbarAccessibilityFailures.Add("Only the full target, not its visual track, may raycast.");
+                    }
+                }
+                var focusChangeContrast = ContrastRatio(normalFocus, selectedFocus);
+                if (focusChangeContrast < 3f)
+                {
+                    scrollbarAccessibilityFailures.Add(
+                        $"Normal-to-selected focus contrast was {focusChangeContrast:F2}:1; expected at least 3:1.");
+                }
+                var adjacentContrast = ContrastRatio(
+                    selectedFocus, scrollTransform.GetComponent<Image>().color);
+                if (adjacentContrast < 3f)
+                {
+                    scrollbarAccessibilityFailures.Add(
+                        $"Selected focus/background contrast was {adjacentContrast:F2}:1; expected at least 3:1.");
+                }
+                Assert.That(scrollbarAccessibilityFailures, Is.Empty,
+                    string.Join(Environment.NewLine, scrollbarAccessibilityFailures));
+
                 var footerLayout = footer.GetComponent<HorizontalLayoutGroup>();
                 Assert.That(footerLayout.childForceExpandWidth, Is.False);
                 var submit = footer.Find("Submit Button").GetComponent<Button>();
@@ -526,6 +576,16 @@ namespace Agrovator.PitchSimulator.Tests.EditMode.UI
             var secondLuminance = RelativeLuminance(second);
             return (Mathf.Max(firstLuminance, secondLuminance) + 0.05f) /
                 (Mathf.Min(firstLuminance, secondLuminance) + 0.05f);
+        }
+
+        private static Color TintedGraphicColor(Graphic graphic, Color tint, float multiplier)
+        {
+            Assert.That(graphic, Is.Not.Null);
+            return new Color(
+                Mathf.Clamp01(graphic.color.r * tint.r * multiplier),
+                Mathf.Clamp01(graphic.color.g * tint.g * multiplier),
+                Mathf.Clamp01(graphic.color.b * tint.b * multiplier),
+                Mathf.Clamp01(graphic.color.a * tint.a));
         }
 
         private static float RelativeLuminance(Color color)
