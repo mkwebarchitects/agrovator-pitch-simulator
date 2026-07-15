@@ -104,14 +104,62 @@ const playAttempt = extractFunction(source, "playAttempt", "verifyMissingConfigR
 const mouseResponse = extractFunction(source, "mouseResponse", "mouseContinue");
 const mouseContinue = extractFunction(source, "mouseContinue", "canvasMetrics");
 
+function assertMeasuredCanvasClick(value, normalizedY) {
+  const calls = findCalls(value, "canvas.click");
+  assert.equal(calls.length, 1, "expected exactly one executable canvas click");
+  assert.match(calls[0].text, new RegExp(
+    `^await\\s+canvas\\.click\\s*\\(\\s*\\{\\s*position\\s*:\\s*\\{` +
+    `\\s*x\\s*:\\s*bounds\\.width\\s*\\*\\s*0\\.5\\s*,` +
+    `\\s*y\\s*:\\s*bounds\\.height\\s*\\*\\s*${escapeRegExp(normalizedY)}\\s*\\}` +
+    `\\s*,\\s*delay\\s*:\\s*120\\s*\\}\\s*\\)$`, "s"));
+}
+
 test("practice response click stays inside the measured centered control", () => {
-  assert.match(mouseResponse,
-    /position\s*:\s*\{\s*x\s*:\s*bounds\.width\s*\*\s*0\.5\s*,\s*y\s*:\s*bounds\.height\s*\*\s*0\.73\s*\}/s);
+  assertMeasuredCanvasClick(mouseResponse, "0.73");
 });
 
 test("pitch-room Continue click stays inside the measured centered control", () => {
-  assert.match(mouseContinue,
-    /position\s*:\s*\{\s*x\s*:\s*bounds\.width\s*\*\s*0\.5\s*,\s*y\s*:\s*bounds\.height\s*\*\s*0\.86\s*\}/s);
+  assertMeasuredCanvasClick(mouseContinue, "0.86");
+});
+
+test("measured click contract rejects comments and dead strings", () => {
+  const responseCall = "await canvas.click({ position: { x: bounds.width * 0.5, y: bounds.height * 0.73 }, delay: 120 });";
+  const continueCall = "await canvas.click({ position: { x: bounds.width * 0.5, y: bounds.height * 0.86 }, delay: 120 });";
+  assert.ok(mouseResponse.includes(responseCall));
+  assert.ok(mouseContinue.includes(continueCall));
+
+  assert.throws(() => assertMeasuredCanvasClick(mouseResponse.replace(responseCall, `// ${responseCall}`), "0.73"));
+  assert.throws(() => assertMeasuredCanvasClick(mouseContinue.replace(continueCall, `const dead = '${continueCall}'`), "0.86"));
+});
+
+test("measured click contract requires the 120ms pointer dwell", () => {
+  const mutated = mouseResponse.replace("delay: 120", "delay: 0");
+  assert.throws(() => assertMeasuredCanvasClick(mutated, "0.73"));
+});
+
+test("final browser screenshot waits for stable recovered Briefing content and controls", () => {
+  const recovery = extractFunction(source, "verifyMissingConfigRecovery", "runBrowser");
+  const runBrowser = extractFunction(source, "runBrowser", "main");
+  const stableCalls = findCalls(recovery, "waitForStableCanvasRegions");
+  assert.equal(stableCalls.length, 1, "missing recovered Briefing visual-ready gate");
+  assert.match(stableCalls[0].text,
+    /^await\s+waitForStableCanvasRegions\s*\(\s*page\s*,\s*canvas\s*,\s*recoveredRegionsBefore\s*,\s*options\.timeoutMs\s*,\s*["']recovered Briefing["']\s*\)$/s);
+
+  const stableGate = extractFunction(source, "waitForStableCanvasRegions", "canvasMetrics");
+  assert.equal(findCalls(stableGate, "contentRegionHash").length, 1);
+  assert.equal(findCalls(stableGate, "controlRegionHash").length, 1);
+  assert.match(stableGate,
+    /current\.content\s*!==\s*previous\.content\s*&&\s*current\.controls\s*!==\s*previous\.controls/s);
+  assert.match(stableGate, /stableSamples\s*>=\s*3/);
+  assert.match(stableGate, /const\s+deadline\s*=\s*Date\.now\(\)\s*\+\s*timeoutMs/);
+  assert.ok(findCalls(stableGate, "Promise", { constructed: true })
+    .some(call => /setTimeout\s*\([^,]+,\s*100\s*\)/s.test(call.text)));
+
+  const recoveryCall = findCalls(runBrowser, "verifyMissingConfigRecovery")[0];
+  const finalScreenshot = findCalls(runBrowser, "page.screenshot")
+    .find(call => /path\s*:\s*screenshotPath/.test(call.text));
+  assert.ok(recoveryCall && finalScreenshot, "missing recovery or final screenshot call");
+  assertOrdered(recoveryCall.end, finalScreenshot.start);
 });
 
 function assertTutorialContract(attempt) {

@@ -19,6 +19,11 @@ The Task 20 audit and UI-polish gate record the completed standalone vertical-sl
 - Dedicated three-page Tutorial shown on every attempt, including Retry, with Back, Skip, Next, and Start Practice controls; all six screens now use centered, bounded cards, and Results has a 64px scrollbar target with a high-contrast focus rail.
 - Tutorial-aware browser evidence with Chrome tutorial and Question 1 checkpoints, per-browser final smoke captures, mobile containment metrics, and test-first corrections to measured pointer coordinates after real-browser smoke exposed stale layout assumptions.
 
+### Fixed
+
+- Final browser capture now waits for recovered Briefing content and control regions to both change from Title and remain stable for three bounded samples, preventing a first partial WebGL repaint from being recorded as visual evidence.
+- Measured Continue/response coordinate contracts now inspect exactly one executable `canvas.click` with `120 ms` dwell and reject comment, dead-string, or altered-dwell mutations.
+
 ### Security and privacy
 
 - Completion data has no direct identity fields (name, email, school, date of birth, or address), credentials, raw answer text, or open-ended learner input. Pseudonymous IDs, scores, timestamps, and selected response IDs remain learning records requiring approved retention and privacy controls.

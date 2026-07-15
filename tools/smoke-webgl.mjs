@@ -226,6 +226,18 @@ async function controlRegionHash(page, canvas) {
   return hash(await page.screenshot({ type: "png", clip }));
 }
 
+async function contentRegionHash(page, canvas) {
+  const bounds = await canvas.boundingBox();
+  if (!bounds) throw new Error("Unity canvas has no content-region bounds.");
+  const clip = {
+    x: bounds.x,
+    y: bounds.y + (bounds.height * 0.20),
+    width: bounds.width,
+    height: bounds.height * 0.44,
+  };
+  return hash(await page.screenshot({ type: "png", clip }));
+}
+
 async function waitForCanvasChange(canvas, previousHash, timeoutMs, label) {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
@@ -315,6 +327,29 @@ async function mouseContinue(page, canvas, timeoutMs, label, expectControlChange
     await new Promise(resolveWait => setTimeout(resolveWait, 100));
   }
   throw new Error(`Stable control region did not change after ${label}.`);
+}
+
+async function waitForStableCanvasRegions(page, canvas, previous, timeoutMs, label) {
+  const deadline = Date.now() + timeoutMs;
+  let last = null;
+  let stableSamples = 0;
+  while (Date.now() < deadline) {
+    const current = {
+      content: await contentRegionHash(page, canvas),
+      controls: await controlRegionHash(page, canvas),
+    };
+    const bothChanged = current.content !== previous.content && current.controls !== previous.controls;
+    if (bothChanged) {
+      const matchesLast = last && current.content === last.content && current.controls === last.controls;
+      stableSamples = matchesLast ? stableSamples + 1 : 1;
+      if (stableSamples >= 3) return current;
+    } else {
+      stableSamples = 0;
+    }
+    last = current;
+    await new Promise(resolveWait => setTimeout(resolveWait, 100));
+  }
+  throw new Error(`Canvas content and controls did not settle after ${label}.`);
 }
 
 async function canvasMetrics(page, frame, canvas, viewport) {
@@ -436,8 +471,14 @@ async function verifyMissingConfigRecovery(page, options) {
   const recoveredBounds = await canvas.boundingBox();
   if (!recoveredBounds) throw new Error("Recovered Unity canvas has no Title-control bounds.");
   const recoveredBefore = await canvasHash(canvas);
+  const recoveredRegionsBefore = {
+    content: await contentRegionHash(page, canvas),
+    controls: await controlRegionHash(page, canvas),
+  };
   await canvas.click({ position: { x: recoveredBounds.width * 0.5, y: recoveredBounds.height * 0.61 }, delay: 120 });
   await waitForCanvasChange(canvas, recoveredBefore, options.timeoutMs, "recovered Title pointer Start");
+  await waitForStableCanvasRegions(page, canvas, recoveredRegionsBefore, options.timeoutMs,
+    "recovered Briefing");
   return true;
 }
 
@@ -458,7 +499,7 @@ async function runBrowser(playwright, definition, server, options) {
     warnings: [],
     completionSummary: null,
     modes: { success: false, failure: false, missingConfig: false, expired: "not-exercised" },
-    interactionContract: "Measured Start pointer at (0.50, 0.61), Briefing pointer at (0.50, 0.66); three focused Enter presses held 120ms complete Tutorial; pitch-room Continue pointer at (0.50, 0.86); tutorial pointer response at (0.50, 0.73); six focused Enter responses held 120ms; Continue x3 between Q1-Q5 and x2 after Q6 to Results. After successful completion, Retry uses pointer-only Briefing and Tutorial Skip at (0.40, 0.79), then proves the downstream pointer-only practice sequence through fresh Q1 reveal, preventing focus-tint-only false positives. Stable lower-control-region changes plus 220ms settle gate observable swaps; 180ms bounded waits cover internal reaction/feedback transitions.",
+    interactionContract: "Measured Start pointer at (0.50, 0.61), Briefing pointer at (0.50, 0.66); three focused Enter presses held 120ms complete Tutorial; pitch-room Continue pointer at (0.50, 0.86); tutorial pointer response at (0.50, 0.73); six focused Enter responses held 120ms; Continue x3 between Q1-Q5 and x2 after Q6 to Results. After successful completion, Retry uses pointer-only Briefing and Tutorial Skip at (0.40, 0.79), then proves the downstream pointer-only practice sequence through fresh Q1 reveal, preventing focus-tint-only false positives. Stable lower-control-region changes plus 220ms settle gate observable swaps; 180ms bounded waits cover internal reaction/feedback transitions. Final recovery requires changed content and control regions to remain identical for three bounded samples before capture.",
     screenshot: null,
   };
   if (!definition.path || !existsSync(definition.path)) {

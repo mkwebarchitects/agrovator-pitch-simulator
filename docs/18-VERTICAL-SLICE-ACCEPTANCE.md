@@ -6,10 +6,10 @@ On 2026-07-15 (`Asia/Kuala_Lumpur`), Task 20 accepted the standalone vertical-sl
 
 Fresh execution evidence:
 
-- Canonical EditMode passed `310/310`; canonical PlayMode passed `39/39`; Node passed `11/11`. Unity XML recorded zero failures, skips, or inconclusive tests, and both complete logs had zero compile/exception markers.
+- Canonical EditMode passed `310/310`; canonical PlayMode passed `39/39`; Node passed `14/14`. Unity XML recorded zero failures, skips, or inconclusive tests, and both complete logs had zero compile/exception markers.
 - `tools/Build-WebGL.ps1` exited `0` in `395.3 s`. BuildReport was `Succeeded`, `92,374,202` bytes, `00:06:03.3210118`, with zero warnings and zero errors.
 - The build contained exactly seven files: `index.html` `5,505`; `style.css` `2,717`; `layout.js` `1,115`; loader `58,622`; framework `711,897`; data `9,293,377`; wasm `82,300,969` bytes.
-- The matrix generated at `2026-07-15T07:02:09.224Z` (`2026-07-15 15:02:09.224` local) used Playwright `1.61.1`. Chrome `150.0.7871.116` passed with `8,901 ms` Unity-ready and `38.362 s` total; Edge `150.0.4078.65` passed with `8,244 ms` Unity-ready and `37.439 s` total. Both recorded zero console/page errors; all three Tutorial pages, launch, Success, Failure, Missing Configuration, pointer-only Retry Tutorial Skip, and a fresh Question 1 reveal were present; the server stopped cleanly with zero stderr.
+- The repaired matrix generated at `2026-07-15T07:32:44.156Z` (`2026-07-15 15:32:44.156` local) used Playwright `1.61.1`. Chrome `150.0.7871.116` passed with `6,716 ms` Unity-ready and `33.438 s` total; Edge `150.0.4078.65` passed with `6,542 ms` Unity-ready and `32.951 s` total. Both recorded zero console/page errors; all three Tutorial pages, launch, Success, Failure, Missing Configuration, pointer-only Retry Tutorial Skip, and a fresh Question 1 reveal were present; the server stopped cleanly with zero stderr. Final capture followed a bounded three-sample stable-content/control repaint gate.
 - Firefox was unavailable at standard Windows paths. Safari is unavailable on Windows. Neither is claimed as passed.
 
 The earlier Task 18 measurements remain historical evidence in [web deployment](10-WEB-DEPLOYMENT.md); they are not substituted for the fresh UI-polish build.
@@ -58,6 +58,6 @@ The fresh UI-polish asset reconciliation found `109` logical files plus `145` me
 
 ## Decision
 
-The standalone vertical slice plus UI-polish implementation record now includes fresh tests, a development build, Chrome/Edge local smoke, actual PNG inspection, mobile containment metrics, privacy scanning, asset reconciliation, provenance gaps, and known limitations. This is a local evidence gate only. The project remains not approved for production WebGL/LMS distribution until the human and environment gates above are closed.
+The standalone vertical slice plus UI-polish implementation record now includes fresh tests, a development build, Chrome/Edge local smoke, stable-ready final PNG inspection, mobile containment metrics, privacy scanning, asset reconciliation, provenance gaps, and known limitations. The regenerated Chrome/Edge finals are byte-identical complete Briefing checkpoints; no partial-repaint image is accepted. This is a local evidence gate only. The project remains not approved for production WebGL/LMS distribution until the human and environment gates above are closed.
 
 See [QA plan](13-QA-PLAN.md), [deployment](10-WEB-DEPLOYMENT.md), [asset manifest/release governance](16-ASSET-MANIFEST.md), and [production roadmap](15-PRODUCTION-ROADMAP.md).
