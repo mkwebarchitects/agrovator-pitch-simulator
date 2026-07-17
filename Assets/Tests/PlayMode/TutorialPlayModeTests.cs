@@ -171,7 +171,7 @@ namespace Agrovator.PitchSimulator.Tests.PlayMode
             var scenario = RuntimeScenario.Compile(new ScenarioDefinitionDto
             {
                 Id = "tutorial-presenter-test",
-                Version = 1,
+                Version = 2,
                 InitialConfidence = 50,
                 OpeningNodeId = "question",
                 Nodes = new[]

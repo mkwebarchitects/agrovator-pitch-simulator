@@ -444,7 +444,7 @@ namespace Agrovator.PitchSimulator.Tests.PlayMode
             return RuntimeScenario.Compile(new ScenarioDefinitionDto
             {
                 Id = "results-test",
-                Version = 1,
+                Version = 2,
                 TitleKey = "scenario.title",
                 BriefingKey = "scenario.briefing",
                 InitialConfidence = 50,
@@ -535,7 +535,7 @@ namespace Agrovator.PitchSimulator.Tests.PlayMode
                 TimerMode = "Normal",
                 MusicVolume = 1f,
                 SfxVolume = 1f,
-                ContentVersion = 1,
+                ContentVersion = 2,
                 LaunchReference = "lref_resultsTest01",
             };
         }

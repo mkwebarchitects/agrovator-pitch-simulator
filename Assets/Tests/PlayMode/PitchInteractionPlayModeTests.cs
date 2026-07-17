@@ -444,7 +444,7 @@ namespace Agrovator.PitchSimulator.Tests.PlayMode
             return RuntimeScenario.Compile(new ScenarioDefinitionDto
             {
                 Id = "interaction-test",
-                Version = 1,
+                Version = 2,
                 InitialConfidence = 50,
                 OpeningNodeId = "question",
                 Nodes = new[]
@@ -478,7 +478,7 @@ namespace Agrovator.PitchSimulator.Tests.PlayMode
             return RuntimeScenario.Compile(new ScenarioDefinitionDto
             {
                 Id = "pitch-presentation-test",
-                Version = 1,
+                Version = 2,
                 InitialConfidence = 50,
                 OpeningNodeId = "question-one",
                 Nodes = new[]

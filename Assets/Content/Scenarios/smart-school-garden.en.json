@@ -1,6 +1,6 @@
 {
   "Id": "smart-school-garden",
-  "Version": 1,
+  "Version": 2,
   "TitleKey": "scenario.smart_school_garden.title",
   "BriefingKey": "scenario.smart_school_garden.briefing",
   "LearningObjectiveKeys": [

@@ -1,0 +1,90 @@
+using System;
+using Agrovator.PitchSimulator.GuidedPitch;
+using UnityEngine;
+
+namespace Agrovator.PitchSimulator.UI
+{
+    public readonly struct PitchPartVisual
+    {
+        public PitchPartVisual(PitchPart part, string iconGlyph, Color colour, string labelKey, string emptyPromptKey)
+        {
+            Part = part;
+            IconGlyph = iconGlyph;
+            Colour = colour;
+            LabelKey = labelKey;
+            EmptyPromptKey = emptyPromptKey;
+        }
+
+        public PitchPart Part { get; }
+        public string IconGlyph { get; }
+        public Color Colour { get; }
+        public string LabelKey { get; }
+        public string EmptyPromptKey { get; }
+    }
+
+    public static class PitchPartVisuals
+    {
+        public static readonly Color DeepNavy = Parse("#0E171F");
+        public static readonly Color CardCream = Parse("#F4EAD5");
+        public static readonly Color LightText = Parse("#FFF8E8");
+        public static readonly Color CardText = Parse("#0E171F");
+        public static readonly Color FocusGold = Parse("#FFD166");
+
+        private static readonly PitchPartVisual[] Visuals =
+        {
+            Create(PitchPart.Problem, "!", "#F28C6F", "problem"),
+            Create(PitchPart.Evidence, "?", "#67B7D1", "evidence"),
+            Create(PitchPart.Solution, ">", "#7BC47F", "solution"),
+            Create(PitchPart.Value, "*", "#E5B95C", "value"),
+        };
+
+        public static PitchPartVisual Get(PitchPart part)
+        {
+            if (part < PitchPart.Problem || part > PitchPart.Value)
+            {
+                throw new ArgumentOutOfRangeException(nameof(part), part, "Unknown pitch part.");
+            }
+
+            return Visuals[(int)part];
+        }
+
+        public static float ContrastRatio(Color first, Color second)
+        {
+            var lighter = Mathf.Max(Luminance(first), Luminance(second));
+            var darker = Mathf.Min(Luminance(first), Luminance(second));
+            return (lighter + 0.05f) / (darker + 0.05f);
+        }
+
+        private static PitchPartVisual Create(PitchPart part, string glyph, string colour, string keyPart)
+        {
+            return new PitchPartVisual(
+                part,
+                glyph,
+                Parse(colour),
+                $"guided.part.{keyPart}.label",
+                $"guided.board.add.{keyPart}");
+        }
+
+        private static Color Parse(string html)
+        {
+            if (!ColorUtility.TryParseHtmlString(html, out var colour))
+            {
+                throw new InvalidOperationException($"Invalid UI colour '{html}'.");
+            }
+
+            return colour;
+        }
+
+        private static float Luminance(Color colour)
+        {
+            return 0.2126f * Linear(colour.r) + 0.7152f * Linear(colour.g) + 0.0722f * Linear(colour.b);
+        }
+
+        private static float Linear(float channel)
+        {
+            return channel <= 0.03928f
+                ? channel / 12.92f
+                : Mathf.Pow((channel + 0.055f) / 1.055f, 2.4f);
+        }
+    }
+}

@@ -8,7 +8,8 @@
         "Agrovator.PitchSimulator.Scoring",
         "Agrovator.PitchSimulator.Accessibility",
         "Agrovator.PitchSimulator.LMS",
-        "Agrovator.PitchSimulator.Audio"
+        "Agrovator.PitchSimulator.Audio",
+        "Agrovator.PitchSimulator.GuidedPitch"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],
