@@ -289,7 +289,9 @@ namespace Agrovator.PitchSimulator.UI
 
         /// <summary>
         /// Moves keyboard focus to the next (Tab) or previous (Shift+Tab) active
-        /// selectable of the current guided screen, wrapping at both ends.
+        /// selectable of the current guided screen, wrapping at both ends. The
+        /// always-active router polls Tab and forwards here, because this
+        /// presenter's own panel is inactive during the ModeSelection phase.
         /// </summary>
         public bool MoveFocus(bool backward)
         {
@@ -340,19 +342,6 @@ namespace Agrovator.PitchSimulator.UI
             eventSystem.SetSelectedGameObject(null);
             eventSystem.SetSelectedGameObject(cycle[next].gameObject);
             return true;
-        }
-
-        private void Update()
-        {
-            if (!initialized)
-            {
-                return;
-            }
-
-            if (Input.GetKeyDown(KeyCode.Tab))
-            {
-                MoveFocus(Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift));
-            }
         }
 
         private void LateUpdate()

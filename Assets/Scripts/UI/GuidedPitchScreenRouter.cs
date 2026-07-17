@@ -35,6 +35,7 @@ namespace Agrovator.PitchSimulator.UI
         private GuidedPitchSessionController controller;
         private GameObject panelBeforeSettings;
         private GuidedPitchPhase? focusedPhase;
+        private bool settingsOpen;
 
         public GuidedPitchPhase ActivePhase { get; private set; } = GuidedPitchPhase.Booting;
 
@@ -169,8 +170,41 @@ namespace Agrovator.PitchSimulator.UI
             titlePresenter.SetStartInteractable(snapshot.Phase == GuidedPitchPhase.Title);
             briefingPresenter.SetContinueInteractable(snapshot.Phase == GuidedPitchPhase.Briefing);
             guidedPresenter.Refresh(snapshot);
+            var target = GetPanel(snapshot.Phase);
+            if (settingsOpen)
+            {
+                // An asynchronous session event must not close the Settings
+                // overlay; remember the new phase panel for CloseSettings.
+                panelBeforeSettings = target;
+                return;
+            }
+
             panelBeforeSettings = null;
-            Show(GetPanel(snapshot.Phase));
+            Show(target);
+        }
+
+        /// <summary>
+        /// Moves keyboard focus through the active guided screen. The router owns
+        /// the Tab polling because it stays active on every screen, including the
+        /// ModeSelection phase where the guided panel and its presenter are
+        /// inactive.
+        /// </summary>
+        public bool MoveFocus(bool backward)
+        {
+            return IsInitialized && guidedPresenter.MoveFocus(backward);
+        }
+
+        private void Update()
+        {
+            if (!IsInitialized)
+            {
+                return;
+            }
+
+            if (Input.GetKeyDown(KeyCode.Tab))
+            {
+                MoveFocus(Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift));
+            }
         }
 
         /// <summary>
@@ -185,6 +219,7 @@ namespace Agrovator.PitchSimulator.UI
             }
 
             ActivePhase = GuidedPitchPhase.SafeFallback;
+            settingsOpen = false;
             safeFallbackPresenter.Show(localize);
             foreach (var panel in AllPanels())
             {
@@ -215,6 +250,7 @@ namespace Agrovator.PitchSimulator.UI
         private void OpenSettings()
         {
             panelBeforeSettings = CurrentPanel();
+            settingsOpen = true;
             Show(settingsPanel);
         }
 
@@ -222,6 +258,7 @@ namespace Agrovator.PitchSimulator.UI
         {
             var target = panelBeforeSettings != null ? panelBeforeSettings : GetPanel(ActivePhase);
             panelBeforeSettings = null;
+            settingsOpen = false;
             Show(target);
         }
 

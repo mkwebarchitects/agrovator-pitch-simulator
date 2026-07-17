@@ -126,6 +126,30 @@ namespace Agrovator.PitchSimulator.Tests.PlayMode
             AssertBlockedOnSafeFallback(bootstrap, "guided_localization_invalid");
         }
 
+        [Test]
+        public void Bootstrap_PreloadedComposition_RejectedLaunch_LogsTheLaunchCodeExactlyOnce()
+        {
+            var bootstrap = CreateBootstrapper(
+                GuidedRigFactory.ReadProjectFile("Content", "Scenarios", "guided-pitch-builder.en.json"),
+                GuidedRigFactory.ReadProjectFile("Content", "Localization", "en.json"),
+                GuidedRigFactory.ReadProjectFile("Content", "Localization", "ms.json"));
+            Assert.That(bootstrap.TryLoadGuidedContent(out var content, out var catalog), Is.True);
+            var badLaunch = GuidedRigFactory.CreateLaunch(content);
+            badLaunch.ContentVersion = 1;
+            var rig = GuidedRigFactory.CreateRig(roots);
+            LogAssert.Expect(LogType.Error, "guided_launch_invalid");
+
+            Assert.That(bootstrap.PresentLoadedGuidedSession(rig.Router, content, catalog,
+                new MockLmsBridge(MockLmsBridgeMode.Success, badLaunch)), Is.False);
+
+            Assert.That(bootstrap.IsInitialized, Is.False);
+            Assert.That(rig.Router.ActivePhase, Is.EqualTo(GuidedPitchPhase.SafeFallback));
+            Assert.That(rig.SafeFallbackPanel.activeSelf, Is.True);
+            Assert.That(rig.SafeFallbackText.text, Is.EqualTo(RecoverySentence));
+            Assert.That(capturedErrors, Is.EqualTo(new[] { "guided_launch_invalid" }),
+                "The shared composition path must log the stable code exactly once.");
+        }
+
         private void AssertBlockedOnSafeFallback(Bootstrapper bootstrap, string expectedCode)
         {
             var rig = GuidedRigFactory.CreateRig(roots);
@@ -139,7 +163,8 @@ namespace Agrovator.PitchSimulator.Tests.PlayMode
             Assert.That(rig.GuidedPanel.activeSelf, Is.False);
             Assert.That(rig.SafeFallbackText.text, Is.EqualTo(RecoverySentence));
 
-            Assert.That(capturedErrors, Is.Not.Empty);
+            Assert.That(capturedErrors, Has.Count.EqualTo(1),
+                "Each blocked attempt must log its stable diagnostic code exactly once.");
             foreach (var error in capturedErrors)
             {
                 Assert.That(error, Is.EqualTo(expectedCode),

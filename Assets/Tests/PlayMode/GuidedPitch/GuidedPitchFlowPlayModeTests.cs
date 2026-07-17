@@ -47,6 +47,7 @@ namespace Agrovator.PitchSimulator.Tests.PlayMode
         internal GameObject GuidedPanel;
         internal GameObject ResultsPanel;
         internal GameObject SettingsPanel;
+        internal Button SettingsCloseButton;
         internal GameObject SafeFallbackPanel;
         internal Text[] BriefingLineTexts;
         internal SafeFallbackPresenter SafeFallback;
@@ -265,6 +266,7 @@ namespace Agrovator.PitchSimulator.Tests.PlayMode
             var settingsPresenter = rig.SettingsPanel.AddComponent<SettingsPresenter>();
             var closeButton = CreateButton("Close Button", rig.SettingsPanel.transform);
             SetField(settingsPresenter, "closeButton", closeButton);
+            rig.SettingsCloseButton = closeButton;
 
             rig.SafeFallbackPanel = Panel("Safe Fallback", canvasTransform);
             rig.SafeFallback = rig.SafeFallbackPanel.AddComponent<SafeFallbackPresenter>();
@@ -788,6 +790,75 @@ namespace Agrovator.PitchSimulator.Tests.PlayMode
             Assert.That(eventSystem.currentSelectedGameObject,
                 Is.SameAs(rig.PresentButton.gameObject),
                 "Shift+Tab must move backward through the cycle.");
+            controller.Dispose();
+        }
+
+        [Test]
+        public void Keyboard_RouterTab_CyclesModeCardsWhileTheGuidedPresenterPanelIsInactive()
+        {
+            var fixture = GuidedRigFactory.LoadAuthoredContent();
+            var bridge = new MockLmsBridge(
+                MockLmsBridgeMode.Success, GuidedRigFactory.CreateLaunch(fixture.Content));
+            var controller = GuidedRigFactory.CreateController(fixture, bridge);
+            Assert.That(controller.FinishLaunch(), Is.True);
+            var rig = GuidedRigFactory.CreateRig(roots);
+            rig.Router.Initialize(controller, fixture.Localize);
+            rig.StartButton.onClick.Invoke();
+            rig.BriefingContinueButton.onClick.Invoke();
+
+            Assert.That(rig.Router.ActivePhase, Is.EqualTo(GuidedPitchPhase.ModeSelection));
+            Assert.That(rig.ModeSelectionPanel.activeSelf, Is.True);
+            Assert.That(rig.GuidedPanel.activeSelf, Is.False);
+            Assert.That(rig.Presenter.gameObject.activeInHierarchy, Is.False,
+                "The guided presenter must be inactive here, so the always-active router owns Tab.");
+            var eventSystem = EventSystem.current;
+            Assert.That(eventSystem.currentSelectedGameObject,
+                Is.SameAs(rig.ModeSelection.Cards[0].Button.gameObject));
+
+            Assert.That(rig.Router.MoveFocus(false), Is.True);
+            Assert.That(eventSystem.currentSelectedGameObject,
+                Is.SameAs(rig.ModeSelection.Cards[1].Button.gameObject));
+            Assert.That(rig.Router.MoveFocus(false), Is.True);
+            Assert.That(eventSystem.currentSelectedGameObject,
+                Is.SameAs(rig.ModeSelection.Cards[0].Button.gameObject),
+                "Tab must wrap back to the first mode card.");
+            Assert.That(rig.Router.MoveFocus(true), Is.True);
+            Assert.That(eventSystem.currentSelectedGameObject,
+                Is.SameAs(rig.ModeSelection.Cards[1].Button.gameObject),
+                "Shift+Tab must move backward through the mode cards.");
+            controller.Dispose();
+        }
+
+        [Test]
+        public void Settings_StaysOpenWhenAnAsyncRefreshChangesPhase_ThenClosesOntoTheNewPanel()
+        {
+            var fixture = GuidedRigFactory.LoadAuthoredContent();
+            var bridge = new MockLmsBridge(
+                MockLmsBridgeMode.Success, GuidedRigFactory.CreateLaunch(fixture.Content));
+            var controller = GuidedRigFactory.CreateController(fixture, bridge);
+            Assert.That(controller.FinishLaunch(), Is.True);
+            var rig = GuidedRigFactory.CreateRig(roots);
+            rig.Router.Initialize(controller, fixture.Localize);
+            Assert.That(rig.TitlePanel.activeSelf, Is.True);
+
+            rig.SettingsButton.onClick.Invoke();
+            Assert.That(rig.SettingsPanel.activeSelf, Is.True);
+            Assert.That(rig.TitlePanel.activeSelf, Is.False);
+
+            Assert.That(controller.StartScenario(), Is.True);
+            rig.Router.Refresh();
+
+            Assert.That(rig.Router.ActivePhase, Is.EqualTo(GuidedPitchPhase.Briefing));
+            Assert.That(rig.SettingsPanel.activeSelf, Is.True,
+                "An asynchronous session refresh must not close the Settings overlay.");
+            Assert.That(rig.BriefingPanel.activeSelf, Is.False,
+                "The new phase panel must wait behind the open Settings overlay.");
+
+            rig.SettingsCloseButton.onClick.Invoke();
+            Assert.That(rig.SettingsPanel.activeSelf, Is.False);
+            Assert.That(rig.BriefingPanel.activeSelf, Is.True,
+                "Closing Settings must land on the phase reached while the overlay was open.");
+            Assert.That(rig.TitlePanel.activeSelf, Is.False);
             controller.Dispose();
         }
 

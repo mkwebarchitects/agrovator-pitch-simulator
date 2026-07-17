@@ -95,18 +95,20 @@ namespace Agrovator.PitchSimulator.UI
             }
 
 #if UNITY_WEBGL && !UNITY_EDITOR
-            ILmsBridge launchBridge = null;
-            if (TryLoadGuidedContent(out var loadedContent, out _))
+            if (!TryLoadGuidedContent(out var loadedContent, out var loadedCatalog))
             {
-                launchBridge = CreateLmsBridge(loadedContent);
-                var launchPoller = new LmsLaunchPoller(launchBridge);
-                while (!launchPoller.TryPoll(Time.realtimeSinceStartup, out _))
-                {
-                    yield return null;
-                }
+                EnterSafeFallback(routers[0], loadedCatalog);
+                yield break;
             }
 
-            TryPresentGuidedSession(routers[0], launchBridge);
+            var launchBridge = CreateLmsBridge(loadedContent);
+            var launchPoller = new LmsLaunchPoller(launchBridge);
+            while (!launchPoller.TryPoll(Time.realtimeSinceStartup, out _))
+            {
+                yield return null;
+            }
+
+            PresentLoadedGuidedSession(routers[0], loadedContent, loadedCatalog, launchBridge);
 #else
             TryPresentGuidedSession(routers[0]);
 #endif
@@ -192,6 +194,26 @@ namespace Agrovator.PitchSimulator.UI
                 EnterSafeFallback(sceneRouter, catalog);
                 return false;
             }
+
+            return PresentLoadedGuidedSession(sceneRouter, content, catalog, bridgeOverride);
+        }
+
+        /// <summary>
+        /// Composes the guided session from already-loaded content so callers
+        /// that had to load the content earlier (the WebGL launch poll) never
+        /// parse or log twice. On a launch failure the attempt is blocked on the
+        /// SafeFallback screen with one stable diagnostic code and this returns
+        /// false.
+        /// </summary>
+        public bool PresentLoadedGuidedSession(
+            GuidedPitchScreenRouter sceneRouter,
+            GuidedPitchContent content,
+            LocalizationCatalog catalog,
+            ILmsBridge bridgeOverride = null)
+        {
+            if (sceneRouter == null) throw new ArgumentNullException(nameof(sceneRouter));
+            if (content == null) throw new ArgumentNullException(nameof(content));
+            if (catalog == null) throw new ArgumentNullException(nameof(catalog));
 
             var lmsBridge = bridgeOverride ?? CreateLmsBridge(content);
             var launch = lmsBridge.GetLaunchConfig();
