@@ -1,291 +1,179 @@
-using System.Reflection;
-using System.Collections;
+using System;
+using System.Collections.Generic;
 using System.Linq;
-using Agrovator.PitchSimulator.Core;
+using Agrovator.PitchSimulator.GuidedPitch;
+using Agrovator.PitchSimulator.LMS;
 using Agrovator.PitchSimulator.UI;
 using NUnit.Framework;
 using UnityEngine;
-using UnityEngine.EventSystems;
-using UnityEngine.SceneManagement;
 using UnityEngine.TestTools;
-using UnityEngine.UI;
 
 namespace Agrovator.PitchSimulator.Tests.PlayMode
 {
     public sealed class BootstrapPlayModeTests
     {
-        [UnitySetUp]
-        public IEnumerator SetUp()
+        private const string RecoverySentence =
+            "This pitch activity could not be loaded. Refresh and try again, or ask your teacher for help.";
+
+        private readonly List<GameObject> roots = new List<GameObject>();
+        private readonly List<string> capturedErrors = new List<string>();
+
+        [SetUp]
+        public void SetUp()
         {
-            yield return ClearLoadedFoundation();
+            capturedErrors.Clear();
+            Application.logMessageReceived += CaptureLog;
         }
 
-        [UnityTest]
-        public IEnumerator Bootstrap_InitializesContract_FocusesTitle_AndRestoresFocusAfterRouting()
+        [TearDown]
+        public void TearDown()
         {
-            var load = SceneManager.LoadSceneAsync("Bootstrap", LoadSceneMode.Single);
-            Assert.That(load, Is.Not.Null, "Bootstrap must be present in Build Settings.");
-            yield return load;
-
-            var deadline = Time.realtimeSinceStartup + 5f;
-            Bootstrapper bootstrapper = null;
-            while ((bootstrapper == null || !bootstrapper.IsInitialized) &&
-                   Time.realtimeSinceStartup < deadline)
+            Application.logMessageReceived -= CaptureLog;
+            foreach (var root in roots.Where(root => root != null))
             {
-                bootstrapper = Object.FindAnyObjectByType<Bootstrapper>(FindObjectsInactive.Include);
-                yield return null;
+                UnityEngine.Object.DestroyImmediate(root);
             }
 
-            var bootstrappers = Object.FindObjectsByType<Bootstrapper>(FindObjectsInactive.Include);
-            Assert.That(bootstrappers, Has.Length.EqualTo(1));
-            Assert.That(bootstrapper.IsInitialized, Is.True);
-            Assert.That(SceneManager.GetSceneByName("Game").isLoaded, Is.True);
-
-            var generatedRoot = GameObject.Find("Generated UI");
-            Assert.That(generatedRoot, Is.Not.Null);
-            var canvasRoot = generatedRoot.transform.Find("Canvas");
-            Assert.That(canvasRoot, Is.Not.Null);
-            var title = canvasRoot.Find("Title");
-            Assert.That(title, Is.Not.Null);
-            Assert.That(title.gameObject.activeInHierarchy, Is.True);
-
-            foreach (var screenName in new[] { "Briefing", "Tutorial", "PitchRoom", "Results", "Settings" })
-            {
-                var screen = canvasRoot.Find(screenName);
-                Assert.That(screen, Is.Not.Null, $"Missing {screenName} screen.");
-                Assert.That(screen.gameObject.activeInHierarchy, Is.False, $"{screenName} must start hidden.");
-            }
-
-            Assert.That(Object.FindObjectsByType<Canvas>(FindObjectsInactive.Include),
-                Has.Length.EqualTo(1));
-            Assert.That(Object.FindObjectsByType<EventSystem>(FindObjectsInactive.Include),
-                Has.Length.EqualTo(1));
-            var routers = Object.FindObjectsByType<GameScreenRouter>(FindObjectsInactive.Include);
-            Assert.That(routers, Has.Length.EqualTo(1));
-            Assert.That(routers[0].IsInitialized, Is.True);
-
-            var startButton = title.Find("Content Frame/Start Button").GetComponent<Button>();
-            var settingsButton = title.Find("Content Frame/Settings Button").GetComponent<Button>();
-            Assert.That(EventSystem.current.currentSelectedGameObject, Is.EqualTo(startButton.gameObject));
-            settingsButton.onClick.Invoke();
-            yield return null;
-            var settings = canvasRoot.Find("Settings");
-            var closeButton = settings.Find("Content Frame/Close Button").GetComponent<Button>();
-            Assert.That(EventSystem.current.currentSelectedGameObject, Is.EqualTo(closeButton.gameObject));
-            closeButton.onClick.Invoke();
-            yield return null;
-            Assert.That(EventSystem.current.currentSelectedGameObject, Is.EqualTo(startButton.gameObject));
-            startButton.onClick.Invoke();
-            yield return null;
-            var briefing = canvasRoot.Find("Briefing");
-            var briefingContinue = briefing.Find("Content Frame/Continue Button").GetComponent<Button>();
-            Assert.That(EventSystem.current.currentSelectedGameObject, Is.EqualTo(briefingContinue.gameObject));
-
-            briefingContinue.onClick.Invoke();
-            yield return null;
-            var tutorial = canvasRoot.Find("Tutorial");
-            Assert.That(tutorial.gameObject.activeInHierarchy, Is.True);
-            var next = tutorial.Find("Content Frame/Navigation/Next Button").GetComponent<Button>();
-            Assert.That(EventSystem.current.currentSelectedGameObject, Is.EqualTo(next.gameObject));
-            next.onClick.Invoke();
-            next.onClick.Invoke();
-            next.onClick.Invoke();
-            yield return null;
-            Assert.That(GetController(bootstrapper).Snapshot.State, Is.EqualTo(GameState.JudgeIntro));
-            var pitchRoom = canvasRoot.Find("PitchRoom");
-            Assert.That(pitchRoom.gameObject.activeInHierarchy, Is.True);
-            var pitchContinue = pitchRoom.Find("Content Frame/Continue Button").GetComponent<Button>();
-            for (var step = 0; step < 2; step++)
-            {
-                Assert.That(pitchContinue.gameObject.activeInHierarchy, Is.True);
-                pitchContinue.onClick.Invoke();
-                yield return null;
-            }
-
-            var responseList = pitchRoom.Find("Content Frame/Responses").GetComponent<ResponseListView>();
-            var responseViews = pitchRoom.Find("Content Frame/Responses")
-                .GetComponentsInChildren<ResponseButtonView>(true);
-            Assert.That(responseViews, Has.Length.EqualTo(3));
-            Assert.That(responseViews.Count(view => view.gameObject.activeSelf), Is.EqualTo(1));
-            responseViews[0].Button.onClick.Invoke();
-            Assert.That(responseList.IsSelectionLocked, Is.True);
-            for (var step = 0; step < 3; step++)
-            {
-                Assert.That(pitchContinue.gameObject.activeInHierarchy, Is.True);
-                pitchContinue.onClick.Invoke();
-                yield return null;
-            }
-
-            Assert.That(responseViews.All(view => view.gameObject.activeSelf), Is.True);
-            Assert.That(responseViews.Select(view => view.DisplayText),
-                Is.EqualTo(new[]
-                {
-                    "1. Our logs show dry beds after assembly, wet beds after rain, and students carrying watering cans, so the timing is inconsistent.",
-                    "2. We water on fixed schedules even when soil is wet, wasting water and weakening canteen crops.",
-                    "3. Our invention will cut the school's water bill by 90% and produce enough vegetables for everyone.",
-                }));
-            Assert.That(EventSystem.current.currentSelectedGameObject,
-                Is.EqualTo(responseViews[0].Button.gameObject));
-            Assert.That(pitchRoom.GetComponentInChildren<TimerView>(), Is.Not.Null);
-            Assert.That(pitchRoom.GetComponentInChildren<ConfidenceView>(), Is.Not.Null);
-            Assert.That(pitchRoom.Find("Environment").GetComponent<Image>().sprite, Is.Not.Null);
-            Assert.That(pitchRoom.Find("Content Frame/Dialogue Panel").GetComponent<Image>().type,
-                Is.EqualTo(Image.Type.Sliced));
-            var judgeView = pitchRoom.Find("Content Frame/Judge Aya").GetComponent<JudgeReactionView>();
-            Assert.That(judgeView.IsConfigured, Is.True);
-            Assert.That(judgeView.IsTalkLoopActive, Is.True);
-
-            responseViews[0].Button.onClick.Invoke();
-            responseViews[0].Button.onClick.Invoke();
-            Assert.That(responseList.IsSelectionLocked, Is.True);
-            Assert.That(responseViews.All(view => !view.Button.interactable), Is.True);
-            Assert.That(pitchContinue.gameObject.activeInHierarchy, Is.True);
-            Assert.That(pitchContinue.interactable, Is.True);
-            Assert.That(EventSystem.current.currentSelectedGameObject,
-                Is.EqualTo(pitchContinue.gameObject));
-
-            var controller = GetController(bootstrapper);
-            Assert.That(controller.Snapshot.State, Is.EqualTo(GameState.ShowingReaction));
-            Assert.That(judgeView.CurrentReaction,
-                Is.EqualTo(JudgeReactionMapper.Parse(controller.Snapshot.LastReactionCue)));
-            ExecuteEvents.Execute(
-                pitchContinue.gameObject,
-                new BaseEventData(EventSystem.current),
-                ExecuteEvents.submitHandler);
-            Assert.That(controller.Snapshot.State, Is.EqualTo(GameState.ShowingFeedback));
-            Assert.That(EventSystem.current.currentSelectedGameObject,
-                Is.EqualTo(pitchContinue.gameObject));
+            roots.Clear();
         }
 
-        [UnityTest]
-        public IEnumerator Bootstrap_CountdownRendersAcrossFrames_AndPulseStopsOnReaction()
+        [Test]
+        public void Bootstrap_LoadsValidGuidedContent_AndRouterEntersTitle()
         {
-            var load = SceneManager.LoadSceneAsync("Bootstrap", LoadSceneMode.Single);
-            Assert.That(load, Is.Not.Null);
-            yield return load;
+            var bootstrap = CreateBootstrapper(
+                GuidedRigFactory.ReadProjectFile("Content", "Scenarios", "guided-pitch-builder.en.json"),
+                GuidedRigFactory.ReadProjectFile("Content", "Localization", "en.json"),
+                GuidedRigFactory.ReadProjectFile("Content", "Localization", "ms.json"));
 
-            var initializationDeadline = Time.realtimeSinceStartup + 5f;
-            Bootstrapper bootstrapper = null;
-            while ((bootstrapper == null || !bootstrapper.IsInitialized) &&
-                   Time.realtimeSinceStartup < initializationDeadline)
-            {
-                bootstrapper = Object.FindAnyObjectByType<Bootstrapper>(FindObjectsInactive.Include);
-                yield return null;
-            }
-            Assert.That(bootstrapper, Is.Not.Null);
-            Assert.That(bootstrapper.IsInitialized, Is.True);
+            Assert.That(bootstrap.TryLoadGuidedContent(out var content, out var catalog), Is.True);
+            Assert.That(content, Is.Not.Null);
+            Assert.That(catalog, Is.Not.Null);
+            Assert.That(content.Id, Is.EqualTo("smart-school-garden"));
+            Assert.That(content.Version, Is.EqualTo(2));
 
-            var canvas = GameObject.Find("Generated UI").transform.Find("Canvas");
-            var title = canvas.Find("Title");
-            title.Find("Content Frame/Start Button").GetComponent<Button>().onClick.Invoke();
-            yield return null;
-            var briefing = canvas.Find("Briefing");
-            briefing.Find("Content Frame/Continue Button").GetComponent<Button>().onClick.Invoke();
-            yield return null;
-
-            var tutorial = canvas.Find("Tutorial");
-            var tutorialNext = tutorial.Find("Content Frame/Navigation/Next Button").GetComponent<Button>();
-            tutorialNext.onClick.Invoke();
-            tutorialNext.onClick.Invoke();
-            tutorialNext.onClick.Invoke();
-            yield return null;
-
-            var pitchRoom = canvas.Find("PitchRoom");
-            var pitchContinue = pitchRoom.Find("Content Frame/Continue Button").GetComponent<Button>();
-            for (var step = 0; step < 2; step++)
-            {
-                pitchContinue.onClick.Invoke();
-                yield return null;
-            }
-
-            var responseViews = pitchRoom.Find("Content Frame/Responses")
-                .GetComponentsInChildren<ResponseButtonView>(true);
-            responseViews[0].Button.onClick.Invoke();
-            for (var step = 0; step < 3; step++)
-            {
-                pitchContinue.onClick.Invoke();
-                yield return null;
-            }
-
-            var timer = pitchRoom.GetComponentInChildren<TimerView>();
-            var timerFill = pitchRoom.Find("Content Frame/Metrics/Timer/Fill").GetComponent<Image>();
-            var initialSeconds = timer.DisplayedSeconds;
-            var initialFill = timerFill.fillAmount;
-            Assert.That(initialSeconds, Is.GreaterThan(5));
-            Assert.That(initialFill, Is.GreaterThan(0f));
-
-            var countdownDeadline = Time.realtimeSinceStartup + 1.5f;
-            var renderedFrames = 0;
-            while (timer.DisplayedSeconds >= initialSeconds &&
-                   Time.realtimeSinceStartup < countdownDeadline)
-            {
-                renderedFrames++;
-                yield return null;
-            }
-
-            Assert.That(renderedFrames, Is.GreaterThan(1));
-            Assert.That(timer.DisplayedSeconds, Is.LessThan(initialSeconds));
-            Assert.That(timerFill.fillAmount, Is.LessThan(initialFill));
-
-            var controller = GetController(bootstrapper);
-            controller.Tick(controller.Snapshot.TimerRemainingSeconds - 4.25d);
-            yield return null;
-            Assert.That(timer.DisplayedSeconds, Is.EqualTo(5));
-            Assert.That(timer.IsPulsing, Is.True);
-            Assert.That(timer.transform.localScale.x, Is.GreaterThan(1f));
-
-            responseViews[0].Button.onClick.Invoke();
-            Assert.That(controller.Snapshot.State, Is.EqualTo(GameState.ShowingReaction));
-            Assert.That(timer.IsPulsing, Is.False);
-            Assert.That(timer.transform.localScale, Is.EqualTo(Vector3.one));
+            var rig = GuidedRigFactory.CreateRig(roots);
+            var bridge = new MockLmsBridge(
+                MockLmsBridgeMode.Success, GuidedRigFactory.CreateLaunch(content));
+            Assert.That(bootstrap.TryPresentGuidedSession(rig.Router, bridge), Is.True);
+            Assert.That(rig.Router.ActivePhase, Is.EqualTo(GuidedPitchPhase.Title));
+            Assert.That(bootstrap.IsInitialized, Is.True);
+            Assert.That(rig.TitlePanel.activeSelf, Is.True);
+            Assert.That(rig.SafeFallbackPanel.activeSelf, Is.False);
+            Assert.That(capturedErrors, Is.Empty);
         }
 
-        [UnityTearDown]
-        public IEnumerator TearDown()
+        [Test]
+        public void Bootstrap_MissingGuidedContentReference_BlocksTheAttemptOnSafeFallback()
         {
-            yield return ClearLoadedFoundation();
+            var bootstrap = CreateBootstrapper(
+                null,
+                GuidedRigFactory.ReadProjectFile("Content", "Localization", "en.json"),
+                GuidedRigFactory.ReadProjectFile("Content", "Localization", "ms.json"));
+
+            AssertBlockedOnSafeFallback(bootstrap, "guided_content_invalid");
         }
 
-        private static IEnumerator ClearLoadedFoundation()
+        [Test]
+        public void Bootstrap_MalformedGuidedJson_BlocksTheAttemptOnSafeFallback()
         {
-            var bootstrappers = Object.FindObjectsByType<Bootstrapper>(FindObjectsInactive.Include);
-            foreach (var bootstrapper in bootstrappers)
-            {
-                Object.Destroy(bootstrapper.gameObject);
-            }
-            if (bootstrappers.Length > 0)
-            {
-                yield return null;
-            }
+            var bootstrap = CreateBootstrapper(
+                "{\"Id\":\"smart-school-garden\",",
+                GuidedRigFactory.ReadProjectFile("Content", "Localization", "en.json"),
+                GuidedRigFactory.ReadProjectFile("Content", "Localization", "ms.json"));
 
-            if (EventSystem.current != null)
-            {
-                EventSystem.current.SetSelectedGameObject(null);
-            }
+            AssertBlockedOnSafeFallback(bootstrap, "guided_content_invalid");
+        }
 
-            var cleanup = SceneManager.GetSceneByName("PitchSimulatorTestCleanup");
-            if (!cleanup.isLoaded)
-            {
-                cleanup = SceneManager.CreateScene("PitchSimulatorTestCleanup");
-            }
-            SceneManager.SetActiveScene(cleanup);
+        [Test]
+        public void Bootstrap_InvalidGuidedRoute_BlocksTheAttemptOnSafeFallback()
+        {
+            var brokenRoutes = GuidedRigFactory
+                .ReadProjectFile("Content", "Scenarios", "guided-pitch-builder.en.json")
+                .Replace("\"Modes\"", "\"Modez\"");
+            var bootstrap = CreateBootstrapper(
+                brokenRoutes,
+                GuidedRigFactory.ReadProjectFile("Content", "Localization", "en.json"),
+                GuidedRigFactory.ReadProjectFile("Content", "Localization", "ms.json"));
 
-            foreach (var sceneName in new[] { "Game", "Bootstrap" })
+            AssertBlockedOnSafeFallback(bootstrap, "guided_content_invalid");
+        }
+
+        [Test]
+        public void Bootstrap_LocalizationMismatch_BlocksTheAttemptOnSafeFallback()
+        {
+            var sparseEnglish =
+                "{\"locale\":\"en\",\"translationStatus\":\"reviewed\",\"entries\":[" +
+                "{\"key\":\"ui.start\",\"value\":\"Start\"}]}";
+            var sparseMalay =
+                "{\"locale\":\"ms\",\"translationStatus\":\"pending_human_review\",\"entries\":[" +
+                "{\"key\":\"ui.start\",\"value\":\"Start\"}]}";
+            var bootstrap = CreateBootstrapper(
+                GuidedRigFactory.ReadProjectFile("Content", "Scenarios", "guided-pitch-builder.en.json"),
+                sparseEnglish,
+                sparseMalay);
+
+            AssertBlockedOnSafeFallback(bootstrap, "guided_content_invalid");
+        }
+
+        [Test]
+        public void Bootstrap_LocalizationFailure_UsesTheExactEnglishRecoverySentence()
+        {
+            var bootstrap = CreateBootstrapper(
+                GuidedRigFactory.ReadProjectFile("Content", "Scenarios", "guided-pitch-builder.en.json"),
+                "{not-a-catalog",
+                GuidedRigFactory.ReadProjectFile("Content", "Localization", "ms.json"));
+
+            AssertBlockedOnSafeFallback(bootstrap, "guided_localization_invalid");
+        }
+
+        private void AssertBlockedOnSafeFallback(Bootstrapper bootstrap, string expectedCode)
+        {
+            var rig = GuidedRigFactory.CreateRig(roots);
+            LogAssert.Expect(LogType.Error, expectedCode);
+
+            Assert.That(bootstrap.TryPresentGuidedSession(rig.Router), Is.False);
+            Assert.That(bootstrap.IsInitialized, Is.False);
+            Assert.That(rig.Router.ActivePhase, Is.EqualTo(GuidedPitchPhase.SafeFallback));
+            Assert.That(rig.SafeFallbackPanel.activeSelf, Is.True);
+            Assert.That(rig.TitlePanel.activeSelf, Is.False);
+            Assert.That(rig.GuidedPanel.activeSelf, Is.False);
+            Assert.That(rig.SafeFallbackText.text, Is.EqualTo(RecoverySentence));
+
+            Assert.That(capturedErrors, Is.Not.Empty);
+            foreach (var error in capturedErrors)
             {
-                var scene = SceneManager.GetSceneByName(sceneName);
-                if (scene.isLoaded)
-                {
-                    var unload = SceneManager.UnloadSceneAsync(scene);
-                    if (unload != null) yield return unload;
-                }
+                Assert.That(error, Is.EqualTo(expectedCode),
+                    "Failure logs must contain only the stable diagnostic code.");
+                Assert.That(error, Does.Not.Contain("{"));
+                Assert.That(error, Does.Not.Contain("local_learner"));
+                Assert.That(error, Does.Not.Contain("lref_"));
+                Assert.That(error, Does.Not.Contain("garden beds"));
             }
         }
 
-        private static PitchSessionController GetController(Bootstrapper bootstrapper)
+        private Bootstrapper CreateBootstrapper(string guidedJson, string englishJson, string malayJson)
         {
-            return (PitchSessionController)typeof(Bootstrapper)
-                .GetField("controller", BindingFlags.Instance | BindingFlags.NonPublic)
-                .GetValue(bootstrapper);
+            var root = new GameObject("Bootstrap Rig");
+            root.SetActive(false);
+            roots.Add(root);
+            var bootstrap = root.AddComponent<Bootstrapper>();
+            GuidedRigFactory.SetField(bootstrap, "guidedPitchContentJson", CreateAsset(guidedJson));
+            GuidedRigFactory.SetField(bootstrap, "englishCatalogJson", CreateAsset(englishJson));
+            GuidedRigFactory.SetField(bootstrap, "malayCatalogJson", CreateAsset(malayJson));
+            return bootstrap;
+        }
+
+        private static TextAsset CreateAsset(string text)
+        {
+            return text == null ? null : new TextAsset(text);
+        }
+
+        private void CaptureLog(string condition, string stackTrace, LogType type)
+        {
+            if (type == LogType.Error || type == LogType.Exception || type == LogType.Assert)
+            {
+                capturedErrors.Add(condition);
+            }
         }
     }
 }

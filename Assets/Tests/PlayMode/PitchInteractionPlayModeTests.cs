@@ -159,12 +159,10 @@ namespace Agrovator.PitchSimulator.Tests.PlayMode
             var settings = CreateButton(root.transform, "Settings");
             SetField(presenter, "startButton", start);
             SetField(presenter, "settingsButton", settings);
-            var controller = CreateController(BuildScenario(timerSeconds: 1));
-            Assert.That(controller.FinishLaunch(), Is.True);
             var calls = new System.Collections.Generic.List<string>();
             presenter.Initialize(
-                controller,
                 () => calls.Add("start"),
+                null,
                 () => calls.Add("settings"),
                 () => calls.Add("gesture"));
 
@@ -175,7 +173,6 @@ namespace Agrovator.PitchSimulator.Tests.PlayMode
             {
                 "gesture", "settings", "gesture", "start",
             }));
-            controller.Dispose();
         }
 
         [Test]

@@ -301,6 +301,19 @@
     { "key": "guided.feedback.cost-rough-estimate.improve", "value": "Confirm a pilot quote including delivery and spare parts." },
     { "key": "guided.feedback.cost-promise-free.worked", "value": "The statement identifies donations as an unconfirmed assumption." },
     { "key": "guided.feedback.cost-promise-free.missing", "value": "The donation assumption is unsupported and leaves replacement costs outside the scope." },
-    { "key": "guided.feedback.cost-promise-free.improve", "value": "Confirm a pilot quote including delivery and spare parts." }
+    { "key": "guided.feedback.cost-promise-free.improve", "value": "Confirm a pilot quote including delivery and spare parts." },
+    { "key": "guided.board.add.problem", "value": "Add a problem sentence" },
+    { "key": "guided.board.add.evidence", "value": "Add an evidence sentence" },
+    { "key": "guided.board.add.solution", "value": "Add a solution sentence" },
+    { "key": "guided.board.add.value", "value": "Add a value sentence" },
+    { "key": "guided.mode.primary.title", "value": "Primary" },
+    { "key": "guided.mode.primary.parts", "value": "Spot it, Prove it, Solve it, Show why it matters" },
+    { "key": "guided.mode.secondary.title", "value": "Secondary" },
+    { "key": "guided.mode.secondary.parts", "value": "Problem, Evidence, Solution, Value" },
+    { "key": "guided.briefing.judge", "value": "Judge Aya will listen to your finished pitch and ask one follow-up question." },
+    { "key": "guided.briefing.practice", "value": "This is individual practice for the pitch your team will present together." },
+    { "key": "guided.briefing.untimed", "value": "There is no timer. Take the time you need." },
+    { "key": "guided.improve.instruction", "value": "Parts marked Developing or Needs Practice are opportunities to strengthen your pitch. Choose one to improve, or present when you are ready." },
+    { "key": "guided.recovery.message", "value": "This pitch activity could not be loaded. Refresh and try again, or ask your teacher for help." }
   ]
 }
