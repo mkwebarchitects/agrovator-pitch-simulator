@@ -85,6 +85,16 @@ namespace Agrovator.PitchSimulator.UI
             ValidateSlots();
         }
 
+        /// <summary>
+        /// Renders the four fixed board slots from the draft snapshot.
+        /// </summary>
+        /// <param name="draft">Draft snapshot whose populated sections carry the selected response IDs.</param>
+        /// <param name="localize">
+        /// For populated slots this function receives the section's current response ID and must
+        /// resolve it to display text (typically response ID -> option TextKey -> catalog value).
+        /// Non-ID keys (part labels and empty prompts) are passed through unchanged and must
+        /// resolve directly against the localization catalog.
+        /// </param>
         public void Render(PitchDraftSnapshot draft, Func<string, string> localize)
         {
             if (draft == null) throw new ArgumentNullException(nameof(draft));

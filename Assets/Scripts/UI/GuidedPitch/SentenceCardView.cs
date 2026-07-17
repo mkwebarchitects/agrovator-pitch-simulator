@@ -42,6 +42,7 @@ namespace Agrovator.PitchSimulator.UI
             label = cardLabel ?? throw new ArgumentNullException(nameof(cardLabel));
             background = cardBackground ?? throw new ArgumentNullException(nameof(cardBackground));
             focusOutline = cardFocusOutline ?? throw new ArgumentNullException(nameof(cardFocusOutline));
+            button.targetGraphic = background;
             ApplyBaseStyle();
         }
 
@@ -176,7 +177,8 @@ namespace Agrovator.PitchSimulator.UI
 
         private void ValidateReferences()
         {
-            if (button == null || label == null || background == null || focusOutline == null)
+            if (button == null || label == null || background == null || focusOutline == null ||
+                button.targetGraphic != background)
             {
                 throw new InvalidOperationException("Sentence card references are incomplete.");
             }

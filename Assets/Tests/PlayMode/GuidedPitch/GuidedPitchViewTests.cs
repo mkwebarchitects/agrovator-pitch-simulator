@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Reflection;
+using Agrovator.PitchSimulator.Accessibility;
 using Agrovator.PitchSimulator.GuidedPitch;
 using Agrovator.PitchSimulator.UI;
 using NUnit.Framework;
@@ -213,6 +215,87 @@ namespace Agrovator.PitchSimulator.Tests.PlayMode
         }
 
         [Test]
+        public void Board_LocalizesStoredResponseIdsToAuthoredSentencesThroughCompositeLocalizer()
+        {
+            var catalog = LocalizationCatalog.Load(ReadProjectFile("Content", "Localization", "en.json"));
+            var result = GuidedPitchContentLoader.Load(
+                ReadProjectFile("Content", "Scenarios", "guided-pitch-builder.en.json"),
+                catalog.GetKeys("en"));
+            Assert.That(result.IsSuccess, Is.True,
+                string.Join(", ", result.Issues.Select(issue => issue.Code + "@" + issue.Path)));
+
+            var optionsById = result.Content.Modes.Values
+                .SelectMany(mode => mode.Parts.SelectMany(part => part.Options).Concat(mode.FollowUp.Options))
+                .ToDictionary(option => option.Id, StringComparer.Ordinal);
+            Func<string, string> localize = key => optionsById.TryGetValue(key, out var option)
+                ? catalog.Resolve("en", option.TextKey)
+                : catalog.Resolve("en", key);
+
+            var draft = new PitchDraft();
+            var primary = result.Content.Modes[LearnerMode.Primary];
+            foreach (var part in primary.Parts)
+            {
+                var clear = part.Options.Single(option => option.Mastery == MasteryState.Clear);
+                Assert.That(draft.TrySelectInitial(part.Part, clear.Id, clear.Mastery), Is.True, clear.Id);
+            }
+
+            var board = CreateBoard();
+            board.Render(draft.Snapshot, localize);
+
+            Assert.That(board.Slots[(int)PitchPart.Problem].SentenceText.text,
+                Is.EqualTo("Our garden beds get too dry because we water them at the wrong times."));
+            foreach (var part in primary.Parts)
+            {
+                var slot = board.Slots[(int)part.Part];
+                var clear = part.Options.Single(option => option.Mastery == MasteryState.Clear);
+                Assert.That(slot.SentenceText.text, Is.EqualTo(catalog.Resolve("en", clear.TextKey)), clear.Id);
+                Assert.That(slot.SentenceText.text, Is.Not.EqualTo(clear.Id), clear.Id);
+                Assert.That(slot.SentenceText.text, Does.Not.Contain("[[missing:"), clear.Id);
+                Assert.That(slot.LabelText.text,
+                    Is.EqualTo(catalog.Resolve("en", PitchPartVisuals.Get(part.Part).LabelKey)), clear.Id);
+                Assert.That(slot.LabelText.text, Does.Not.Contain("[[missing:"), clear.Id);
+            }
+        }
+
+        [Test]
+        public void ResponsiveLayout_RecomputesCompactCellSizesWhenViewportShrinksInSameMode()
+        {
+            var rig = CreateResponsive();
+            var objectCount = rig.Root.GetComponentsInChildren<Transform>(true).Length;
+
+            rig.Layout.Apply(new Vector2(720, 960));
+            rig.Layout.Apply(new Vector2(600, 900));
+
+            Assert.That(rig.Layout.IsCompact, Is.True);
+            Assert.That(rig.Board.cellSize.x, Is.LessThanOrEqualTo((600f - 72f) / 2f));
+            Assert.That(rig.Cards.cellSize.x, Is.LessThanOrEqualTo(600f - 64f));
+            Assert.That(rig.Cards.cellSize.y, Is.GreaterThanOrEqualTo(64f));
+            Assert.That(rig.Root.GetComponentsInChildren<Transform>(true).Length, Is.EqualTo(objectCount));
+        }
+
+        [Test]
+        public void Cards_ConfigureAssignsBackgroundAsButtonTargetGraphic()
+        {
+            var rig = CreateCards();
+            foreach (var card in rig.List.Cards)
+            {
+                Assert.That(card.Button.targetGraphic, Is.SameAs(card.Background));
+            }
+
+            var inactiveRoot = Root("Inactive Card");
+            inactiveRoot.SetActive(false);
+            var background = inactiveRoot.AddComponent<Image>();
+            var button = inactiveRoot.AddComponent<Button>();
+            var label = Text("Label", inactiveRoot.transform);
+            var focus = Image("Focus", inactiveRoot.transform);
+            var card2 = inactiveRoot.AddComponent<SentenceCardView>();
+
+            card2.Configure(button, label, background, focus);
+
+            Assert.That(card2.Button.targetGraphic, Is.SameAs(background));
+        }
+
+        [Test]
         public void Palette_MeetsTextAndFocusContrastRequirements()
         {
             Assert.That(PitchPartVisuals.ContrastRatio(PitchPartVisuals.CardText, PitchPartVisuals.CardCream),
@@ -348,6 +431,11 @@ namespace Agrovator.PitchSimulator.Tests.PlayMode
                 null,
                 new object[] { "feedback.worked", "feedback.missing", "feedback.improve" },
                 null);
+        }
+
+        private static string ReadProjectFile(params string[] segments)
+        {
+            return File.ReadAllText(segments.Aggregate(Application.dataPath, Path.Combine));
         }
 
         private static string Localize(string key)

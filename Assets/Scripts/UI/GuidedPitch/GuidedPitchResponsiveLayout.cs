@@ -15,6 +15,7 @@ namespace Agrovator.PitchSimulator.UI
         [SerializeField] private ScrollRect compactScroll;
 
         private bool? appliedCompact;
+        private Vector2? appliedViewportSize;
 
         public bool IsCompact => appliedCompact == true;
 
@@ -24,8 +25,15 @@ namespace Agrovator.PitchSimulator.UI
             sentenceCardGrid = sentenceCards ?? throw new ArgumentNullException(nameof(sentenceCards));
             compactScroll = scroll ?? throw new ArgumentNullException(nameof(scroll));
             appliedCompact = null;
+            appliedViewportSize = null;
         }
 
+        /// <summary>
+        /// Applies the wide or compact layout rules for the viewport without allocating objects.
+        /// Returns true only when the layout mode (wide/compact) changed. Width-dependent cell
+        /// sizes are still recomputed whenever the viewport size changes within the same mode,
+        /// and repeating identical inputs is a no-op.
+        /// </summary>
         public bool Apply(Vector2 viewportSize)
         {
             ValidateReferences();
@@ -36,9 +44,11 @@ namespace Agrovator.PitchSimulator.UI
 
             var compact = viewportSize.x < CompactWidthThreshold ||
                 viewportSize.x / viewportSize.y < CompactAspectThreshold;
-            if (appliedCompact == compact) return false;
+            var modeChanged = appliedCompact != compact;
+            if (!modeChanged && appliedViewportSize == viewportSize) return false;
 
             appliedCompact = compact;
+            appliedViewportSize = viewportSize;
             if (compact)
             {
                 boardGrid.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
@@ -60,7 +70,7 @@ namespace Agrovator.PitchSimulator.UI
                 compactScroll.enabled = false;
             }
 
-            return true;
+            return modeChanged;
         }
 
         private void ValidateReferences()
