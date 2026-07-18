@@ -314,6 +314,12 @@
     { "key": "guided.briefing.practice", "value": "This is individual practice for the pitch your team will present together." },
     { "key": "guided.briefing.untimed", "value": "There is no timer. Take the time you need." },
     { "key": "guided.improve.instruction", "value": "Parts marked Developing or Needs Practice are opportunities to strengthen your pitch. Choose one to improve, or present when you are ready." },
-    { "key": "guided.recovery.message", "value": "This pitch activity could not be loaded. Refresh and try again, or ask your teacher for help." }
+    { "key": "guided.recovery.message", "value": "This pitch activity could not be loaded. Refresh and try again, or ask your teacher for help." },
+    { "key": "guided.results.final_pitch", "value": "Your final pitch" },
+    { "key": "guided.results.strengthened.one", "value": "You strengthened 1 part of this pitch." },
+    { "key": "guided.results.strengthened.many", "value": "You strengthened {count} parts of this pitch." },
+    { "key": "guided.results.part.strengthened", "value": "Strengthened after feedback" },
+    { "key": "guided.results.part.revised", "value": "Revised after feedback" },
+    { "key": "guided.results.resubmit", "value": "Resubmit results" }
   ]
 }

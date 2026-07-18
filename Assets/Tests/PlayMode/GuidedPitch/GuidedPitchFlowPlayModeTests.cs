@@ -46,6 +46,17 @@ namespace Agrovator.PitchSimulator.Tests.PlayMode
         internal GameObject ModeSelectionPanel;
         internal GameObject GuidedPanel;
         internal GameObject ResultsPanel;
+        internal GuidedPitchResultsPresenter Results;
+        internal PitchResultPartView[] ResultParts;
+        internal Text ReadinessText;
+        internal Text ImprovementText;
+        internal Text TransferText;
+        internal Text FinalPitchText;
+        internal Text SubmissionStatusText;
+        internal Button SubmitButton;
+        internal Text SubmitButtonLabel;
+        internal Button RetryButton;
+        internal ScrollRect ResultsScroll;
         internal GameObject SettingsPanel;
         internal Button SettingsCloseButton;
         internal GameObject SafeFallbackPanel;
@@ -260,7 +271,52 @@ namespace Agrovator.PitchSimulator.Tests.PlayMode
                 rig.CardsScroll);
 
             rig.ResultsPanel = Panel("Results", canvasTransform);
-            var resultsDefault = CreateButton("Results Placeholder", rig.ResultsPanel.transform);
+            rig.Results = rig.ResultsPanel.AddComponent<GuidedPitchResultsPresenter>();
+            rig.ResultParts = PitchParts.Ordered.Select(part =>
+            {
+                var cardRoot = Panel(part + " Result Card", rig.ResultsPanel.transform);
+                var view = cardRoot.AddComponent<PitchResultPartView>();
+                view.Configure(part,
+                    CreateText("Label", cardRoot.transform),
+                    CreateText("Icon", cardRoot.transform),
+                    CreateImage("Accent", cardRoot.transform),
+                    CreateText("Sentence", cardRoot.transform),
+                    CreateText("Status", cardRoot.transform),
+                    CreateText("Revision Note", cardRoot.transform));
+                return view;
+            }).ToArray();
+            rig.ReadinessText = CreateText("Readiness", rig.ResultsPanel.transform);
+            rig.ImprovementText = CreateText("Improvement", rig.ResultsPanel.transform);
+            rig.TransferText = CreateText("Transfer", rig.ResultsPanel.transform);
+            rig.FinalPitchText = CreateText("Final Pitch", rig.ResultsPanel.transform);
+            rig.SubmissionStatusText = CreateText("Submission Status", rig.ResultsPanel.transform);
+            rig.SubmitButton = CreateButton("Submit Button", rig.ResultsPanel.transform);
+            rig.SubmitButtonLabel = rig.SubmitButton.GetComponentInChildren<Text>(true);
+            rig.RetryButton = CreateButton("Retry Button", rig.ResultsPanel.transform);
+            var resultsScrollRoot = Panel("Results Scroll", rig.ResultsPanel.transform);
+            rig.ResultsScroll = resultsScrollRoot.AddComponent<ScrollRect>();
+            resultsScrollRoot.GetComponent<RectTransform>().sizeDelta = new Vector2(200f, 200f);
+            var resultsContent = Panel("Results Content", resultsScrollRoot.transform);
+            var resultsContentRect = resultsContent.GetComponent<RectTransform>();
+            resultsContentRect.sizeDelta = new Vector2(200f, 1000f);
+            rig.ResultsScroll.content = resultsContentRect;
+            rig.ResultsScroll.horizontal = false;
+            rig.ResultsScroll.vertical = true;
+            rig.ResultsScroll.verticalNormalizedPosition = 1f;
+            SetField(rig.Results, "headingText", CreateText("Results Heading", rig.ResultsPanel.transform));
+            SetField(rig.Results, "partViews", rig.ResultParts);
+            SetField(rig.Results, "readinessText", rig.ReadinessText);
+            SetField(rig.Results, "improvementText", rig.ImprovementText);
+            SetField(rig.Results, "transferText", rig.TransferText);
+            SetField(rig.Results, "finalPitchHeadingText",
+                CreateText("Final Pitch Heading", rig.ResultsPanel.transform));
+            SetField(rig.Results, "finalPitchText", rig.FinalPitchText);
+            SetField(rig.Results, "submissionStatusText", rig.SubmissionStatusText);
+            SetField(rig.Results, "submitButton", rig.SubmitButton);
+            SetField(rig.Results, "submitButtonText", rig.SubmitButtonLabel);
+            SetField(rig.Results, "retryButton", rig.RetryButton);
+            SetField(rig.Results, "retryButtonText", rig.RetryButton.GetComponentInChildren<Text>(true));
+            SetField(rig.Results, "resultsScroll", rig.ResultsScroll);
 
             rig.SettingsPanel = Panel("Settings", canvasTransform);
             var settingsPresenter = rig.SettingsPanel.AddComponent<SettingsPresenter>();
@@ -285,11 +341,11 @@ namespace Agrovator.PitchSimulator.Tests.PlayMode
                 titlePresenter,
                 briefingPresenter,
                 rig.Presenter,
+                rig.Results,
                 settingsPresenter,
                 rig.SafeFallback,
                 rig.StartButton,
                 rig.BriefingContinueButton,
-                resultsDefault,
                 closeButton);
             return rig;
         }

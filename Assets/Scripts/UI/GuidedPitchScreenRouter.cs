@@ -25,11 +25,11 @@ namespace Agrovator.PitchSimulator.UI
         [SerializeField] private TitlePresenter titlePresenter;
         [SerializeField] private BriefingPresenter briefingPresenter;
         [SerializeField] private GuidedPitchPresenter guidedPresenter;
+        [SerializeField] private GuidedPitchResultsPresenter resultsPresenter;
         [SerializeField] private SettingsPresenter settingsPresenter;
         [SerializeField] private SafeFallbackPresenter safeFallbackPresenter;
         [SerializeField] private Selectable titleDefault;
         [SerializeField] private Selectable briefingDefault;
-        [SerializeField] private Selectable resultsDefault;
         [SerializeField] private Selectable settingsDefault;
 
         private GuidedPitchSessionController controller;
@@ -52,11 +52,11 @@ namespace Agrovator.PitchSimulator.UI
             TitlePresenter titleScreenPresenter,
             BriefingPresenter briefingScreenPresenter,
             GuidedPitchPresenter guidedScreenPresenter,
+            GuidedPitchResultsPresenter resultsScreenPresenter,
             SettingsPresenter settingsScreenPresenter,
             SafeFallbackPresenter safeFallbackScreenPresenter,
             Selectable titleDefaultSelectable,
             Selectable briefingDefaultSelectable,
-            Selectable resultsDefaultSelectable,
             Selectable settingsDefaultSelectable)
         {
             titlePanel = title;
@@ -69,11 +69,11 @@ namespace Agrovator.PitchSimulator.UI
             titlePresenter = titleScreenPresenter;
             briefingPresenter = briefingScreenPresenter;
             guidedPresenter = guidedScreenPresenter;
+            resultsPresenter = resultsScreenPresenter;
             settingsPresenter = settingsScreenPresenter;
             safeFallbackPresenter = safeFallbackScreenPresenter;
             titleDefault = titleDefaultSelectable;
             briefingDefault = briefingDefaultSelectable;
-            resultsDefault = resultsDefaultSelectable;
             settingsDefault = settingsDefaultSelectable;
             if (!ValidateContract(out var reason))
             {
@@ -101,6 +101,7 @@ namespace Agrovator.PitchSimulator.UI
                 () => controller.StartScenario(), Refresh, OpenSettings, onTitleUserGesture);
             briefingPresenter.Initialize(() => controller.Continue(), Refresh, localize);
             guidedPresenter.Initialize(controller, Refresh, localize);
+            resultsPresenter.Initialize(controller, Refresh, localize);
             settingsPresenter.Initialize(CloseSettings);
             controller.EventPublished += HandleSessionEvent;
             IsInitialized = true;
@@ -129,7 +130,7 @@ namespace Agrovator.PitchSimulator.UI
             }
 
             if (titlePresenter == null || briefingPresenter == null || guidedPresenter == null ||
-                settingsPresenter == null || safeFallbackPresenter == null)
+                resultsPresenter == null || settingsPresenter == null || safeFallbackPresenter == null)
             {
                 reason = "Guided router presenter references are incomplete.";
                 return false;
@@ -137,6 +138,7 @@ namespace Agrovator.PitchSimulator.UI
             if (!titlePresenter.transform.IsChildOf(titlePanel.transform) ||
                 !briefingPresenter.transform.IsChildOf(briefingPanel.transform) ||
                 !guidedPresenter.transform.IsChildOf(guidedPanel.transform) ||
+                !resultsPresenter.transform.IsChildOf(resultsPanel.transform) ||
                 !settingsPresenter.transform.IsChildOf(settingsPanel.transform) ||
                 !safeFallbackPresenter.transform.IsChildOf(safeFallbackPanel.transform))
             {
@@ -144,14 +146,18 @@ namespace Agrovator.PitchSimulator.UI
                 return false;
             }
 
-            if (titleDefault == null || briefingDefault == null || resultsDefault == null ||
-                settingsDefault == null ||
+            if (titleDefault == null || briefingDefault == null || settingsDefault == null ||
                 !titleDefault.transform.IsChildOf(titlePanel.transform) ||
                 !briefingDefault.transform.IsChildOf(briefingPanel.transform) ||
-                !resultsDefault.transform.IsChildOf(resultsPanel.transform) ||
                 !settingsDefault.transform.IsChildOf(settingsPanel.transform))
             {
                 reason = "Guided router default focus references are incomplete or misplaced.";
+                return false;
+            }
+
+            if (!resultsPresenter.ValidateContract())
+            {
+                reason = "Guided results presenter references are incomplete.";
                 return false;
             }
 
@@ -170,6 +176,7 @@ namespace Agrovator.PitchSimulator.UI
             titlePresenter.SetStartInteractable(snapshot.Phase == GuidedPitchPhase.Title);
             briefingPresenter.SetContinueInteractable(snapshot.Phase == GuidedPitchPhase.Briefing);
             guidedPresenter.Refresh(snapshot);
+            resultsPresenter.Refresh(snapshot);
             var target = GetPanel(snapshot.Phase);
             if (settingsOpen)
             {
@@ -368,7 +375,7 @@ namespace Agrovator.PitchSimulator.UI
             }
             if (panel == resultsPanel)
             {
-                return resultsDefault;
+                return resultsPresenter.GetDefaultSelectable(ActivePhase);
             }
             if (panel == settingsPanel)
             {

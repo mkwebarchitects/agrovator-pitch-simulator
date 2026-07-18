@@ -88,6 +88,12 @@ namespace Agrovator.PitchSimulator.Tests.EditMode.Accessibility
                 ["guided.action.strengthen"] = "Strengthen this part",
                 ["guided.action.present"] = "Present my pitch",
                 ["guided.transfer_prompt"] = "Use these four parts when your team plans its real pitch: name the problem, prove it, explain the solution, and show why it matters.",
+                ["guided.results.final_pitch"] = "Your final pitch",
+                ["guided.results.strengthened.one"] = "You strengthened 1 part of this pitch.",
+                ["guided.results.strengthened.many"] = "You strengthened {count} parts of this pitch.",
+                ["guided.results.part.strengthened"] = "Strengthened after feedback",
+                ["guided.results.part.revised"] = "Revised after feedback",
+                ["guided.results.resubmit"] = "Resubmit results",
             };
 
             foreach (var pair in expected)
