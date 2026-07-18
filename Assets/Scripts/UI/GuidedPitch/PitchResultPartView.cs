@@ -69,7 +69,7 @@ namespace Agrovator.PitchSimulator.UI
             iconText.text = visual.IconGlyph;
             accentImage.color = visual.Colour;
             sentenceText.text = localize(section.CurrentResponseId);
-            statusText.text = localize(MasteryKey(section.CurrentMastery.Value));
+            statusText.text = localize(PitchPartVisuals.MasteryLabelKey(section.CurrentMastery.Value));
             var revisionNoteKey = RevisionNoteKey(section);
             revisionNoteText.text = revisionNoteKey == null ? string.Empty : localize(revisionNoteKey);
             revisionNoteText.gameObject.SetActive(revisionNoteKey != null);
@@ -99,21 +99,6 @@ namespace Agrovator.PitchSimulator.UI
             return section.CurrentMastery.Value > section.InitialMastery.Value
                 ? "guided.results.part.strengthened"
                 : "guided.results.part.revised";
-        }
-
-        private static string MasteryKey(MasteryState mastery)
-        {
-            switch (mastery)
-            {
-                case MasteryState.Clear:
-                    return "guided.mastery.clear";
-                case MasteryState.Developing:
-                    return "guided.mastery.developing";
-                case MasteryState.NeedsPractice:
-                    return "guided.mastery.needs_practice";
-                default:
-                    throw new ArgumentOutOfRangeException(nameof(mastery), mastery, "Unknown mastery state.");
-            }
         }
     }
 }

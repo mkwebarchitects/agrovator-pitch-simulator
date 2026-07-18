@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Text;
 using Agrovator.PitchSimulator.Core;
 using Agrovator.PitchSimulator.GuidedPitch;
 using UnityEngine;
@@ -10,6 +9,62 @@ using UnityEngine.UI;
 
 namespace Agrovator.PitchSimulator.UI
 {
+    /// <summary>
+    /// Shared Tab/Shift+Tab cycle over the active, interactable selectables
+    /// under one screen root, wrapping at both ends. Used by every guided
+    /// screen presenter behind the always-active router's Tab polling.
+    /// </summary>
+    internal static class GuidedFocusCycle
+    {
+        internal static bool MoveFocus(Transform root, bool backward)
+        {
+            var eventSystem = EventSystem.current;
+            if (eventSystem == null || root == null)
+            {
+                return false;
+            }
+
+            var candidates = root.GetComponentsInChildren<Selectable>(false);
+            var cycle = new List<Selectable>();
+            foreach (var candidate in candidates)
+            {
+                if (candidate.IsInteractable() && candidate.gameObject.activeInHierarchy)
+                {
+                    cycle.Add(candidate);
+                }
+            }
+            if (cycle.Count == 0)
+            {
+                return false;
+            }
+
+            var current = eventSystem.currentSelectedGameObject;
+            var index = -1;
+            for (var candidate = 0; candidate < cycle.Count; candidate++)
+            {
+                if (cycle[candidate].gameObject == current)
+                {
+                    index = candidate;
+                    break;
+                }
+            }
+
+            int next;
+            if (index < 0)
+            {
+                next = backward ? cycle.Count - 1 : 0;
+            }
+            else
+            {
+                next = (index + (backward ? -1 : 1) + cycle.Count) % cycle.Count;
+            }
+
+            eventSystem.SetSelectedGameObject(null);
+            eventSystem.SetSelectedGameObject(cycle[next].gameObject);
+            return true;
+        }
+    }
+
     /// <summary>
     /// Thin binding between the guided pitch views and the session controller.
     /// It maps clicks to controller commands and mirrors snapshot state into the
@@ -249,7 +304,8 @@ namespace Agrovator.PitchSimulator.UI
                 strengthenButtons[index].gameObject.SetActive(show);
                 if (show)
                 {
-                    strengthenLabels[index].text = localize(MasteryKey(section.CurrentMastery.Value));
+                    strengthenLabels[index].text = localize(
+                        PitchPartVisuals.MasteryLabelKey(section.CurrentMastery.Value));
                 }
             }
         }
@@ -295,8 +351,7 @@ namespace Agrovator.PitchSimulator.UI
         /// </summary>
         public bool MoveFocus(bool backward)
         {
-            var eventSystem = EventSystem.current;
-            if (eventSystem == null || lastSnapshot == null)
+            if (lastSnapshot == null)
             {
                 return false;
             }
@@ -304,44 +359,7 @@ namespace Agrovator.PitchSimulator.UI
             var root = lastSnapshot.Phase == GuidedPitchPhase.ModeSelection
                 ? modeSelection.transform
                 : transform;
-            var candidates = root.GetComponentsInChildren<Selectable>(false);
-            var cycle = new List<Selectable>();
-            foreach (var candidate in candidates)
-            {
-                if (candidate.IsInteractable() && candidate.gameObject.activeInHierarchy)
-                {
-                    cycle.Add(candidate);
-                }
-            }
-            if (cycle.Count == 0)
-            {
-                return false;
-            }
-
-            var current = eventSystem.currentSelectedGameObject;
-            var index = -1;
-            for (var candidate = 0; candidate < cycle.Count; candidate++)
-            {
-                if (cycle[candidate].gameObject == current)
-                {
-                    index = candidate;
-                    break;
-                }
-            }
-
-            int next;
-            if (index < 0)
-            {
-                next = backward ? cycle.Count - 1 : 0;
-            }
-            else
-            {
-                next = (index + (backward ? -1 : 1) + cycle.Count) % cycle.Count;
-            }
-
-            eventSystem.SetSelectedGameObject(null);
-            eventSystem.SetSelectedGameObject(cycle[next].gameObject);
-            return true;
+            return GuidedFocusCycle.MoveFocus(root, backward);
         }
 
         private void LateUpdate()
@@ -487,23 +505,7 @@ namespace Agrovator.PitchSimulator.UI
 
         private string ComposePresentation(GuidedPitchSessionSnapshot snapshot)
         {
-            var builder = new StringBuilder();
-            foreach (var part in PitchParts.Ordered)
-            {
-                var section = snapshot.Draft[part];
-                if (!section.IsPopulated)
-                {
-                    continue;
-                }
-
-                if (builder.Length > 0)
-                {
-                    builder.Append("\n\n");
-                }
-                builder.Append(localize(section.CurrentResponseId));
-            }
-
-            return builder.ToString();
+            return PitchPartVisuals.ComposeCurrentSentences(snapshot.Draft, localize);
         }
 
         private static PitchPart? RailCurrent(GuidedPitchSessionSnapshot snapshot)
@@ -533,19 +535,6 @@ namespace Agrovator.PitchSimulator.UI
                     return "guided.part.value." + suffix;
                 default:
                     throw new ArgumentOutOfRangeException(nameof(part), part, "Unknown pitch part.");
-            }
-        }
-
-        private static string MasteryKey(MasteryState mastery)
-        {
-            switch (mastery)
-            {
-                case MasteryState.Clear:
-                    return "guided.mastery.clear";
-                case MasteryState.Developing:
-                    return "guided.mastery.developing";
-                default:
-                    return "guided.mastery.needs_practice";
             }
         }
 

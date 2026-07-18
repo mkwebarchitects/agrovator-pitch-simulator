@@ -1,4 +1,5 @@
 using System;
+using System.Text;
 using Agrovator.PitchSimulator.GuidedPitch;
 using UnityEngine;
 
@@ -46,6 +47,56 @@ namespace Agrovator.PitchSimulator.UI
             }
 
             return Visuals[(int)part];
+        }
+
+        /// <summary>
+        /// The single localization key for a mastery statement, shared by every
+        /// guided screen that names Clear/Developing/Needs Practice.
+        /// </summary>
+        public static string MasteryLabelKey(MasteryState mastery)
+        {
+            switch (mastery)
+            {
+                case MasteryState.Clear:
+                    return "guided.mastery.clear";
+                case MasteryState.Developing:
+                    return "guided.mastery.developing";
+                case MasteryState.NeedsPractice:
+                    return "guided.mastery.needs_practice";
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(mastery), mastery, "Unknown mastery state.");
+            }
+        }
+
+        /// <summary>
+        /// Joins the localized CURRENT sentences of the populated draft sections
+        /// with paragraph breaks in framework order. <paramref name="localize"/>
+        /// must resolve response IDs through the composite localizer
+        /// (response ID -> option TextKey -> catalog).
+        /// </summary>
+        public static string ComposeCurrentSentences(PitchDraftSnapshot draft, Func<string, string> localize)
+        {
+            if (draft == null) throw new ArgumentNullException(nameof(draft));
+            if (localize == null) throw new ArgumentNullException(nameof(localize));
+
+            var builder = new StringBuilder();
+            foreach (var part in PitchParts.Ordered)
+            {
+                var section = draft[part];
+                if (!section.IsPopulated)
+                {
+                    continue;
+                }
+
+                if (builder.Length > 0)
+                {
+                    builder.Append("\n\n");
+                }
+
+                builder.Append(localize(section.CurrentResponseId));
+            }
+
+            return builder.ToString();
         }
 
         public static float ContrastRatio(Color first, Color second)

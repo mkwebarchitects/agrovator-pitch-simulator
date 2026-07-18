@@ -193,12 +193,20 @@ namespace Agrovator.PitchSimulator.UI
         /// <summary>
         /// Moves keyboard focus through the active guided screen. The router owns
         /// the Tab polling because it stays active on every screen, including the
-        /// ModeSelection phase where the guided panel and its presenter are
-        /// inactive.
+        /// ModeSelection and Results phases where the guided panel and its
+        /// presenter are inactive; each screen presenter cycles only its own
+        /// active selectables.
         /// </summary>
         public bool MoveFocus(bool backward)
         {
-            return IsInitialized && guidedPresenter.MoveFocus(backward);
+            if (!IsInitialized)
+            {
+                return false;
+            }
+
+            return resultsPanel.activeSelf
+                ? resultsPresenter.MoveFocus(backward)
+                : guidedPresenter.MoveFocus(backward);
         }
 
         private void Update()

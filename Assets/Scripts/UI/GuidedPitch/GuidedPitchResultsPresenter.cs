@@ -1,6 +1,5 @@
 using System;
 using System.Globalization;
-using System.Text;
 using Agrovator.PitchSimulator.Core;
 using Agrovator.PitchSimulator.GuidedPitch;
 using UnityEngine;
@@ -56,6 +55,8 @@ namespace Agrovator.PitchSimulator.UI
             controller = sessionController;
             changed = onChanged;
             localize = localizeText;
+            renderedAttempt = -1;
+            hasRenderedResult = false;
             submitButton.onClick.AddListener(HandleSubmit);
             retryButton.onClick.AddListener(HandleRetry);
             initialized = true;
@@ -168,6 +169,17 @@ namespace Agrovator.PitchSimulator.UI
             }
         }
 
+        /// <summary>
+        /// Cycles Tab/Shift+Tab focus through this screen's active selectables
+        /// (Submit and Retry), wrapping at both ends. The always-active router
+        /// forwards Tab here while the Results screen is shown; during
+        /// Submitting both actions are disabled, so the cycle is a safe no-op.
+        /// </summary>
+        public bool MoveFocus(bool backward)
+        {
+            return GuidedFocusCycle.MoveFocus(transform, backward);
+        }
+
         private void OnDestroy()
         {
             if (submitButton != null) submitButton.onClick.RemoveListener(HandleSubmit);
@@ -192,18 +204,7 @@ namespace Agrovator.PitchSimulator.UI
 
         private string ComposeFinalPitch(GuidedPitchSessionSnapshot snapshot)
         {
-            var builder = new StringBuilder();
-            foreach (var part in PitchParts.Ordered)
-            {
-                if (builder.Length > 0)
-                {
-                    builder.Append("\n\n");
-                }
-
-                builder.Append(localize(snapshot.Draft[part].CurrentResponseId));
-            }
-
-            return builder.ToString();
+            return PitchPartVisuals.ComposeCurrentSentences(snapshot.Draft, localize);
         }
 
         private void ClearResult()

@@ -294,6 +294,50 @@ namespace Agrovator.PitchSimulator.Tests.PlayMode
             controller.Dispose();
         }
 
+        [Test]
+        public void Keyboard_RouterTab_CyclesSubmitAndRetryOnResultsAndIsSafeWhileSubmitting()
+        {
+            var fixture = GuidedRigFactory.LoadAuthoredContent();
+            var bridge = new DeferredGuidedBridge(GuidedRigFactory.CreateLaunch(fixture.Content));
+            var controller = GuidedRigFactory.CreateController(fixture, bridge);
+            Assert.That(controller.FinishLaunch(), Is.True);
+            var rig = GuidedRigFactory.CreateRig(roots);
+            rig.Router.Initialize(controller, fixture.Localize);
+            EnterBuild(rig, LearnerMode.Primary);
+            CompleteBuild(rig, fixture, LearnerMode.Primary,
+                MasteryState.Clear, MasteryState.Clear,
+                MasteryState.Clear, MasteryState.Clear);
+            PresentAndAnswerFollowUp(rig, fixture, LearnerMode.Primary, MasteryState.Clear);
+
+            Assert.That(rig.Router.ActivePhase, Is.EqualTo(GuidedPitchPhase.Results));
+            Assert.That(rig.Presenter.gameObject.activeInHierarchy, Is.False,
+                "The guided presenter is inactive on Results, so the router must route Tab to the results screen.");
+            var eventSystem = EventSystem.current;
+            Assert.That(eventSystem.currentSelectedGameObject,
+                Is.SameAs(rig.SubmitButton.gameObject));
+
+            Assert.That(rig.Router.MoveFocus(false), Is.True,
+                "Tab must cycle the Results screen's own selectables.");
+            Assert.That(eventSystem.currentSelectedGameObject,
+                Is.SameAs(rig.RetryButton.gameObject));
+            Assert.That(rig.Router.MoveFocus(false), Is.True);
+            Assert.That(eventSystem.currentSelectedGameObject,
+                Is.SameAs(rig.SubmitButton.gameObject),
+                "Tab must wrap back to Submit.");
+            Assert.That(rig.Router.MoveFocus(true), Is.True);
+            Assert.That(eventSystem.currentSelectedGameObject,
+                Is.SameAs(rig.RetryButton.gameObject),
+                "Shift+Tab must move backward through the cycle.");
+
+            rig.SubmitButton.onClick.Invoke();
+            Assert.That(controller.Snapshot.Phase, Is.EqualTo(GuidedPitchPhase.Submitting));
+            var selectedWhileSubmitting = eventSystem.currentSelectedGameObject;
+            Assert.That(rig.Router.MoveFocus(false), Is.False,
+                "Submitting disables both actions, so Tab must be a safe no-op.");
+            Assert.That(eventSystem.currentSelectedGameObject, Is.SameAs(selectedWhileSubmitting));
+            controller.Dispose();
+        }
+
         private static void EnterBuild(GuidedRig rig, LearnerMode mode)
         {
             rig.StartButton.onClick.Invoke();
