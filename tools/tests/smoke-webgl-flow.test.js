@@ -4,111 +4,223 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const test = require("node:test");
+const {
+  canonicalCode,
+  extractFunction,
+  findCalls,
+  lastQuotedValue,
+  maskNonCode,
+  quotedValues,
+} = require("./javascript-contract.js");
 
 const projectRoot = path.resolve(__dirname, "..", "..");
 const source = fs.readFileSync(path.join(projectRoot, "tools", "smoke-webgl.mjs"), "utf8");
 
-function extractFunction(value, name, nextName) {
-  const start = value.indexOf(`async function ${name}(`);
-  const end = value.indexOf(`async function ${nextName}(`, start);
-  assert.notEqual(start, -1, `missing ${name}`);
-  assert.notEqual(end, -1, `missing boundary after ${name}`);
-  return value.slice(start, end);
-}
-
-function assertOrderedLabels(value, labels) {
-  let previous = -1;
-  for (const label of labels) {
-    const occurrences = value.split(`"${label}"`).length - 1;
-    assert.equal(occurrences, 1, `expected one executable checkpoint labelled ${label}`);
-    const position = value.indexOf(`"${label}"`);
-    assert.ok(position > previous, `${label} is out of order`);
-    previous = position;
-  }
-}
-
-const requiredCheckpoints = [
-  "mode", "learn", "build", "problem feedback", "evidence feedback", "solution feedback",
-  "value feedback", "improve", "present", "cost follow-up", "results", "submission failure",
-  "submission success", "retry", "fresh mode selection",
+const primaryLabels = [
+  "title start", "briefing continue", "learn", "build", "problem developing option",
+  "problem feedback", "evidence build", "evidence feedback", "solution build",
+  "solution feedback", "value build", "value feedback", "improve", "revision options",
+  "revision focus present", "revision focus clear option", "one revision", "present",
+  "cost follow-up", "cost feedback", "results", "submission failure", "submission success",
+  "retry", "fresh mode selection",
+];
+const secondaryLabels = [
+  "title start", "briefing continue", "learn", "build", "problem feedback", "evidence build",
+  "evidence feedback", "solution build", "solution feedback", "value build", "value feedback",
+  "improve", "revision options", "one revision", "present", "cost follow-up", "cost feedback",
+  "results", "submission failure", "submission success", "retry", "fresh mode selection",
+];
+const primaryGates = primaryLabels.map(label => [
+  "problem developing option", "revision focus present", "revision focus clear option",
+].includes(label) ? "focus" : label === "title start" || label.startsWith("submission ")
+  || label === "revision options" ? label.startsWith("submission ") ? "controls" : "content"
+    : "transition");
+const secondaryGates = secondaryLabels.map(label =>
+  label === "title start" || label.startsWith("submission ") || label === "revision options"
+    ? label.startsWith("submission ") ? "controls" : "content" : "transition");
+const secondaryCoordinates = [
+  ["0.50", "0.50"], ["0.50", "0.60"], ["0.70", "0.76"], ["0.50", "0.86"],
+  ["0.50", "0.70"], ["0.50", "0.86"], ["0.27", "0.70"], ["0.50", "0.86"],
+  ["0.27", "0.70"], ["0.50", "0.86"], ["0.27", "0.70"], ["0.50", "0.86"],
+  ["0.50", "0.70"], ["0.27", "0.60"], ["0.50", "0.86"], ["0.50", "0.86"],
+  ["0.27", "0.70"], ["0.50", "0.86"], ["0.36", "0.82"], ["0.36", "0.82"],
+  ["0.64", "0.82"], ["0.50", "0.60"],
 ];
 
-test("Chrome owns exactly one complete Primary keyboard guided path", () => {
-  const primary = extractFunction(source, "runPrimaryKeyboardPath", "runSecondaryPointerPath");
-  assert.match(primary, /definition\.name\s*!==\s*"chrome"/);
-  assert.match(primary, /interaction\s*:\s*"keyboard"/);
-  assert.match(primary, /mode\s*:\s*"Primary"/);
-  assert.match(primary, /keyboardStableStep\(canvas,\s*"Tab",\s*options,\s*"problem developing option"\)/);
-  assert.doesNotMatch(primary, /keyboardStableStep\(canvas,\s*"ArrowDown"/);
-  assert.match(primary,
-    /"revision options"\);[\s\S]*?"Tab",\s*options,\s*"revision focus present"\);[\s\S]*?"Tab",\s*options,\s*"revision focus clear option"\);[\s\S]*?"one revision"\);/);
-  assertOrderedLabels(primary, requiredCheckpoints);
+function assertCallLabels(value, callee, expected) {
+  const calls = findCalls(value, callee);
+  assert.deepEqual(calls.map(lastQuotedValue), expected,
+    `${callee} must have the exact executable label sequence`);
+  return calls;
+}
+
+function gateNames(calls) {
+  return calls.map(call => /GuidedGate\.(transition|focus|content|controls)/.exec(call.text)?.[1] || null);
+}
+
+function assertOrdered(...positions) {
+  for (let index = 1; index < positions.length; index += 1) {
+    assert.ok(positions[index - 1] < positions[index], "executable calls are out of order");
+  }
+}
+
+test("call extraction ignores comments and dead strings while retaining executable duplicates", () => {
+  const fixture = `
+    // await keyboardStableStep(page, canvas, "Enter", options, "comment");
+    const dead = 'await keyboardStableStep(page, canvas, "Enter", options, "dead")';
+    /* await keyboardStableStep(page, canvas, "Enter", options, "block"); */
+    await keyboardStableStep(page, canvas, "Enter", options, "executable");
+    if (false) await keyboardStableStep(page, canvas, "Enter", options, "executable duplicate");
+  `;
+  assert.deepEqual(findCalls(fixture, "keyboardStableStep").map(lastQuotedValue),
+    ["executable", "executable duplicate"]);
 });
 
-test("Edge owns exactly one complete Secondary pointer guided path", () => {
-  const secondary = extractFunction(source, "runSecondaryPointerPath", "verifyCanvasContract");
-  assert.match(secondary, /definition\.name\s*!==\s*"edge"/);
-  assert.match(secondary, /interaction\s*:\s*"pointer"/);
-  assert.match(secondary, /mode\s*:\s*"Secondary"/);
-  assert.match(secondary,
-    /pointerStableStep\(canvas,\s*0\.50,\s*0\.60,\s*options,\s*"briefing continue"\)/);
-  assert.match(secondary,
-    /pointerStableStep\(canvas,\s*0\.70,\s*0\.76,\s*options,\s*"learn"\)/);
-  for (const label of [
-    "build", "evidence build", "solution build", "value build", "improve", "present",
-    "cost follow-up", "results",
-  ]) {
-    assert.match(secondary,
-      new RegExp(`pointerStableStep\\(canvas,\\s*0\\.50,\\s*0\\.86,\\s*options,\\s*"${label}"\\)`),
-      `${label} must hit the center of the persistent guided action bar`);
+test("Chrome owns one exact Primary keyboard path with no pointer actions", () => {
+  const primary = extractFunction(source, "runPrimaryKeyboardPath");
+  assert.match(canonicalCode(primary), /if \(definition\.name !== "chrome"\) return null/);
+  assert.match(canonicalCode(primary), /interaction: "keyboard", mode: "Primary"/);
+  assert.equal(findCalls(primary, "pointerStableStep").length, 0);
+  assert.equal(findCalls(primary, "canvas.click").length, 0);
+  assert.equal(findCalls(primary, "canvas.hover").length, 0);
+  const calls = assertCallLabels(primary, "keyboardStableStep", primaryLabels);
+  assert.deepEqual(gateNames(calls), primaryGates);
+  const expectedKeys = primaryLabels.map(label => [
+    "problem developing option", "revision focus present", "revision focus clear option",
+  ].includes(label) ? "Tab" : "Enter");
+  assert.deepEqual(calls.map(call => quotedValues(call.text).at(-2)), expectedKeys);
+  assert.deepEqual(calls.map((call, index) => canonicalCode(call.text)),
+    primaryLabels.map((label, index) =>
+      `await keyboardStableStep(page, canvas, "${expectedKeys[index]}", ` +
+      `GuidedGate.${primaryGates[index]}, options, "${label}")`));
+  assert.match(canonicalCode(calls[4].text),
+    /^await keyboardStableStep\(page, canvas, "Tab", GuidedGate\.focus, options, "problem developing option"\)$/);
+  assert.equal(calls.some(call => /"ArrowDown"/.test(call.text)), false);
+  for (const call of calls.filter(call => ["revision focus present", "revision focus clear option"].includes(lastQuotedValue(call)))) {
+    assert.match(canonicalCode(call.text),
+      /^await keyboardStableStep\(page, canvas, "Tab", GuidedGate\.focus, options,/);
   }
-  for (const [x, label] of [
-    ["0.50", "problem feedback"],
-    ["0.27", "evidence feedback"],
-    ["0.27", "solution feedback"],
-    ["0.27", "value feedback"],
-    ["0.27", "one revision"],
-    ["0.27", "cost feedback"],
-  ]) {
-    assert.match(secondary,
-      new RegExp(`pointerStableStep\\(canvas,\\s*${x.replace(".", "\\.")},\\s*0\\.70,\\s*options,\\s*"${label}"\\)`),
-      `${label} must hit the center of its sentence card`);
-  }
-  assertOrderedLabels(secondary, requiredCheckpoints);
+  assert.deepEqual(findCalls(primary, "setHarnessMode").map(call => canonicalCode(call.text)), [
+    'await setHarnessMode(page, "failure")', 'await setHarnessMode(page, "success")',
+  ]);
 });
 
-test("smoke uses stable visual gates and captures the required evidence set", () => {
-  assert.match(source, /async function waitForStableRegionChange/);
-  const primary = extractFunction(source, "runPrimaryKeyboardPath", "runSecondaryPointerPath");
-  const secondary = extractFunction(source, "runSecondaryPointerPath", "verifyCanvasContract");
-  assert.doesNotMatch(primary + secondary, /setTimeout/);
-  assert.doesNotMatch(primary + secondary, /locator\("#mode"\)\.selectOption/);
-  assert.equal((primary.match(/await setHarnessMode\(/g) || []).length, 2);
-  assert.equal((secondary.match(/await setHarnessMode\(/g) || []).length, 2);
-  for (const filename of [
-    "chrome-primary-mode.png", "chrome-primary-build.png", "chrome-primary-improve.png",
-    "chrome-primary-present.png", "chrome-primary-results.png", "edge-secondary-mode.png",
-    "edge-secondary-build.png", "edge-secondary-present.png", "edge-secondary-results.png",
-    "chrome-mobile-compact.png", "edge-mobile-compact.png",
-  ]) {
-    assert.equal(source.split(`"${filename}"`).length - 1, 1, `missing unique capture ${filename}`);
-  }
+test("Edge owns one exact Secondary pointer path with no keyboard actions", () => {
+  const secondary = extractFunction(source, "runSecondaryPointerPath");
+  assert.match(canonicalCode(secondary), /if \(definition\.name !== "edge"\) return null/);
+  assert.match(canonicalCode(secondary), /interaction: "pointer", mode: "Secondary"/);
+  assert.equal(findCalls(secondary, "keyboardStableStep").length, 0);
+  assert.equal(findCalls(secondary, "canvas.press").length, 0);
+  const calls = assertCallLabels(secondary, "pointerStableStep", secondaryLabels);
+  assert.deepEqual(gateNames(calls), secondaryGates);
+  assert.deepEqual(calls.map((call, index) => canonicalCode(call.text)),
+    secondaryLabels.map((label, index) => {
+      const [x, y] = secondaryCoordinates[index];
+      return `await pointerStableStep(page, canvas, ${x}, ${y}, ` +
+        `GuidedGate.${secondaryGates[index]}, options, "${label}")`;
+    }));
+  assert.deepEqual(findCalls(secondary, "setHarnessMode").map(call => canonicalCode(call.text)), [
+    'await setHarnessMode(page, "failure")', 'await setHarnessMode(page, "success")',
+  ]);
 });
 
-test("input visual gates establish canvas focus before taking their baseline", () => {
-  for (const [name, next] of [
-    ["keyboardStableStep", "pointerStableStep"],
-    ["pointerStableStep", "captureCanvas"],
-  ]) {
-    const step = extractFunction(source, name, next);
-    const focus = step.indexOf("await canvas.focus()");
-    const baseline = step.indexOf("const before = await canvasHash(canvas)");
-    assert.ok(focus >= 0 && baseline >= 0 && focus < baseline,
-      `${name} focus tint must not satisfy a guided state-change gate`);
+test("guided actions require stable localized content and control changes after focus and hover", () => {
+  const gate = extractFunction(source, "waitForStableRegionChange");
+  const gateCode = maskNonCode(gate);
+  assert.match(gateCode, /required\.content/);
+  assert.match(gateCode, /required\.controls/);
+  assert.match(gateCode, /stableSamples\s*>=\s*3/);
+  assert.match(canonicalCode(source),
+    /transition: Object\.freeze\(\{ content: true, controls: true \}\), focus: Object\.freeze\(\{ content: false, controls: true \}\), content: Object\.freeze\(\{ content: true, controls: false \}\), controls: Object\.freeze\(\{ content: false, controls: true \}\)/);
+
+  for (const [name, action] of [["keyboardStableStep", "canvas.press"], ["pointerStableStep", "canvas.click"]]) {
+    const step = extractFunction(source, name);
+    const focus = findCalls(step, "canvas.focus")[0];
+    const baseline = findCalls(step, "regionHashes")[0];
+    const actionCall = findCalls(step, action)[0];
+    const changed = findCalls(step, "waitForStableRegionChange")[0];
+    assert.ok(focus && baseline && actionCall && changed, `${name} must execute focus, baseline, action and gate`);
+    assertOrdered(focus.start, baseline.start, actionCall.start, changed.start);
+    assert.match(canonicalCode(changed.text),
+      /^await waitForStableRegionChange\(page, canvas, before, required, options\.timeoutMs, label\)$/);
     if (name === "pointerStableStep") {
-      const hover = step.indexOf("await canvas.hover(");
-      assert.ok(hover > focus && hover < baseline,
-        "pointer hover tint must settle before the click baseline");
+      const hover = findCalls(step, "canvas.hover")[0];
+      assert.ok(hover && focus.start < hover.start && hover.start < baseline.start,
+        "pointer hover must settle before the localized baseline");
     }
   }
+});
+
+test("viewport verification settles changed compact Unity content and controls before capture", () => {
+  const verify = extractFunction(source, "verifyCanvasContract");
+  const before = findCalls(verify, "regionHashes")[0];
+  const resize = findCalls(verify, "useFullscreenHarness")[0];
+  const settle = findCalls(verify, "waitForStableRegionChange")[0];
+  assert.ok(before && resize && settle);
+  assertOrdered(before.start, resize.start, settle.start);
+  assert.match(canonicalCode(settle.text),
+    /^await waitForStableRegionChange\(page, canvas, beforeComposition, \{ content: viewportChanged, controls: viewportChanged \}, 10_000, "responsive Unity composition"\)$/);
+
+  for (const pathName of ["runPrimaryKeyboardPath", "runSecondaryPointerPath"]) {
+    const guidedPath = extractFunction(source, pathName);
+    const mobileVerify = findCalls(guidedPath, "verifyCanvasContract")
+      .find(call => /width:\s*390,\s*height:\s*844/.test(call.text));
+    const mobileCapture = findCalls(guidedPath, "captureCanvas")
+      .find(call => /mobile-compact\.png/.test(call.text));
+    assert.ok(mobileVerify && mobileCapture && mobileVerify.end < mobileCapture.start,
+      `${pathName} compact capture must follow Unity composition settlement`);
+  }
+});
+
+test("guided paths own exactly the required executable evidence captures", () => {
+  const primary = extractFunction(source, "runPrimaryKeyboardPath");
+  const secondary = extractFunction(source, "runSecondaryPointerPath");
+  assert.deepEqual(findCalls(primary, "captureCanvas").map(lastQuotedValue), [
+    "chrome-primary-mode.png", "chrome-mobile-compact.png", "chrome-primary-build.png",
+    "chrome-primary-improve.png", "chrome-primary-present.png", "chrome-primary-results.png",
+  ]);
+  assert.deepEqual(findCalls(secondary, "captureCanvas").map(lastQuotedValue), [
+    "edge-secondary-mode.png", "edge-mobile-compact.png", "edge-secondary-build.png",
+    "edge-secondary-present.png", "edge-secondary-results.png",
+  ]);
+  assert.equal(findCalls(source, "captureCanvas").length, 11);
+  assert.equal(findCalls(primary, "setTimeout", { awaited: false }).length, 0);
+  assert.equal(findCalls(secondary, "setTimeout", { awaited: false }).length, 0);
+  assert.equal(findCalls(primary, "page.locator", { awaited: false }).length, 0);
+  assert.equal(findCalls(secondary, "page.locator", { awaited: false }).length, 0);
+
+  for (const [guidedPath, actionName, milestones] of [
+    [primary, "keyboardStableStep", [
+      ["briefing continue", "chrome-primary-mode.png", "learn"],
+      ["build", "chrome-primary-build.png", "problem developing option"],
+      ["improve", "chrome-primary-improve.png", "revision options"],
+      ["present", "chrome-primary-present.png", "cost follow-up"],
+      ["results", "chrome-primary-results.png", "submission failure"],
+    ]],
+    [secondary, "pointerStableStep", [
+      ["briefing continue", "edge-secondary-mode.png", "learn"],
+      ["build", "edge-secondary-build.png", "problem feedback"],
+      ["present", "edge-secondary-present.png", "cost follow-up"],
+      ["results", "edge-secondary-results.png", "submission failure"],
+    ]],
+  ]) {
+    const actions = findCalls(guidedPath, actionName);
+    const captures = findCalls(guidedPath, "captureCanvas");
+    for (const [beforeLabel, filename, afterLabel] of milestones) {
+      const before = actions.find(call => lastQuotedValue(call) === beforeLabel);
+      const capture = captures.find(call => lastQuotedValue(call) === filename);
+      const after = actions.find(call => lastQuotedValue(call) === afterLabel);
+      assert.ok(before && capture && after);
+      assertOrdered(before.end, capture.start, after.start);
+    }
+  }
+});
+
+test("matrix metadata describes localized state gates rather than obsolete canvas hashes", () => {
+  const runBrowser = canonicalCode(extractFunction(source, "runBrowser"));
+  assert.doesNotMatch(runBrowser, /changed canvas hash/);
+  assert.match(runBrowser,
+    /Primary path is keyboard-only from Title through fresh Mode Selection; every named action waits for state-specific localized content\/control regions stable across three samples\./);
+  assert.match(runBrowser,
+    /Secondary path is pointer-only from Title through fresh Mode Selection; every named action waits for state-specific localized content\/control regions stable across three samples\./);
 });

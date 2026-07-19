@@ -238,6 +238,13 @@ async function contentRegionHash(page, canvas) {
   return hash(await page.screenshot({ type: "png", clip }));
 }
 
+async function regionHashes(page, canvas) {
+  return {
+    content: await contentRegionHash(page, canvas),
+    controls: await controlRegionHash(page, canvas),
+  };
+}
+
 async function waitForCanvasChange(canvas, previousHash, timeoutMs, label) {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
@@ -334,10 +341,7 @@ async function waitForStableCanvasRegions(page, canvas, previous, timeoutMs, lab
   let last = null;
   let stableSamples = 0;
   while (Date.now() < deadline) {
-    const current = {
-      content: await contentRegionHash(page, canvas),
-      controls: await controlRegionHash(page, canvas),
-    };
+    const current = await regionHashes(page, canvas);
     const bothChanged = current.content !== previous.content && current.controls !== previous.controls;
     if (bothChanged) {
       const matchesLast = last && current.content === last.content && current.controls === last.controls;
@@ -482,60 +486,64 @@ async function verifyMissingConfigRecovery(page, options) {
   return true;
 }
 
-async function waitForStableRegionChange(canvas, previousHash, timeoutMs, label) {
+async function waitForStableRegionChange(page, canvas, previous, required, timeoutMs, label) {
   const deadline = Date.now() + timeoutMs;
-  let lastHash = null;
+  let last = null;
   let stableSamples = 0;
   while (Date.now() < deadline) {
-    const currentHash = await canvasHash(canvas);
-    if (currentHash !== previousHash) {
-      stableSamples = currentHash === lastHash ? stableSamples + 1 : 1;
-      if (stableSamples >= 3) return currentHash;
+    const current = await regionHashes(page, canvas);
+    const requiredChanged = (!required.content || current.content !== previous.content) &&
+      (!required.controls || current.controls !== previous.controls);
+    if (requiredChanged) {
+      const matchesLast = last && current.content === last.content && current.controls === last.controls;
+      stableSamples = matchesLast ? stableSamples + 1 : 1;
+      if (stableSamples >= 3) return current;
     } else {
       stableSamples = 0;
     }
-    lastHash = currentHash;
+    last = current;
     await new Promise(resolveWait => setTimeout(resolveWait, 80));
   }
-  throw new Error(`Canvas did not reach a stable changed state for ${label}.`);
+  throw new Error(`Required stable content/control regions did not change after ${label}.`);
 }
 
-async function waitForStableCanvas(canvas, timeoutMs, label) {
+async function waitForStableRegionComposition(page, canvas, timeoutMs, label) {
   const deadline = Date.now() + timeoutMs;
-  let lastHash = null;
+  let last = null;
   let stableSamples = 0;
   while (Date.now() < deadline) {
-    const currentHash = await canvasHash(canvas);
-    stableSamples = currentHash === lastHash ? stableSamples + 1 : 1;
-    if (stableSamples >= 3) return currentHash;
-    lastHash = currentHash;
+    const current = await regionHashes(page, canvas);
+    const matchesLast = last && current.content === last.content && current.controls === last.controls;
+    stableSamples = matchesLast ? stableSamples + 1 : 1;
+    if (stableSamples >= 3) return current;
+    last = current;
     await new Promise(resolveWait => setTimeout(resolveWait, 80));
   }
-  throw new Error(`Canvas did not settle for ${label}.`);
+  throw new Error(`Canvas content/control composition did not settle for ${label}.`);
 }
 
-async function keyboardStableStep(canvas, key, options, label) {
+async function keyboardStableStep(page, canvas, key, required, options, label) {
   await canvas.focus();
-  await waitForStableCanvas(canvas, options.timeoutMs, `${label} focus`);
-  const before = await canvasHash(canvas);
+  await waitForStableRegionComposition(page, canvas, options.timeoutMs, `${label} focus`);
+  const before = await regionHashes(page, canvas);
   await canvas.press(key, { delay: 120 });
-  return waitForStableRegionChange(canvas, before, options.timeoutMs, label);
+  return await waitForStableRegionChange(page, canvas, before, required, options.timeoutMs, label);
 }
 
-async function pointerStableStep(canvas, normalizedX, normalizedY, options, label) {
+async function pointerStableStep(page, canvas, normalizedX, normalizedY, required, options, label) {
   await canvas.focus();
-  await waitForStableCanvas(canvas, options.timeoutMs, `${label} focus`);
+  await waitForStableRegionComposition(page, canvas, options.timeoutMs, `${label} focus`);
   const bounds = await canvas.boundingBox();
   if (!bounds) throw new Error(`Unity canvas has no pointer bounds for ${label}.`);
   const position = { x: bounds.width * normalizedX, y: bounds.height * normalizedY };
   await canvas.hover({ position });
-  await waitForStableCanvas(canvas, options.timeoutMs, `${label} hover`);
-  const before = await canvasHash(canvas);
+  await waitForStableRegionComposition(page, canvas, options.timeoutMs, `${label} hover`);
+  const before = await regionHashes(page, canvas);
   await canvas.click({
     position,
     delay: 120,
   });
-  return waitForStableRegionChange(canvas, before, options.timeoutMs, label);
+  return await waitForStableRegionChange(page, canvas, before, required, options.timeoutMs, label);
 }
 
 async function captureCanvas(canvas, options, filename) {
@@ -576,97 +584,108 @@ async function useFullscreenHarness(page, viewport) {
   });
 }
 
+const GuidedGate = Object.freeze({
+  transition: Object.freeze({ content: true, controls: true }),
+  focus: Object.freeze({ content: false, controls: true }),
+  content: Object.freeze({ content: true, controls: false }),
+  controls: Object.freeze({ content: false, controls: true }),
+});
+
 async function runPrimaryKeyboardPath(definition, page, frame, canvas, options) {
   if (definition.name !== "chrome") return null;
   const pathContract = { interaction: "keyboard", mode: "Primary" };
-  await keyboardStableStep(canvas, "Enter", options, "title start");
-  await keyboardStableStep(canvas, "Enter", options, "briefing continue");
+  await keyboardStableStep(page, canvas, "Enter", GuidedGate.content, options, "title start");
+  await keyboardStableStep(page, canvas, "Enter", GuidedGate.transition, options, "briefing continue");
+  await waitForStableRegionComposition(page, canvas, options.timeoutMs, "mode");
   await captureCanvas(canvas, options, "chrome-primary-mode.png");
-  await waitForStableCanvas(canvas, options.timeoutMs, "mode");
 
   const mobile = await verifyCanvasContract(page, frame, canvas, { width: 390, height: 844 });
   await captureCanvas(canvas, options, "chrome-mobile-compact.png");
   const desktop = await verifyCanvasContract(page, frame, canvas, { width: 1440, height: 1000 });
 
-  await keyboardStableStep(canvas, "Enter", options, "learn");
-  await keyboardStableStep(canvas, "Enter", options, "build");
+  await keyboardStableStep(page, canvas, "Enter", GuidedGate.transition, options, "learn");
+  await keyboardStableStep(page, canvas, "Enter", GuidedGate.transition, options, "build");
   await captureCanvas(canvas, options, "chrome-primary-build.png");
-  await keyboardStableStep(canvas, "Tab", options, "problem developing option");
-  await keyboardStableStep(canvas, "Enter", options, "problem feedback");
-  await keyboardStableStep(canvas, "Enter", options, "evidence build");
-  await keyboardStableStep(canvas, "Enter", options, "evidence feedback");
-  await keyboardStableStep(canvas, "Enter", options, "solution build");
-  await keyboardStableStep(canvas, "Enter", options, "solution feedback");
-  await keyboardStableStep(canvas, "Enter", options, "value build");
-  await keyboardStableStep(canvas, "Enter", options, "value feedback");
-  await keyboardStableStep(canvas, "Enter", options, "improve");
+  await keyboardStableStep(page, canvas, "Tab", GuidedGate.focus, options, "problem developing option");
+  await keyboardStableStep(page, canvas, "Enter", GuidedGate.transition, options, "problem feedback");
+  await keyboardStableStep(page, canvas, "Enter", GuidedGate.transition, options, "evidence build");
+  await keyboardStableStep(page, canvas, "Enter", GuidedGate.transition, options, "evidence feedback");
+  await keyboardStableStep(page, canvas, "Enter", GuidedGate.transition, options, "solution build");
+  await keyboardStableStep(page, canvas, "Enter", GuidedGate.transition, options, "solution feedback");
+  await keyboardStableStep(page, canvas, "Enter", GuidedGate.transition, options, "value build");
+  await keyboardStableStep(page, canvas, "Enter", GuidedGate.transition, options, "value feedback");
+  await keyboardStableStep(page, canvas, "Enter", GuidedGate.transition, options, "improve");
   await captureCanvas(canvas, options, "chrome-primary-improve.png");
-  await keyboardStableStep(canvas, "Enter", options, "revision options");
-  await keyboardStableStep(canvas, "Tab", options, "revision focus present");
-  await keyboardStableStep(canvas, "Tab", options, "revision focus clear option");
-  await keyboardStableStep(canvas, "Enter", options, "one revision");
-  await keyboardStableStep(canvas, "Enter", options, "present");
+  await keyboardStableStep(page, canvas, "Enter", GuidedGate.content, options, "revision options");
+  await keyboardStableStep(page, canvas, "Tab", GuidedGate.focus, options, "revision focus present");
+  await keyboardStableStep(page, canvas, "Tab", GuidedGate.focus, options, "revision focus clear option");
+  await keyboardStableStep(page, canvas, "Enter", GuidedGate.transition, options, "one revision");
+  await keyboardStableStep(page, canvas, "Enter", GuidedGate.transition, options, "present");
   await captureCanvas(canvas, options, "chrome-primary-present.png");
-  await keyboardStableStep(canvas, "Enter", options, "cost follow-up");
-  await keyboardStableStep(canvas, "Enter", options, "cost feedback");
-  await keyboardStableStep(canvas, "Enter", options, "results");
+  await keyboardStableStep(page, canvas, "Enter", GuidedGate.transition, options, "cost follow-up");
+  await keyboardStableStep(page, canvas, "Enter", GuidedGate.transition, options, "cost feedback");
+  await keyboardStableStep(page, canvas, "Enter", GuidedGate.transition, options, "results");
   await captureCanvas(canvas, options, "chrome-primary-results.png");
 
   await setHarnessMode(page, "failure");
-  await keyboardStableStep(canvas, "Enter", options, "submission failure");
+  await keyboardStableStep(page, canvas, "Enter", GuidedGate.controls, options, "submission failure");
   await waitForSubmission(page, "failure", options, "failed result");
   await setHarnessMode(page, "success");
-  await keyboardStableStep(canvas, "Enter", options, "submission success");
+  await keyboardStableStep(page, canvas, "Enter", GuidedGate.controls, options, "submission success");
   const completion = await waitForSubmission(page, "success", options, "successful result");
-  await keyboardStableStep(canvas, "Enter", options, "retry");
-  await keyboardStableStep(canvas, "Enter", options, "fresh mode selection");
+  await keyboardStableStep(page, canvas, "Enter", GuidedGate.transition, options, "retry");
+  await keyboardStableStep(page, canvas, "Enter", GuidedGate.transition, options, "fresh mode selection");
   return { ...pathContract, completion, mobile, desktop };
 }
 
 async function runSecondaryPointerPath(definition, page, frame, canvas, options) {
   if (definition.name !== "edge") return null;
   const pathContract = { interaction: "pointer", mode: "Secondary" };
-  await pointerStableStep(canvas, 0.50, 0.50, options, "title start");
-  await pointerStableStep(canvas, 0.50, 0.60, options, "briefing continue");
+  await pointerStableStep(page, canvas, 0.50, 0.50, GuidedGate.content, options, "title start");
+  await pointerStableStep(page, canvas, 0.50, 0.60, GuidedGate.transition, options, "briefing continue");
+  await waitForStableRegionComposition(page, canvas, options.timeoutMs, "mode");
   await captureCanvas(canvas, options, "edge-secondary-mode.png");
-  await waitForStableCanvas(canvas, options.timeoutMs, "mode");
 
   const mobile = await verifyCanvasContract(page, frame, canvas, { width: 390, height: 844 });
   await captureCanvas(canvas, options, "edge-mobile-compact.png");
   const desktop = await verifyCanvasContract(page, frame, canvas, { width: 1440, height: 1000 });
 
-  await pointerStableStep(canvas, 0.70, 0.76, options, "learn");
-  await pointerStableStep(canvas, 0.50, 0.86, options, "build");
+  await pointerStableStep(page, canvas, 0.70, 0.76, GuidedGate.transition, options, "learn");
+  await pointerStableStep(page, canvas, 0.50, 0.86, GuidedGate.transition, options, "build");
   await captureCanvas(canvas, options, "edge-secondary-build.png");
-  await pointerStableStep(canvas, 0.50, 0.70, options, "problem feedback");
-  await pointerStableStep(canvas, 0.50, 0.86, options, "evidence build");
-  await pointerStableStep(canvas, 0.27, 0.70, options, "evidence feedback");
-  await pointerStableStep(canvas, 0.50, 0.86, options, "solution build");
-  await pointerStableStep(canvas, 0.27, 0.70, options, "solution feedback");
-  await pointerStableStep(canvas, 0.50, 0.86, options, "value build");
-  await pointerStableStep(canvas, 0.27, 0.70, options, "value feedback");
-  await pointerStableStep(canvas, 0.50, 0.86, options, "improve");
-  await pointerStableStep(canvas, 0.50, 0.62, options, "revision options");
-  await pointerStableStep(canvas, 0.27, 0.70, options, "one revision");
-  await pointerStableStep(canvas, 0.50, 0.86, options, "present");
+  await pointerStableStep(page, canvas, 0.50, 0.70, GuidedGate.transition, options, "problem feedback");
+  await pointerStableStep(page, canvas, 0.50, 0.86, GuidedGate.transition, options, "evidence build");
+  await pointerStableStep(page, canvas, 0.27, 0.70, GuidedGate.transition, options, "evidence feedback");
+  await pointerStableStep(page, canvas, 0.50, 0.86, GuidedGate.transition, options, "solution build");
+  await pointerStableStep(page, canvas, 0.27, 0.70, GuidedGate.transition, options, "solution feedback");
+  await pointerStableStep(page, canvas, 0.50, 0.86, GuidedGate.transition, options, "value build");
+  await pointerStableStep(page, canvas, 0.27, 0.70, GuidedGate.transition, options, "value feedback");
+  await pointerStableStep(page, canvas, 0.50, 0.86, GuidedGate.transition, options, "improve");
+  await pointerStableStep(page, canvas, 0.50, 0.70, GuidedGate.content, options, "revision options");
+  await pointerStableStep(page, canvas, 0.27, 0.60, GuidedGate.transition, options, "one revision");
+  await pointerStableStep(page, canvas, 0.50, 0.86, GuidedGate.transition, options, "present");
   await captureCanvas(canvas, options, "edge-secondary-present.png");
-  await pointerStableStep(canvas, 0.50, 0.86, options, "cost follow-up");
-  await pointerStableStep(canvas, 0.27, 0.70, options, "cost feedback");
-  await pointerStableStep(canvas, 0.50, 0.86, options, "results");
+  await pointerStableStep(page, canvas, 0.50, 0.86, GuidedGate.transition, options, "cost follow-up");
+  await pointerStableStep(page, canvas, 0.27, 0.70, GuidedGate.transition, options, "cost feedback");
+  await pointerStableStep(page, canvas, 0.50, 0.86, GuidedGate.transition, options, "results");
   await captureCanvas(canvas, options, "edge-secondary-results.png");
 
   await setHarnessMode(page, "failure");
-  await pointerStableStep(canvas, 0.36, 0.82, options, "submission failure");
+  await pointerStableStep(page, canvas, 0.36, 0.82, GuidedGate.controls, options, "submission failure");
   await waitForSubmission(page, "failure", options, "failed result");
   await setHarnessMode(page, "success");
-  await pointerStableStep(canvas, 0.36, 0.82, options, "submission success");
+  await pointerStableStep(page, canvas, 0.36, 0.82, GuidedGate.controls, options, "submission success");
   const completion = await waitForSubmission(page, "success", options, "successful result");
-  await pointerStableStep(canvas, 0.64, 0.82, options, "retry");
-  await pointerStableStep(canvas, 0.50, 0.60, options, "fresh mode selection");
+  await pointerStableStep(page, canvas, 0.64, 0.82, GuidedGate.transition, options, "retry");
+  await pointerStableStep(page, canvas, 0.50, 0.60, GuidedGate.transition, options, "fresh mode selection");
   return { ...pathContract, completion, mobile, desktop };
 }
 
 async function verifyCanvasContract(page, frame, canvas, viewport) {
+  const previousViewport = page.viewportSize();
+  const beforeComposition = await regionHashes(page, canvas);
+  const viewportChanged = !previousViewport || previousViewport.width !== viewport.width ||
+    previousViewport.height !== viewport.height;
   await useFullscreenHarness(page, viewport);
   await frame.waitForFunction(expected => {
     const canvas = document.querySelector("#unity-canvas");
@@ -704,6 +723,8 @@ async function verifyCanvasContract(page, frame, canvas, viewport) {
     }
   }
   if (sizingStableSamples < 3) throw new Error("Canvas CSS/backing sizing did not settle.");
+  await waitForStableRegionChange(page, canvas, beforeComposition,
+    { content: viewportChanged, controls: viewportChanged }, 10_000, "responsive Unity composition");
   await canvas.focus();
   const metrics = await frame.evaluate(() => {
     const canvas = document.querySelector("#unity-canvas");
@@ -753,9 +774,9 @@ async function runBrowser(playwright, definition, server, options) {
     completionSummary: null,
     modes: { success: false, failure: false, missingConfig: false, expired: "not-exercised" },
     interactionContract: definition.name === "chrome"
-      ? "Primary path is keyboard-only from Title through fresh Mode Selection; every action waits for a changed canvas hash stable across three samples."
+      ? "Primary path is keyboard-only from Title through fresh Mode Selection; every named action waits for state-specific localized content/control regions stable across three samples."
       : definition.name === "edge"
-        ? "Secondary path is pointer-only from Title through fresh Mode Selection; every action waits for a changed canvas hash stable across three samples."
+        ? "Secondary path is pointer-only from Title through fresh Mode Selection; every named action waits for state-specific localized content/control regions stable across three samples."
         : "Availability and canvas sizing only; no guided flow coverage claimed.",
     screenshot: null,
   };

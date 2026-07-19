@@ -277,6 +277,12 @@ namespace Agrovator.PitchSimulator.Editor
             var environmentAspect = environment != null
                 ? environment.GetComponent<AspectRatioFitter>()
                 : null;
+            var modeLayout = canvas.transform.Find(
+                "Guided Pitch/Content Frame/Phase Scroll/Viewport/Content/Mode Selection")
+                ?.GetComponent<GuidedPitchFlowLayout>();
+            var presentLayout = canvas.transform.Find(
+                "Guided Pitch/Content Frame/Phase Scroll/Viewport/Content/Present Pitch")
+                ?.GetComponent<VerticalLayoutGroup>();
             var screens = canvas.transform.Cast<Transform>().Select(child => child.name).ToArray();
             var expectedScreens = new[]
             {
@@ -292,6 +298,9 @@ namespace Agrovator.PitchSimulator.Editor
                 Mathf.Approximately(environmentAspect.aspectRatio, 16f / 9f) &&
                 canvas.transform.Find("Guided Pitch")?.GetComponent<Image>()?.color ==
                     new Color32(0x0E, 0x17, 0x1F, 0xFF) &&
+                modeLayout != null && Mathf.Approximately(modeLayout.StackedItemHeight, 96f) &&
+                presentLayout != null && presentLayout.padding.top == 14 &&
+                presentLayout.padding.bottom == 14 &&
                 routers[0].ValidateContract(out _) &&
                 eventSystems[0].firstSelectedGameObject ==
                     canvas.transform.Find("Title/Content Frame/Start Button")?.gameObject;

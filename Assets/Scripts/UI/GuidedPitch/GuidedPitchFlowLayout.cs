@@ -10,14 +10,18 @@ namespace Agrovator.PitchSimulator.UI
     public sealed class GuidedPitchFlowLayout : LayoutGroup
     {
         [SerializeField] private float itemHeight = 64f;
+        [SerializeField] private float stackedItemHeight = 64f;
         [SerializeField] private float itemSpacing = 8f;
         [SerializeField] private bool stacked;
 
         public bool IsStacked => stacked;
+        public float StackedItemHeight => stackedItemHeight;
 
-        public void Configure(float height, float spacing)
+        public void Configure(float height, float spacing, float compactHeight = -1f)
         {
             itemHeight = Mathf.Max(64f, height);
+            stackedItemHeight = Mathf.Max(64f,
+                compactHeight > 0f ? compactHeight : itemHeight);
             itemSpacing = Mathf.Max(0f, spacing);
             SetDirty();
         }
@@ -43,7 +47,9 @@ namespace Agrovator.PitchSimulator.UI
         {
             var count = rectChildren.Count;
             var rows = stacked ? count : Mathf.Min(count, 1);
-            var height = padding.vertical + rows * itemHeight + Mathf.Max(0, rows - 1) * itemSpacing;
+            var activeItemHeight = stacked ? stackedItemHeight : itemHeight;
+            var height = padding.vertical + rows * activeItemHeight +
+                Mathf.Max(0, rows - 1) * itemSpacing;
             SetLayoutInputForAxis(height, height, -1f, 1);
         }
 
@@ -69,12 +75,14 @@ namespace Agrovator.PitchSimulator.UI
         public override void SetLayoutVertical()
         {
             var count = rectChildren.Count;
+            var activeItemHeight = stacked ? stackedItemHeight : itemHeight;
             for (var index = 0; index < count; index++)
             {
-                var position = padding.top + (stacked ? index * (itemHeight + itemSpacing) : 0f);
+                var position = padding.top +
+                    (stacked ? index * (activeItemHeight + itemSpacing) : 0f);
                 var height = stacked
-                    ? itemHeight
-                    : Mathf.Max(itemHeight, rectTransform.rect.height - padding.vertical);
+                    ? activeItemHeight
+                    : Mathf.Max(activeItemHeight, rectTransform.rect.height - padding.vertical);
                 SetChildAlongAxis(rectChildren[index], 1, position, height);
             }
         }

@@ -427,7 +427,7 @@ namespace Agrovator.PitchSimulator.Editor
             var root = new GameObject("Mode Selection", typeof(RectTransform),
                 typeof(GuidedPitchFlowLayout), typeof(ModeSelectionView));
             root.transform.SetParent(content, false);
-            root.GetComponent<GuidedPitchFlowLayout>().Configure(150f, 12f);
+            root.GetComponent<GuidedPitchFlowLayout>().Configure(150f, 12f, 96f);
 
             var cards = new ModeSelectionCard[2];
             var modes = new[] { LearnerMode.Primary, LearnerMode.Secondary };
@@ -622,8 +622,9 @@ namespace Agrovator.PitchSimulator.Editor
             var root = new GameObject("Present Pitch", typeof(RectTransform),
                 typeof(VerticalLayoutGroup));
             root.transform.SetParent(content, false);
-            ConfigureColumn(root.GetComponent<VerticalLayoutGroup>(), 0f, expandWidth: true,
-                expandHeight: false);
+            var layout = root.GetComponent<VerticalLayoutGroup>();
+            ConfigureColumn(layout, 0f, expandWidth: true, expandHeight: false);
+            layout.padding = new RectOffset(0, 0, 14, 14);
             return CreateText("Presentation", root.transform, 14, FontStyle.Normal, LightText,
                 TextAnchor.UpperLeft);
         }

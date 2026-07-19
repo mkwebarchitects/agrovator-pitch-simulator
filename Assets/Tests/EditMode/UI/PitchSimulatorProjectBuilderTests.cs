@@ -336,35 +336,119 @@ namespace Agrovator.PitchSimulator.Tests.EditMode.UI
             Assert.That(failures, Is.Empty, string.Join(Environment.NewLine, failures));
         }
 
-        [Test]
-        public void GeneratedPresentPitch_TallDesktopKeepsAllPrimarySentencesInsideThePhaseViewport()
+        [TestCase(false, TestName = "GeneratedPresentPitch_PrimaryCopyClearsMaskAndAction")]
+        [TestCase(true, TestName = "GeneratedPresentPitch_SecondaryCopyClearsMaskAndAction")]
+        public void GeneratedPresentPitch_TallDesktopKeepsAllSentencesInsideVisiblePhaseArea(
+            bool secondary)
         {
-            var size = new Vector2(1276f, 918f);
-            var canvas = OpenGameCanvas(size);
+            var physicalSize = new Vector2(1276f, 918f);
+            var canvas = OpenGameCanvas(CanvasReferenceSizeForPhysical(physicalSize));
             var guided = RequireChild(canvas, "Guided Pitch");
             using (new ActiveScope(guided.gameObject))
             {
-                ApplyResponsiveLayout(guided, size);
+                ApplyResponsiveLayout(guided, physicalSize);
                 SetPhaseSections(guided, "Present Pitch");
                 var presentation = RequireText(
                     guided, ContentRoot + "/Present Pitch/Presentation");
-                SetActiveText(presentation, string.Join("\n\n", new[]
-                {
-                    "Our garden beds get too dry because we water them at the wrong times.",
-                    "We saw dry soil on three days and puddles after it rained.",
-                    "A sensor checks the soil, then waters only when the garden is dry.",
-                    "It saves water, helps vegetables grow, and teaches students how sensors work.",
-                }));
+                SetActiveText(presentation, secondary
+                    ? string.Join("\n", new[]
+                    {
+                        "Our logs show dry beds after assembly, wet beds after rain, and students carrying watering cans, so the timing is inconsistent.",
+                        "In our two-week bed trial, sensor watering used 18% less water than the fixed schedule, while the plants stayed healthy.",
+                        "The sensor checks soil moisture, the valve waters a dry bed, and students review the plants and readings daily.",
+                        "The garden saves water, teaches students through real sensor data, supplies useful canteen vegetables, and gives the school evidence for improving future beds.",
+                    })
+                    : string.Join("\n", new[]
+                    {
+                        "Our garden beds get too dry because we water them at the wrong times.",
+                        "We saw dry soil on three days and puddles after it rained.",
+                        "A sensor checks the soil, then waters only when the garden is dry.",
+                        "It saves water, helps vegetables grow, and teaches students how sensors work.",
+                    }));
+                var primaryAction = RequireChild(guided, "Content Frame/Primary Action");
+                var continueButton = RequireChild(primaryAction, "Continue Button");
+                continueButton.gameObject.SetActive(true);
+                RequireChild(primaryAction, "Present Button").gameObject.SetActive(false);
                 ForceGuidedLayout(canvas, guided);
+                presentation.cachedTextGenerator.Populate(
+                    presentation.text,
+                    presentation.GetGenerationSettings(presentation.rectTransform.rect.size));
+                Assert.That(presentation.cachedTextGenerator.characterCountVisible,
+                    Is.EqualTo(presentation.text.Length),
+                    "All four presentation sentences must generate visible glyphs in the " +
+                    "actual generated Text rectangle.");
 
+                var frame = RequireChild(guided, "Content Frame").GetComponent<RectTransform>();
+                var presentRoot = RequireChild(guided, ContentRoot + "/Present Pitch")
+                    .GetComponent<RectTransform>();
                 var viewport = RequireChild(guided, "Content Frame/Phase Scroll/Viewport")
                     .GetComponent<RectTransform>();
-                AssertContained(viewport, presentation.rectTransform);
+                Assert.That(viewport.GetComponent<RectMask2D>(), Is.Not.Null,
+                    "The assertion must use the actual generated Phase Scroll mask.");
                 var presentationBounds = RectTransformUtility.CalculateRelativeRectTransformBounds(
-                    viewport, presentation.rectTransform);
-                Assert.That(presentationBounds.min.y - viewport.rect.yMin,
-                    Is.GreaterThanOrEqualTo(presentation.fontSize * 0.5f),
-                    "The final sentence needs visible breathing room above the viewport mask and action bar.");
+                    frame, presentation.rectTransform);
+                var viewportBounds = RectTransformUtility.CalculateRelativeRectTransformBounds(
+                    frame, viewport);
+                var actionBounds = RectTransformUtility.CalculateRelativeRectTransformBounds(
+                    frame, continueButton.GetComponent<RectTransform>());
+                var outline = continueButton.GetComponent<Image>().GetComponent<Outline>();
+                Assert.That(outline, Is.Not.Null,
+                    "The action boundary must include the generated focus outline.");
+                var visibleActionTop = actionBounds.max.y + Mathf.Abs(outline.effectDistance.y);
+                Assert.That(presentRoot.rect.height,
+                    Is.GreaterThanOrEqualTo(presentation.preferredHeight +
+                        (presentation.fontSize * 2f)),
+                    "The Present section must reserve explicit top/bottom breathing room for " +
+                    (secondary ? "Secondary" : "Primary") + " copy.");
+                Assert.That(viewport.rect.height,
+                    Is.GreaterThanOrEqualTo(presentation.preferredHeight +
+                        (presentation.fontSize * 2f)),
+                    "The masked phase viewport must reserve one full text line above and below " +
+                    "the complete " + (secondary ? "Secondary" : "Primary") + " pitch.");
+
+                Assert.That(presentationBounds.max.y,
+                    Is.LessThanOrEqualTo(viewportBounds.max.y + 0.5f),
+                    "Presentation copy escaped above the actual Phase Scroll mask.");
+                Assert.That(presentationBounds.min.y,
+                    Is.GreaterThanOrEqualTo(viewportBounds.min.y + presentation.fontSize),
+                    "The fourth sentence needs one full text line above the mask edge.");
+                Assert.That(presentationBounds.min.y,
+                    Is.GreaterThanOrEqualTo(visibleActionTop + presentation.fontSize),
+                    "The fourth sentence needs one full text line above the focused action boundary.");
+            }
+        }
+
+        [Test]
+        public void GeneratedModeSelection_CompactPhoneCanFullyRevealEachCard()
+        {
+            var physicalSize = new Vector2(390f, 844f);
+            var canvas = OpenGameCanvas(CanvasReferenceSizeForPhysical(physicalSize));
+            var guided = RequireChild(canvas, "Guided Pitch");
+            using (new ActiveScope(guided.gameObject))
+            {
+                ApplyResponsiveLayout(guided, physicalSize);
+                SetPhaseSections(guided, "Mode Selection");
+                ForceGuidedLayout(canvas, guided);
+
+                var scroll = RequireChild(guided, "Content Frame/Phase Scroll")
+                    .GetComponent<ScrollRect>();
+                var cards = RequireChild(guided, ContentRoot + "/Mode Selection")
+                    .GetComponent<ModeSelectionView>().Cards;
+                Assert.That(scroll.enabled, Is.True);
+                Assert.That(cards.Count, Is.EqualTo(2));
+                foreach (var card in cards)
+                {
+                    Assert.That(card.Button.GetComponent<RectTransform>().rect.height,
+                        Is.LessThanOrEqualTo(scroll.viewport.rect.height + 0.5f),
+                        card.Mode + " must fit fully inside the compact Phase Scroll viewport.");
+                }
+
+                scroll.verticalNormalizedPosition = 1f;
+                ForceGuidedLayout(canvas, guided);
+                AssertContained(scroll.viewport, cards[0].Button.GetComponent<RectTransform>());
+                scroll.verticalNormalizedPosition = 0f;
+                ForceGuidedLayout(canvas, guided);
+                AssertContained(scroll.viewport, cards[1].Button.GetComponent<RectTransform>());
             }
         }
 
@@ -1006,6 +1090,15 @@ namespace Agrovator.PitchSimulator.Tests.EditMode.UI
             canvas.GetComponent<Canvas>().renderMode = RenderMode.WorldSpace;
             canvas.GetComponent<RectTransform>().sizeDelta = size;
             return canvas;
+        }
+
+        private static Vector2 CanvasReferenceSizeForPhysical(Vector2 physicalSize)
+        {
+            var reference = new Vector2(1280f, 720f);
+            var logarithmicWidth = Mathf.Log(physicalSize.x / reference.x, 2f);
+            var logarithmicHeight = Mathf.Log(physicalSize.y / reference.y, 2f);
+            var scale = Mathf.Pow(2f, Mathf.Lerp(logarithmicWidth, logarithmicHeight, 0.5f));
+            return physicalSize / scale;
         }
 
         private static void ApplyResponsiveLayout(Transform guided, Vector2 size)

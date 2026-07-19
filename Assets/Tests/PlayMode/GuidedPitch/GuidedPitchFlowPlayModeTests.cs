@@ -669,6 +669,9 @@ namespace Agrovator.PitchSimulator.Tests.PlayMode
                 Assert.That(position, Is.GreaterThan(lastIndex), sentence);
                 lastIndex = position;
             }
+            Assert.That(presentation.Split('\n'), Is.EqualTo(orderedSentences),
+                "Present must render exactly four sentence lines without blank rows that push " +
+                "the Value sentence below the visible Phase Scroll mask.");
             Assert.That(presentation, Does.Not.Contain("[[missing:"));
 
             rig.ContinueButton.onClick.Invoke();

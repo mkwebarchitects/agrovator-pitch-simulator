@@ -525,7 +525,8 @@ namespace Agrovator.PitchSimulator.UI
 
         private string ComposePresentation(GuidedPitchSessionSnapshot snapshot)
         {
-            return PitchPartVisuals.ComposeCurrentSentences(snapshot.Draft, localize);
+            return PitchPartVisuals.ComposeCurrentSentences(snapshot.Draft, localize)
+                .Replace("\n\n", "\n");
         }
 
         private static PitchPart? RailCurrent(GuidedPitchSessionSnapshot snapshot)

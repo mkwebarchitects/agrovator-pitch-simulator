@@ -148,6 +148,16 @@ namespace Agrovator.PitchSimulator.Tests.PlayMode
             Assert.That(IsFocusIndicatorActive(firstIndicator), Is.False);
             Assert.That(IsFocusIndicatorActive(secondIndicator), Is.True,
                 "Moving actual EventSystem focus must move the gold indicator.");
+            var phaseScroll = guided.Find("Content Frame/Phase Scroll").GetComponent<ScrollRect>();
+            AssertFullyVisible(phaseScroll.viewport,
+                modeView.Cards[1].Button.GetComponent<RectTransform>(),
+                "Focusing Secondary must scroll its complete compact card into view.");
+
+            eventSystem.SetSelectedGameObject(modeView.Cards[0].Button.gameObject);
+            yield return null;
+            AssertFullyVisible(phaseScroll.viewport,
+                modeView.Cards[0].Button.GetComponent<RectTransform>(),
+                "Returning focus to Primary must scroll its complete compact card into view.");
             Assert.That(capturedErrors, Is.Empty,
                 "A healthy boot must log no errors: " + string.Join(", ", capturedErrors));
         }
@@ -405,6 +415,16 @@ namespace Agrovator.PitchSimulator.Tests.PlayMode
             var property = indicator.GetType().GetProperty("IsFocused");
             Assert.That(property, Is.Not.Null);
             return (bool)property.GetValue(indicator);
+        }
+
+        private static void AssertFullyVisible(
+            RectTransform viewport, RectTransform target, string message)
+        {
+            var bounds = RectTransformUtility.CalculateRelativeRectTransformBounds(viewport, target);
+            Assert.That(bounds.min.y, Is.GreaterThanOrEqualTo(viewport.rect.yMin - 0.5f), message);
+            Assert.That(bounds.max.y, Is.LessThanOrEqualTo(viewport.rect.yMax + 0.5f), message);
+            Assert.That(bounds.min.x, Is.GreaterThanOrEqualTo(viewport.rect.xMin - 0.5f), message);
+            Assert.That(bounds.max.x, Is.LessThanOrEqualTo(viewport.rect.xMax + 0.5f), message);
         }
 
         private void CaptureLog(string condition, string stackTrace, LogType type)
