@@ -255,87 +255,6 @@ async function waitForCanvasChange(canvas, previousHash, timeoutMs, label) {
   throw new Error(`Canvas did not visibly change after ${label}.`);
 }
 
-async function keyboardAction(page, canvas, key, timeoutMs, label, expectControlChange = true) {
-  const before = expectControlChange ? await controlRegionHash(page, canvas) : null;
-  await canvas.focus();
-  // Unity's frame-polled WebGL input must observe keydown before keyup.
-  await canvas.press(key, { delay: 120 });
-  if (!expectControlChange) {
-    await new Promise(resolveWait => setTimeout(resolveWait, 180));
-    return null;
-  }
-  const deadline = Date.now() + timeoutMs;
-  while (Date.now() < deadline) {
-    const current = await controlRegionHash(page, canvas);
-    if (current !== before) {
-      await new Promise(resolveWait => setTimeout(resolveWait, 220));
-      return current;
-    }
-    await new Promise(resolveWait => setTimeout(resolveWait, 100));
-  }
-  throw new Error(`Stable control region did not change after ${label}.`);
-}
-
-async function pointerAction(page, normalizedX, normalizedY, canvas, timeoutMs, label, clickOptions) {
-  const before = await controlRegionHash(page, canvas);
-  const bounds = await canvas.boundingBox();
-  if (!bounds) throw new Error(`Unity canvas has no pointer bounds for ${label}.`);
-  await canvas.click({
-    ...clickOptions,
-    position: { x: bounds.width * normalizedX, y: bounds.height * normalizedY },
-  });
-  const deadline = Date.now() + timeoutMs;
-  while (Date.now() < deadline) {
-    const current = await controlRegionHash(page, canvas);
-    if (current !== before) {
-      await new Promise(resolveWait => setTimeout(resolveWait, 220));
-      return current;
-    }
-    await new Promise(resolveWait => setTimeout(resolveWait, 100));
-  }
-  throw new Error(`Stable control region did not change after ${label}.`);
-}
-
-async function mouseResponse(page, canvas, timeoutMs) {
-  const before = await controlRegionHash(page, canvas);
-  const bounds = await canvas.boundingBox();
-  if (!bounds) throw new Error("Unity canvas has no pointer bounds.");
-  // Measured centered layout contract: tutorial response spans ~68%-78% canvas height.
-  await canvas.click({ position: { x: bounds.width * 0.5, y: bounds.height * 0.73 }, delay: 120 });
-  const deadline = Date.now() + timeoutMs;
-  while (Date.now() < deadline) {
-    const current = await controlRegionHash(page, canvas);
-    if (current !== before) {
-      await new Promise(resolveWait => setTimeout(resolveWait, 220));
-      return current;
-    }
-    await new Promise(resolveWait => setTimeout(resolveWait, 100));
-  }
-  throw new Error("Stable control region did not change after mouse response selection.");
-}
-
-async function mouseContinue(page, canvas, timeoutMs, label, expectControlChange = false) {
-  const before = expectControlChange ? await controlRegionHash(page, canvas) : null;
-  const bounds = await canvas.boundingBox();
-  if (!bounds) throw new Error("Unity canvas has no Continue-control bounds.");
-  // Generated layout contract: active pitch-room Continue spans the bottom control row.
-  await canvas.click({ position: { x: bounds.width * 0.5, y: bounds.height * 0.86 }, delay: 120 });
-  if (!expectControlChange) {
-    await new Promise(resolveWait => setTimeout(resolveWait, 180));
-    return null;
-  }
-  const deadline = Date.now() + timeoutMs;
-  while (Date.now() < deadline) {
-    const current = await controlRegionHash(page, canvas);
-    if (current !== before) {
-      await new Promise(resolveWait => setTimeout(resolveWait, 220));
-      return current;
-    }
-    await new Promise(resolveWait => setTimeout(resolveWait, 100));
-  }
-  throw new Error(`Stable control region did not change after ${label}.`);
-}
-
 async function waitForStableCanvasRegions(page, canvas, previous, timeoutMs, label) {
   const deadline = Date.now() + timeoutMs;
   let last = null;
@@ -372,88 +291,26 @@ async function canvasMetrics(page, frame, canvas, viewport) {
   return { viewport, iframeViewport: inner, bounds, aspect };
 }
 
-async function playAttempt(page, frame, canvas, options, browserName) {
-  const titleBounds = await canvas.boundingBox();
-  if (!titleBounds) throw new Error("Unity canvas has no Title-control bounds.");
-  const titleBefore = await canvasHash(canvas);
-  await canvas.click({ position: { x: titleBounds.width * 0.5, y: titleBounds.height * 0.61 }, delay: 120 });
-  await waitForCanvasChange(canvas, titleBefore, options.timeoutMs, "Title pointer Start");
-  await new Promise(resolveWait => setTimeout(resolveWait, 300));
-  const briefingBounds = await canvas.boundingBox();
-  if (!briefingBounds) throw new Error("Unity canvas has no Briefing-control bounds.");
-  const briefingBefore = await canvasHash(canvas);
-  await canvas.click({ position: { x: briefingBounds.width * 0.5, y: briefingBounds.height * 0.66 }, delay: 120 });
-  await waitForCanvasChange(canvas, briefingBefore, options.timeoutMs, "Briefing pointer Continue");
-  await new Promise(resolveWait => setTimeout(resolveWait, 300));
-
-  if (browserName === "chrome") {
-    await page.screenshot({
-      path: join(options.outputDirectory, "chrome-tutorial.png"),
-      fullPage: true,
+async function pressCanvasUntilContentChange(page, canvas, normalizedX, normalizedY,
+  previousContent, timeoutMs, label) {
+  // Unity's frame-polled WebGL input can miss a single press during relaunch stalls;
+  // retry held presses until the state-specific content region actually changes.
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    const bounds = await canvas.boundingBox();
+    if (!bounds) throw new Error(`Unity canvas has no pointer bounds for ${label}.`);
+    await canvas.click({
+      position: { x: bounds.width * normalizedX, y: bounds.height * normalizedY },
+      delay: 120,
     });
-  }
-  await keyboardAction(page, canvas, "Enter", options.timeoutMs, "Tutorial page 1 Next");
-  await new Promise(resolveWait => setTimeout(resolveWait, 250));
-  await keyboardAction(page, canvas, "Enter", options.timeoutMs, "Tutorial page 2 Next");
-  await new Promise(resolveWait => setTimeout(resolveWait, 250));
-  await keyboardAction(page, canvas, "Enter", options.timeoutMs, "Tutorial page 3 Start Practice");
-  await new Promise(resolveWait => setTimeout(resolveWait, 250));
-  await mouseContinue(page, canvas, options.timeoutMs, "Judge introduction");
-  await mouseContinue(page, canvas, options.timeoutMs, "Tutorial response reveal", true);
-  await mouseResponse(page, canvas, options.timeoutMs);
-  await mouseContinue(page, canvas, options.timeoutMs, "Tutorial reaction");
-  await mouseContinue(page, canvas, options.timeoutMs, "Tutorial feedback");
-  await mouseContinue(page, canvas, options.timeoutMs, "Question 1 response reveal", true);
-  if (browserName === "chrome") {
-    await page.screenshot({
-      path: join(options.outputDirectory, "chrome-pitch.png"),
-      fullPage: true,
-    });
-  }
-
-  for (let question = 1; question <= 6; question += 1) {
-    await keyboardAction(page, canvas, "Enter", options.timeoutMs, `question ${question} keyboard response`);
-    await mouseContinue(page, canvas, options.timeoutMs, `question ${question} reaction`);
-    await mouseContinue(page, canvas, options.timeoutMs,
-      question === 6 ? "question 6 results transition" : `question ${question} feedback`, question === 6);
-    if (question < 6) {
-      await mouseContinue(page, canvas, options.timeoutMs, `question ${question + 1} response reveal`, true);
+    const settleDeadline = Math.min(deadline, Date.now() + 1500);
+    while (Date.now() < settleDeadline) {
+      const current = await contentRegionHash(page, canvas);
+      if (current !== previousContent) return current;
+      await new Promise(resolveWait => setTimeout(resolveWait, 100));
     }
   }
-
-  await page.locator("#mode").selectOption("failure");
-  await keyboardAction(page, canvas, "Enter", options.timeoutMs, "failed completion submit", false);
-  await page.waitForFunction(() => document.querySelector("#progress li")?.textContent.includes("failure"), null,
-    { timeout: options.timeoutMs });
-
-  await page.locator("#mode").selectOption("success");
-  await keyboardAction(page, canvas, "Enter", options.timeoutMs, "successful completion resubmit", false);
-  await page.waitForFunction(() => document.querySelector("#progress li")?.textContent.includes("success"), null,
-    { timeout: options.timeoutMs });
-  const completion = await page.locator("#completion").innerText();
-  if (!completion.includes("Completed") || !completion.includes("Overall score")) {
-    throw new Error("Sanitized completion summary was not rendered after successful resubmit.");
-  }
-
-  await keyboardAction(page, canvas, "Enter", options.timeoutMs, "Results Retry");
-  const retryBriefingBounds = await canvas.boundingBox();
-  if (!retryBriefingBounds) throw new Error("Retry Briefing canvas has no pointer bounds.");
-  const retryBriefingBefore = await canvasHash(canvas);
-  await canvas.click({ position: {
-    x: retryBriefingBounds.width * 0.5,
-    y: retryBriefingBounds.height * 0.66,
-  }, delay: 120 });
-  await waitForCanvasChange(canvas, retryBriefingBefore, options.timeoutMs,
-    "retry Briefing pointer Continue");
-  await pointerAction(page, 0.40, 0.79, canvas, options.timeoutMs,
-    "retry Tutorial Skip", { delay: 120 });
-  await mouseContinue(page, canvas, options.timeoutMs, "retry Judge introduction");
-  await mouseContinue(page, canvas, options.timeoutMs, "retry Tutorial response reveal", true);
-  await mouseResponse(page, canvas, options.timeoutMs);
-  await mouseContinue(page, canvas, options.timeoutMs, "retry Tutorial reaction");
-  await mouseContinue(page, canvas, options.timeoutMs, "retry Tutorial feedback");
-  await mouseContinue(page, canvas, options.timeoutMs, "retry Question 1 response reveal", true);
-  return sanitizeText(completion);
+  throw new Error(`Content region did not change after retried presses for ${label}.`);
 }
 
 async function verifyMissingConfigRecovery(page, options) {
@@ -472,15 +329,12 @@ async function verifyMissingConfigRecovery(page, options) {
   await page.waitForFunction(() => document.querySelector("#connection")?.textContent.includes("Launch configuration sent"), null,
     { timeout: options.timeoutMs });
   await waitForCanvasChange(canvas, waitingHash, options.timeoutMs, "Success plus Resend recovery");
-  const recoveredBounds = await canvas.boundingBox();
-  if (!recoveredBounds) throw new Error("Recovered Unity canvas has no Title-control bounds.");
-  const recoveredBefore = await canvasHash(canvas);
   const recoveredRegionsBefore = {
     content: await contentRegionHash(page, canvas),
     controls: await controlRegionHash(page, canvas),
   };
-  await canvas.click({ position: { x: recoveredBounds.width * 0.5, y: recoveredBounds.height * 0.61 }, delay: 120 });
-  await waitForCanvasChange(canvas, recoveredBefore, options.timeoutMs, "recovered Title pointer Start");
+  await pressCanvasUntilContentChange(page, canvas, 0.5, 0.61,
+    recoveredRegionsBefore.content, options.timeoutMs, "recovered Title pointer Start");
   await waitForStableCanvasRegions(page, canvas, recoveredRegionsBefore, options.timeoutMs,
     "recovered Briefing");
   return true;

@@ -27,7 +27,7 @@ Both modes use the same framework, mechanics, garden theme, feedback structure, 
 
 ## Evidence boundary
 
-Fresh automated acceptance passed EditMode `370/370`, PlayMode `48/48`, Node `19/19`, a zero-warning/error WebGL build, Chrome Primary keyboard smoke, and Edge Secondary pointer smoke, including executed missing-configuration recovery in both covered browsers. Those checks demonstrate that the implementation follows the tested rules. They do not demonstrate classroom learning effectiveness.
+Fresh automated acceptance passed EditMode `370/370`, PlayMode `48/48`, Node `20/20`, a zero-warning/error WebGL build, Chrome Primary keyboard smoke, and Edge Secondary pointer smoke, including executed missing-configuration recovery in both covered browsers. Those checks demonstrate that the implementation follows the tested rules. They do not demonstrate classroom learning effectiveness.
 
 Primary and Secondary educators or representative learners must still review reading level, coaching tone, task length, and transfer usefulness. Qualified Malay review, Firefox/Safari, native touch, a real LMS, unrestricted fullscreen, legal approval, classroom evidence, and human accessibility review remain unclaimed.
 

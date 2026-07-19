@@ -54,12 +54,8 @@ namespace Agrovator.PitchSimulator.UI
             var keyPart = mode == LearnerMode.Primary ? "primary" : "secondary";
             titleText.text = localize($"guided.mode.{keyPart}.title");
             descriptionText.text = localize($"guided.mode.{keyPart}.parts");
-            ApplySharedStyle();
             button.interactable = true;
-            if (button.gameObject != null)
-            {
-                button.gameObject.SetActive(true);
-            }
+            button.gameObject.SetActive(true);
         }
     }
 

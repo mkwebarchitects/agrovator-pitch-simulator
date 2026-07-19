@@ -49,12 +49,12 @@ BuildReport was `Succeeded`, `92,631,312` bytes, `00:00:02.0019569`, zero warnin
 
 ## Fresh local browser matrix
 
-The repaired matrix used Playwright `1.61.1` and temporary port `60994`. An earlier acceptance run had claimed missing-configuration recovery without executing it; `runBrowser` now invokes and records `verifyMissingConfigRecovery`, and two Node source contracts keep that step reachable and hidden-control-safe.
+The final matrix used Playwright `1.61.1` and temporary port `63464`. An earlier acceptance run had claimed missing-configuration recovery without executing it; `runBrowser` now invokes and records `verifyMissingConfigRecovery`, three Node source contracts keep that step reachable, hidden-control-safe, and press-retried, and the recovered Title Start retries held `120 ms` presses until Briefing content replaces Title content because Unity's frame-polled input can miss a single press during relaunch stalls.
 
 | Browser | Assigned route | Version | Start / finish (UTC) | Load | Result |
 | --- | --- | ---: | --- | ---: | --- |
-| Chrome | Primary, keyboard-only | `150.0.7871.127` | `14:37:53.106` / `14:38:34.346` | `6,971 ms` | Passed; zero console/page errors |
-| Edge | Secondary, pointer-only | `150.0.4078.83` | `14:38:34.346` / `14:39:23.694` | `6,590 ms` | Passed; zero console/page errors |
+| Chrome | Primary, keyboard-only | `150.0.7871.127` | `15:05:05.793` / `15:05:52.988` | `7,654 ms` | Passed; zero console/page errors |
+| Edge | Secondary, pointer-only | `150.0.4078.83` | `15:05:52.988` / `15:06:50.264` | `7,647 ms` | Passed; zero console/page errors |
 | Firefox | Availability only | unavailable | - | - | No standard-path executable; no pass claimed |
 
 Each passing route covered Title, Briefing, fresh mode selection, Learn, all four choice/feedback rounds, one revision, Present, cost follow-up, Results, forced submission failure, successful resubmission, Retry with fresh mode selection, executed and recorded missing-configuration recovery (`modes.missingConfig: true` in both browser JSON artifacts), and completion (`100` overall, `6` competencies, `0` timeouts). The server stopped cleanly with zero stderr.

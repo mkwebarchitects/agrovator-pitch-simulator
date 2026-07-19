@@ -76,6 +76,23 @@ function assertReachableMissingConfigRecovery(value) {
     "missing-configuration recovery must be a reachable recorded step in the covered path");
 }
 
+function assertRetryingRecoveredStart(value) {
+  const recovery = extractFunction(value, "verifyMissingConfigRecovery");
+  assert.match(canonicalCode(recovery),
+    /await pressCanvasUntilContentChange\(page, canvas, 0\.5, 0\.61, recoveredRegionsBefore\.content, options\.timeoutMs, "recovered Title pointer Start"\)/,
+    "recovered Start must retry frame-polled presses until Briefing content replaces Title content");
+  assert.doesNotMatch(canonicalCode(recovery),
+    /await waitForCanvasChange\(canvas, recoveredBefore/,
+    "the whole-canvas change gate alone cannot prove the recovered Start was observed");
+  const press = extractFunction(value, "pressCanvasUntilContentChange");
+  const pressCode = canonicalCode(press);
+  assert.match(pressCode, /canvas\.click\(/, "the retry helper must press the canvas");
+  assert.match(pressCode, /delay: 120/, "each retried press must hold 120ms for frame-polled input");
+  assert.match(pressCode, /contentRegionHash\(/,
+    "the retry helper must gate on the content region, not the whole-canvas hash");
+  assert.match(pressCode, /while \(/, "the helper must retry presses until the deadline");
+}
+
 function assertHiddenHarnessRecovery(value) {
   const recovery = extractFunction(value, "verifyMissingConfigRecovery");
   assert.deepEqual(findCalls(recovery, "setHarnessMode").map(call => canonicalCode(call.text)), [
@@ -166,6 +183,29 @@ test("missing-configuration recovery operates the hidden fullscreen harness cont
   const visibleClickMutation = source.replace(dispatch, 'await page.locator("#resend").click()');
   assert.throws(() => assertHiddenHarnessRecovery(visibleClickMutation),
     /without requiring hidden harness controls/);
+
+  const hiddenModeSwitch = 'await setHarnessMode(page, "missing-config")';
+  const visibleSelectMutation = source.replace(hiddenModeSwitch,
+    'await page.locator("#mode").selectOption("missing-config")');
+  assert.throws(() => assertHiddenHarnessRecovery(visibleSelectMutation),
+    undefined,
+    "a visible selectOption mode switch must fail the hidden-control contract");
+});
+
+test("recovered Title Start retries frame-polled presses until Briefing content appears", () => {
+  assertRetryingRecoveredStart(source);
+
+  const retryCallPattern =
+    /await pressCanvasUntilContentChange\(page, canvas, 0\.5, 0\.61,\s*recoveredRegionsBefore\.content, options\.timeoutMs, "recovered Title pointer Start"\);/;
+  const singlePress = 'const recoveredBefore = await canvasHash(canvas);\n' +
+    '  await canvas.click({ position: { x: 320, y: 240 }, delay: 120 });\n' +
+    '  await waitForCanvasChange(canvas, recoveredBefore, options.timeoutMs, ' +
+    '"recovered Title pointer Start");';
+  const singlePressMutation = source.replace(retryCallPattern, singlePress);
+  assert.notEqual(singlePressMutation, source, "the single-press mutation must apply to the source");
+  assert.throws(() => assertRetryingRecoveredStart(singlePressMutation),
+    undefined,
+    "a single unretried press behind the whole-canvas gate must fail the contract");
 });
 
 test("guided actions require stable localized content and control changes after focus and hover", () => {

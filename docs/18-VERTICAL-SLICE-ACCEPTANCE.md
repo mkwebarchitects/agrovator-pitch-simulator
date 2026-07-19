@@ -12,12 +12,12 @@ The external AGROVATOR LMS repository was not accessed. Real LMS behavior, Malay
 
 - EditMode XML `Passed`: `370/370`, zero failures/skips/inconclusive, `2.6572753 s`; complete `897`-line log with zero configured compile/exception/failure markers.
 - PlayMode XML `Passed`: `48/48`, zero failures/skips/inconclusive, `1.760119 s`; complete `890`-line log with zero configured markers.
-- JavaScript syntax passed; Node contracts passed `19/19` with zero failures/skips/todos, including the two repair contracts that require reachable recorded missing-configuration recovery through the hidden fullscreen harness controls.
+- JavaScript syntax passed; Node contracts passed `20/20` with zero failures/skips/todos, including three repair contracts that require reachable recorded missing-configuration recovery, hidden-fullscreen-control operation, and retried frame-polled presses on the recovered Title.
 - WebGL BuildReport `Succeeded`: `92,631,312` bytes, `00:00:02.0019569`, zero warnings/errors; complete `626`-line log with zero configured markers.
 - Server self-test passed on temporary port `58382`.
-- An earlier acceptance matrix claimed missing-configuration recovery without executing it (`modes.missingConfig: false`); `runBrowser` was repaired to invoke and record `verifyMissingConfigRecovery`, and the matrix below is the repaired run.
-- Chrome `150.0.7871.127` passed Primary keyboard-only from `14:37:53.106Z` to `14:38:34.346Z` with `6,971 ms` load and zero console/page errors.
-- Edge `150.0.4078.83` passed Secondary pointer-only from `14:38:34.346Z` to `14:39:23.694Z` with `6,590 ms` load and zero console/page errors.
+- An earlier acceptance matrix claimed missing-configuration recovery without executing it (`modes.missingConfig: false`); `runBrowser` was repaired to invoke and record `verifyMissingConfigRecovery`, one intermediate run exposed a frame-polled press miss on the recovered Title that a retrying press gate now prevents, and the matrix below is the final run.
+- Chrome `150.0.7871.127` passed Primary keyboard-only from `15:05:05.793Z` to `15:05:52.988Z` with `7,654 ms` load and zero console/page errors.
+- Edge `150.0.4078.83` passed Secondary pointer-only from `15:05:52.988Z` to `15:06:50.264Z` with `7,647 ms` load and zero console/page errors.
 - Both browsers passed desktop/mobile containment, four Build rounds, feedback, revision, Present, cost follow-up, Results, forced failure-to-success resubmission, Retry/fresh mode, executed missing-config recovery recorded as `modes.missingConfig: true`, and six-competency completion. Firefox was unavailable and is not claimed.
 
 ## Line-by-line guided acceptance

@@ -16,7 +16,7 @@
 - `Agrovator.PitchSimulator.LMS`: the unchanged DTO/serialization and mock/WebGL bridge boundary.
 - `Agrovator.PitchSimulator.Audio`: cue service and Unity adapters.
 - `Agrovator.PitchSimulator.UI`: thin routing, views, focus, results, recovery, responsive layout, and composition.
-- The older Core/Dialogue/Scoring session path remains in the repository for legacy vertical-slice coverage but is not the active guided Bootstrap composition.
+- The older Core/Dialogue/Scoring session path remains in the repository for legacy vertical-slice coverage but is not the active guided Bootstrap composition. This deliberately retained dormant cluster comprises `GameScreenRouter`, `PitchRoomPresenter`, `ResultsPresenter`, `TutorialPresenter`, `PitchSessionController` (plus their EditMode tests), and the legacy fixture asset `Assets/Content/Scenarios/smart-school-garden.en.json` — the approved migration plan required legacy dialogue classes to stay untouched and inactive. Generated scenes reference none of them (the scene test asserts `GameScreenRouter` is absent), and only `guided-pitch-builder.en.json` is wired into Bootstrap. Retiring the cluster and its fixture asset is an explicit post-merge cleanup candidate; until then, do not mistake these classes for live pathways.
 
 The engine-independent `PitchDraft` records each part's initial response ID/mastery, current response ID/mastery, and revision flag. `PitchAssessmentBuilder` computes from the current snapshot. `GuidedPitchSessionController` is the single rule owner; presenters render snapshots and forward commands.
 
