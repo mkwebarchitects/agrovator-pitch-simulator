@@ -28,9 +28,10 @@ All notable changes to the standalone AGROVATOR Pitch Simulator are documented h
 ### Acceptance evidence
 
 - Fresh EditMode passed `370/370` in `2.6572753 s`; PlayMode passed `48/48` in `1.760119 s`. Both XML roots were `Passed` with zero failures/skips/inconclusive cases, and their complete `897`/`890`-line logs had zero configured compile/exception/failure markers.
-- JavaScript syntax passed and the Node contract suite passed `17/17` with zero failures/skips/todos.
+- JavaScript syntax passed and the Node contract suite passed `19/19` with zero failures/skips/todos, including two repair contracts that require the guided browser path to execute and record reachable missing-configuration recovery through the hidden fullscreen harness controls.
 - WebGL BuildReport was `Succeeded`, `92,631,312` bytes, `00:00:02.0019569`, zero warnings/errors. The server self-test passed.
-- Chrome `150.0.7871.127` passed the Primary keyboard path (`6,860 ms` load); Edge `150.0.4078.83` passed the Secondary pointer path (`6,552 ms`). Each had zero console/page errors, desktop/mobile containment, failure-to-success recovery, Retry/mode reset, and missing-configuration recovery.
+- The original acceptance matrix did not exercise missing-configuration recovery (`modes.missingConfig` was `false`); `runBrowser` was repaired to invoke and record `verifyMissingConfigRecovery`, which now drives the hidden harness controls via `setHarnessMode` and a dispatched `#resend` click.
+- The repaired matrix passed Chrome `150.0.7871.127` on the Primary keyboard path (`6,971 ms` load) and Edge `150.0.4078.83` on the Secondary pointer path (`6,590 ms`). Each recorded zero console/page errors, desktop/mobile containment, failure-to-success recovery, Retry/mode reset, and `modes.missingConfig: true` missing-configuration recovery.
 - All eleven required guided screenshots were reviewed at original detail. Automated evidence demonstrates implementation behavior only, not classroom learning effectiveness.
 
 ### Security and privacy

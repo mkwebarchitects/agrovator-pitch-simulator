@@ -12,12 +12,13 @@ The external AGROVATOR LMS repository was not accessed. Real LMS behavior, Malay
 
 - EditMode XML `Passed`: `370/370`, zero failures/skips/inconclusive, `2.6572753 s`; complete `897`-line log with zero configured compile/exception/failure markers.
 - PlayMode XML `Passed`: `48/48`, zero failures/skips/inconclusive, `1.760119 s`; complete `890`-line log with zero configured markers.
-- JavaScript syntax passed; Node contracts passed `17/17` with zero failures/skips/todos.
+- JavaScript syntax passed; Node contracts passed `19/19` with zero failures/skips/todos, including the two repair contracts that require reachable recorded missing-configuration recovery through the hidden fullscreen harness controls.
 - WebGL BuildReport `Succeeded`: `92,631,312` bytes, `00:00:02.0019569`, zero warnings/errors; complete `626`-line log with zero configured markers.
 - Server self-test passed on temporary port `58382`.
-- Chrome `150.0.7871.127` passed Primary keyboard-only from `13:31:34.900Z` to `13:32:08.651Z` with `6,860 ms` load and zero console/page errors.
-- Edge `150.0.4078.83` passed Secondary pointer-only from `13:32:08.651Z` to `13:32:50.621Z` with `6,552 ms` load and zero console/page errors.
-- Both browsers passed desktop/mobile containment, four Build rounds, feedback, revision, Present, cost follow-up, Results, forced failure-to-success resubmission, Retry/fresh mode, missing-config recovery, and six-competency completion. Firefox was unavailable and is not claimed.
+- An earlier acceptance matrix claimed missing-configuration recovery without executing it (`modes.missingConfig: false`); `runBrowser` was repaired to invoke and record `verifyMissingConfigRecovery`, and the matrix below is the repaired run.
+- Chrome `150.0.7871.127` passed Primary keyboard-only from `14:37:53.106Z` to `14:38:34.346Z` with `6,971 ms` load and zero console/page errors.
+- Edge `150.0.4078.83` passed Secondary pointer-only from `14:38:34.346Z` to `14:39:23.694Z` with `6,590 ms` load and zero console/page errors.
+- Both browsers passed desktop/mobile containment, four Build rounds, feedback, revision, Present, cost follow-up, Results, forced failure-to-success resubmission, Retry/fresh mode, executed missing-config recovery recorded as `modes.missingConfig: true`, and six-competency completion. Firefox was unavailable and is not claimed.
 
 ## Line-by-line guided acceptance
 
@@ -51,7 +52,7 @@ The external AGROVATOR LMS repository was not accessed. Real LMS behavior, Malay
 
 ## Original-detail visual evidence
 
-All eleven required guided PNGs were opened at original detail. Primary/Secondary mode and wide Build views are readable; Primary Improve is complete; both Present captures show four complete sentences; both compact captures show complete Primary and Secondary cards; both Results captures show the full final pitch, including Secondary `beds.`, with fixed submission/Retry actions and scrollable long content. Each browser recorded only nine disclosed non-error root-only/audio-placeholder warnings.
+All eleven required guided PNGs were opened at original detail. Primary/Secondary mode and wide Build views are readable; Primary Improve is complete; both Present captures show four complete sentences; both compact captures show complete Primary and Secondary cards; both Results captures show the full final pitch, including Secondary `beds.`, with fixed submission/Retry actions and scrollable long content. The repaired run regenerated all eleven captures with unchanged Results hashes, and each browser recorded only twelve disclosed non-error root-only/audio-placeholder warnings — the recovery reload's second boot repeats the `DontDestroyOnLoad`, `MusicLoop`, and `ButtonPress` warnings without adding any new class.
 
 Paths and exact browser/layout measurements are listed in [the QA plan](13-QA-PLAN.md). These screenshots are visual implementation evidence, not proof of comprehension, transfer, accessibility conformance, or classroom value.
 

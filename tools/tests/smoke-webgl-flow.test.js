@@ -64,6 +64,30 @@ function assertOrdered(...positions) {
   }
 }
 
+function assertReachableMissingConfigRecovery(value) {
+  const runBrowser = extractFunction(value, "runBrowser");
+  const calls = findCalls(runBrowser, "verifyMissingConfigRecovery");
+  assert.equal(calls.length, 1,
+    "each covered guided browser must execute missing-configuration recovery exactly once");
+  assert.match(canonicalCode(calls[0].text),
+    /^await verifyMissingConfigRecovery\(page, options\)$/);
+  assert.match(canonicalCode(runBrowser),
+    /result\.modes\.failure = true; result\.modes\.success = true; result\.modes\.missingConfig = await verifyMissingConfigRecovery\(page, options\); result\.screenshot =/,
+    "missing-configuration recovery must be a reachable recorded step in the covered path");
+}
+
+function assertHiddenHarnessRecovery(value) {
+  const recovery = extractFunction(value, "verifyMissingConfigRecovery");
+  assert.deepEqual(findCalls(recovery, "setHarnessMode").map(call => canonicalCode(call.text)), [
+    'await setHarnessMode(page, "missing-config")',
+    'await setHarnessMode(page, "success")',
+  ]);
+  assert.doesNotMatch(canonicalCode(recovery), /\.selectOption\(/);
+  assert.match(canonicalCode(recovery),
+    /await page\.locator\("#resend"\)\.dispatchEvent\("click"\)/,
+    "recovery must dispatch resend without requiring hidden harness controls to be visible");
+}
+
 test("call extraction ignores comments and dead strings while retaining executable duplicates", () => {
   const fixture = `
     // await keyboardStableStep(page, canvas, "Enter", options, "comment");
@@ -122,6 +146,26 @@ test("Edge owns one exact Secondary pointer path with no keyboard actions", () =
   assert.deepEqual(findCalls(secondary, "setHarnessMode").map(call => canonicalCode(call.text)), [
     'await setHarnessMode(page, "failure")', 'await setHarnessMode(page, "success")',
   ]);
+});
+
+test("covered guided browsers execute and record reachable missing-configuration recovery", () => {
+  assertReachableMissingConfigRecovery(source);
+
+  const assignment = "result.modes.missingConfig = await verifyMissingConfigRecovery(page, options);";
+  assert.throws(() => assertReachableMissingConfigRecovery(
+    source.replace(assignment, `if (false) ${assignment}`)), /reachable recorded step/);
+  assert.throws(() => assertReachableMissingConfigRecovery(
+    source.replace(assignment, "await verifyMissingConfigRecovery(page, options);")),
+  /reachable recorded step/);
+});
+
+test("missing-configuration recovery operates the hidden fullscreen harness controls", () => {
+  assertHiddenHarnessRecovery(source);
+
+  const dispatch = 'await page.locator("#resend").dispatchEvent("click")';
+  const visibleClickMutation = source.replace(dispatch, 'await page.locator("#resend").click()');
+  assert.throws(() => assertHiddenHarnessRecovery(visibleClickMutation),
+    /without requiring hidden harness controls/);
 });
 
 test("guided actions require stable localized content and control changes after focus and hover", () => {

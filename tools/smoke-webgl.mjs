@@ -457,7 +457,7 @@ async function playAttempt(page, frame, canvas, options, browserName) {
 }
 
 async function verifyMissingConfigRecovery(page, options) {
-  await page.locator("#mode").selectOption("missing-config");
+  await setHarnessMode(page, "missing-config");
   const frameElement = page.locator("#game");
   await frameElement.evaluate(element => element.contentWindow.location.reload());
   await page.waitForFunction(() => document.querySelector("#connection")?.textContent.includes("Missing Config"), null,
@@ -467,8 +467,8 @@ async function verifyMissingConfigRecovery(page, options) {
   const canvas = frame.locator("#unity-canvas");
   await frame.locator("#unity-loading").waitFor({ state: "hidden", timeout: options.unityTimeoutMs });
   const waitingHash = await canvasHash(canvas);
-  await page.locator("#mode").selectOption("success");
-  await page.locator("#resend").click();
+  await setHarnessMode(page, "success");
+  await page.locator("#resend").dispatchEvent("click");
   await page.waitForFunction(() => document.querySelector("#connection")?.textContent.includes("Launch configuration sent"), null,
     { timeout: options.timeoutMs });
   await waitForCanvasChange(canvas, waitingHash, options.timeoutMs, "Success plus Resend recovery");
@@ -832,6 +832,7 @@ async function runBrowser(playwright, definition, server, options) {
     result.completionSummary = pathResult.completion;
     result.modes.failure = true;
     result.modes.success = true;
+    result.modes.missingConfig = await verifyMissingConfigRecovery(page, options);
     result.screenshot = `artifacts/smoke/${definition.name}-${pathResult.mode.toLowerCase()}-results.png`;
     if (result.consoleErrors.length || result.pageErrors.length) {
       throw new Error(`Browser emitted ${result.consoleErrors.length} console errors and ${result.pageErrors.length} page errors.`);

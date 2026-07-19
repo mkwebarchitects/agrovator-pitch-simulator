@@ -20,7 +20,7 @@ Both modes use the same untimed flow and visual theme:
 
 Primary uses direct coaching and concrete 12-16 word sentence cards. Secondary distinguishes observation from assumption, uses measurements and qualified claims, and asks for audience relevance and honest uncertainty. Completion depends on assembling, reviewing, presenting, and answering the follow-up, not on a score threshold.
 
-Fresh 2026-07-19 local acceptance evidence for Unity `6000.5.3f1` is EditMode `370/370`, PlayMode `48/48`, Node `17/17`, and a `Succeeded` `92,631,312`-byte WebGL BuildReport in `00:00:02.0019569` with zero warnings/errors. Chrome `150.0.7871.127` passed the Primary keyboard route and Edge `150.0.4078.83` passed the Secondary pointer route with zero console/page errors. This proves the tested implementation behavior, not classroom learning effectiveness or production readiness.
+Fresh 2026-07-19 local acceptance evidence for Unity `6000.5.3f1` is EditMode `370/370`, PlayMode `48/48`, Node `19/19`, and a `Succeeded` `92,631,312`-byte WebGL BuildReport in `00:00:02.0019569` with zero warnings/errors. Chrome `150.0.7871.127` passed the Primary keyboard route and Edge `150.0.4078.83` passed the Secondary pointer route with zero console/page errors and executed missing-configuration recovery recorded as `modes.missingConfig: true`. This proves the tested implementation behavior, not classroom learning effectiveness or production readiness.
 
 See [vertical-slice acceptance](docs/18-VERTICAL-SLICE-ACCEPTANCE.md) and [task evidence](TASKS.md).
 

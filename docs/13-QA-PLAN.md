@@ -49,19 +49,19 @@ BuildReport was `Succeeded`, `92,631,312` bytes, `00:00:02.0019569`, zero warnin
 
 ## Fresh local browser matrix
 
-The matrix used Playwright `1.61.1` and temporary port `58399`.
+The repaired matrix used Playwright `1.61.1` and temporary port `60994`. An earlier acceptance run had claimed missing-configuration recovery without executing it; `runBrowser` now invokes and records `verifyMissingConfigRecovery`, and two Node source contracts keep that step reachable and hidden-control-safe.
 
 | Browser | Assigned route | Version | Start / finish (UTC) | Load | Result |
 | --- | --- | ---: | --- | ---: | --- |
-| Chrome | Primary, keyboard-only | `150.0.7871.127` | `13:31:34.900` / `13:32:08.651` | `6,860 ms` | Passed; zero console/page errors |
-| Edge | Secondary, pointer-only | `150.0.4078.83` | `13:32:08.651` / `13:32:50.621` | `6,552 ms` | Passed; zero console/page errors |
+| Chrome | Primary, keyboard-only | `150.0.7871.127` | `14:37:53.106` / `14:38:34.346` | `6,971 ms` | Passed; zero console/page errors |
+| Edge | Secondary, pointer-only | `150.0.4078.83` | `14:38:34.346` / `14:39:23.694` | `6,590 ms` | Passed; zero console/page errors |
 | Firefox | Availability only | unavailable | - | - | No standard-path executable; no pass claimed |
 
-Each passing route covered Title, Briefing, fresh mode selection, Learn, all four choice/feedback rounds, one revision, Present, cost follow-up, Results, forced submission failure, successful resubmission, Retry with fresh mode selection, missing-configuration recovery, and completion (`100` overall, `6` competencies, `0` timeouts). The server stopped cleanly with zero stderr.
+Each passing route covered Title, Briefing, fresh mode selection, Learn, all four choice/feedback rounds, one revision, Present, cost follow-up, Results, forced submission failure, successful resubmission, Retry with fresh mode selection, executed and recorded missing-configuration recovery (`modes.missingConfig: true` in both browser JSON artifacts), and completion (`100` overall, `6` competencies, `0` timeouts). The server stopped cleanly with zero stderr.
 
 Desktop was viewport `1440x1000` with CSS/backing `1276x918`. Mobile was viewport `390x844` with CSS/backing `380x783`. DPR/render scale and backing/CSS ratios were `1`; containment and canvas focus were true with zero inner/outer horizontal overflow. This is responsive pointer/layout evidence, not native-touch or higher-DPR runtime evidence.
 
-Each browser recorded nine disclosed non-error warnings: the root-only `DontDestroyOnLoad` warning and empty `MusicLoop`, `ButtonPress`, `ResponseSelected`, `JudgeReaction`, `FeedbackOpen`, `ResultsReveal`, `CompletionFailure`, and `CompletionSuccess` cue slots. Final licensed/audible audio is absent.
+Each browser recorded twelve disclosed non-error warnings. Missing-configuration recovery reloads the player for a second boot, so the root-only `DontDestroyOnLoad`, empty `MusicLoop`, and empty `ButtonPress` warnings appear twice each, alongside single empty-slot warnings for `ResponseSelected`, `JudgeReaction`, `FeedbackOpen`, `ResultsReveal`, `CompletionFailure`, and `CompletionSuccess`. No new warning class appeared. Final licensed/audible audio is absent.
 
 ## Original-detail visual review
 
