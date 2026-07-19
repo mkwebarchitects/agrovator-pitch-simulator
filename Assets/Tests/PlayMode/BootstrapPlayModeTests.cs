@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using Agrovator.PitchSimulator.GuidedPitch;
@@ -6,7 +7,10 @@ using Agrovator.PitchSimulator.LMS;
 using Agrovator.PitchSimulator.UI;
 using NUnit.Framework;
 using UnityEngine;
+using UnityEngine.EventSystems;
+using UnityEngine.SceneManagement;
 using UnityEngine.TestTools;
+using UnityEngine.UI;
 
 namespace Agrovator.PitchSimulator.Tests.PlayMode
 {
@@ -35,6 +39,105 @@ namespace Agrovator.PitchSimulator.Tests.PlayMode
             }
 
             roots.Clear();
+        }
+
+        [UnityTearDown]
+        public IEnumerator UnityTearDown()
+        {
+            foreach (var bootstrapper in UnityEngine.Object.FindObjectsByType<Bootstrapper>(
+                FindObjectsInactive.Include, FindObjectsSortMode.None))
+            {
+                UnityEngine.Object.Destroy(bootstrapper.gameObject);
+            }
+            yield return null;
+            foreach (var sceneName in new[] { "Game", "Bootstrap" })
+            {
+                var scene = SceneManager.GetSceneByName(sceneName);
+                if (scene.IsValid() && scene.isLoaded)
+                {
+                    yield return SceneManager.UnloadSceneAsync(scene);
+                }
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator BootstrapScene_BootsTheGuidedComposition_ThroughTitleIntoModeSelection()
+        {
+            yield return SceneManager.LoadSceneAsync("Bootstrap", LoadSceneMode.Additive);
+            Bootstrapper bootstrapper = null;
+            var deadline = Time.realtimeSinceStartup + 60f;
+            while (bootstrapper == null && Time.realtimeSinceStartup < deadline)
+            {
+                bootstrapper = UnityEngine.Object.FindFirstObjectByType<Bootstrapper>();
+                yield return null;
+            }
+            Assert.That(bootstrapper, Is.Not.Null, "The Bootstrap scene must own one Bootstrapper.");
+            while (!bootstrapper.IsInitialized && Time.realtimeSinceStartup < deadline)
+            {
+                yield return null;
+            }
+            Assert.That(bootstrapper.IsInitialized, Is.True,
+                "Bootstrap must compose the guided session against the generated scenes.");
+
+            var gameScene = SceneManager.GetSceneByName("Game");
+            Assert.That(gameScene.isLoaded, Is.True, "Bootstrap must load the Game scene additively.");
+            var gameRoots = gameScene.GetRootGameObjects();
+            var routers = gameRoots
+                .SelectMany(root => root.GetComponentsInChildren<GuidedPitchScreenRouter>(true))
+                .ToArray();
+            Assert.That(routers, Has.Length.EqualTo(1));
+            Assert.That(gameRoots.SelectMany(root => root.GetComponentsInChildren<Canvas>(true)).Count(),
+                Is.EqualTo(1));
+            Assert.That(gameRoots.SelectMany(root => root.GetComponentsInChildren<EventSystem>(true)).Count(),
+                Is.EqualTo(1));
+
+            var router = routers[0];
+            Assert.That(router.IsInitialized, Is.True);
+            Assert.That(router.ActivePhase, Is.EqualTo(GuidedPitchPhase.Title));
+            var canvas = router.transform;
+            var title = canvas.Find("Title");
+            var guided = canvas.Find("Guided Pitch");
+            Assert.That(title, Is.Not.Null);
+            Assert.That(guided, Is.Not.Null);
+            Assert.That(title.gameObject.activeSelf, Is.True);
+            Assert.That(guided.gameObject.activeSelf, Is.False);
+            var start = title.Find("Content Frame/Start Button").GetComponent<Button>();
+            var eventSystem = EventSystem.current;
+            Assert.That(eventSystem, Is.Not.Null);
+            Assert.That(eventSystem.currentSelectedGameObject, Is.SameAs(start.gameObject),
+                "Title Start must receive the initial focus.");
+
+            start.onClick.Invoke();
+            yield return null;
+            Assert.That(router.ActivePhase, Is.EqualTo(GuidedPitchPhase.Briefing));
+            var briefing = canvas.Find("Briefing");
+            Assert.That(briefing.gameObject.activeSelf, Is.True);
+            var briefingCopy = string.Join(" ", briefing
+                .Find("Content Frame")
+                .GetComponentsInChildren<Text>(false)
+                .Where(line => line.name.StartsWith("Line", StringComparison.Ordinal))
+                .Select(line => line.text));
+            Assert.That(briefingCopy, Does.Contain("Judge Aya"));
+            Assert.That(briefingCopy, Does.Contain("no timer"));
+            Assert.That(briefingCopy, Does.Not.Contain("[[missing:"));
+
+            briefing.Find("Content Frame/Continue Button").GetComponent<Button>().onClick.Invoke();
+            yield return null;
+            Assert.That(router.ActivePhase, Is.EqualTo(GuidedPitchPhase.ModeSelection));
+            Assert.That(guided.gameObject.activeSelf, Is.True,
+                "The guided panel must stay active behind the nested Mode Selection section.");
+            var modeSelection = guided.Find(
+                "Content Frame/Phase Scroll/Viewport/Content/Mode Selection");
+            Assert.That(modeSelection, Is.Not.Null);
+            Assert.That(modeSelection.gameObject.activeInHierarchy, Is.True,
+                "The nested Mode Selection section must be visible during ModeSelection.");
+            var modeView = modeSelection.GetComponent<ModeSelectionView>();
+            Assert.That(modeView.Cards.Count, Is.EqualTo(2));
+            Assert.That(eventSystem.currentSelectedGameObject,
+                Is.SameAs(modeView.Cards[0].Button.gameObject),
+                "The first mode card must take the ModeSelection default focus.");
+            Assert.That(capturedErrors, Is.Empty,
+                "A healthy boot must log no errors: " + string.Join(", ", capturedErrors));
         }
 
         [Test]

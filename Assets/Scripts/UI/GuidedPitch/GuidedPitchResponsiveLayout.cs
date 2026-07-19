@@ -42,7 +42,9 @@ namespace Agrovator.PitchSimulator.UI
                 throw new ArgumentOutOfRangeException(nameof(viewportSize), "Viewport dimensions must be positive.");
             }
 
-            var compact = viewportSize.x < CompactWidthThreshold ||
+            // A 960-wide stage is the first constrained fixture: at or below the
+            // threshold the guided layout must already stack and scroll.
+            var compact = viewportSize.x <= CompactWidthThreshold ||
                 viewportSize.x / viewportSize.y < CompactAspectThreshold;
             var modeChanged = appliedCompact != compact;
             if (!modeChanged && appliedViewportSize == viewportSize) return false;

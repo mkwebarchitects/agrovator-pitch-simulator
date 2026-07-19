@@ -29,11 +29,6 @@ namespace Agrovator.PitchSimulator.UI
         private const string LaunchInvalidCode = "guided_launch_invalid";
         private const string SceneContractInvalidCode = "guided_scene_contract_invalid";
 
-#pragma warning disable 0414, 0169
-        // Retained only so the current generated Bootstrap scene keeps a valid
-        // serialized layout until Task 7 regenerates the owned scenes.
-        [SerializeField] private TextAsset scenarioJson;
-#pragma warning restore 0414, 0169
         [SerializeField] private TextAsset guidedPitchContentJson;
         [SerializeField] private TextAsset englishCatalogJson;
         [SerializeField] private TextAsset malayCatalogJson;

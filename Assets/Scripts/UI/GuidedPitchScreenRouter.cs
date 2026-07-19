@@ -329,7 +329,12 @@ namespace Agrovator.PitchSimulator.UI
             {
                 if (panel != null)
                 {
-                    panel.SetActive(panel == selected);
+                    // A panel stays active when it is the selected screen or an
+                    // ancestor of it: the generated scene nests the Mode Selection
+                    // section inside the persistent Guided Pitch panel, so showing
+                    // the nested section must keep its host screen visible.
+                    panel.SetActive(panel == selected ||
+                        (selected != null && selected.transform.IsChildOf(panel.transform)));
                 }
             }
 
