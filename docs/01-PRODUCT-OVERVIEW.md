@@ -1,27 +1,34 @@
-# Understand the Pitch Simulator
+# Understand the Guided Pitch Builder
 
-## What the vertical slice does
+## What learners do
 
-AGROVATOR Pitch Simulator is a standalone Unity WebGL learning game. A learner pitches a Smart School Garden to mentor Judge Aya, chooses authored responses, sees reactions and feedback, receives a rubric-based result, reviews every choice, and submits a completion through a mock LMS boundary.
+AGROVATOR Pitch Simulator is a standalone Unity WebGL activity for individual pitch practice. A learner builds a Smart School Garden pitch from four parts: Problem, Evidence, Solution, and Value. Mentor Aya gives immediate coaching, allows revision, asks one practical cost question, and returns a learner-facing Pitch Readiness result.
 
-## Confirmed scope
+The activity is untimed and targets approximately 8-10 minutes. Completion requires assembling and reviewing all four parts, presenting the combined pitch, and reviewing the cost follow-up. It does not require a minimum score.
 
-- Scenario ID: `smart-school-garden`, content version `1`, beginner difficulty, authored estimate eight minutes.
-- One tutorial, branching questions, a recovery route after an unsupported claim, and a terminal node.
-- Seven scoring categories, confidence from 0-100, four result levels, timeout handling, retry, and completion resubmission.
-- English is reviewed. Malay has exact key parity but is marked `pending_human_review` and currently falls back to reviewed English copy.
-- Keyboard navigation and visible focus are implemented. Runtime settings support Normal/Extended/Off timers, reduced motion, language, and independent music/SFX volume, but the current Settings screen exposes only Back; values come from the launch configuration or the local mock defaults.
-- Default scenes are `Assets/Scenes/Bootstrap.unity` then `Assets/Scenes/Game.unity`.
+## Primary and Secondary
 
-## Local evidence and remaining gaps
+The learner chooses **Primary** or **Secondary** after the Briefing. The unchanged `LmsLaunchConfig` has no learner-category field, so the game does not infer a mode from LMS data. The programme concept `Elementary -> Primary` is documentation for future mapping review only.
 
-Task 18 and Task 20 recorded successful local development WebGL builds, and Task 19/20 recorded passing local Chrome and Edge smoke evidence with zero console/page errors. These results do not establish production hosting, a production browser-support promise, or real LMS compatibility. Firefox was unavailable at standard Windows paths, Safari is unavailable on the Windows verification machine, and final audio clips are not included. Native touch, unrestricted fullscreen, classroom usability, assistive-technology/accessibility human review, final Malay approval, and human release approval remain unverified.
+- Primary uses direct prompts, familiar school examples, and concrete cards of 12-16 words.
+- Secondary uses more precise reasoning, observations and measurements, qualified claims, audience relevance, and honest uncertainty.
 
-## Audiences
+Both modes use the same framework, mechanics, garden theme, feedback structure, and completion rule. The product does not compare Primary learners with Secondary learners.
 
-- Learners play the scenario and review feedback.
-- Learning/content staff review pedagogy, localization, and child suitability.
-- Developers maintain Unity, content, and the browser bridge.
-- Operators build, host, smoke-test, monitor, and roll back releases.
+## Confirmed implementation scope
 
-Start with [learner experience](02-LEARNER-EXPERIENCE.md), [architecture](05-TECHNICAL-ARCHITECTURE.md), or [acceptance status](18-VERTICAL-SLICE-ACCEPTANCE.md).
+- Scenario ID `smart-school-garden`, content version `2`, one Bootstrap-wired guided content asset, and one legacy v1 asset that is not active.
+- `30` stable unique options: four groups of three pitch choices plus one group of three follow-up choices in each mode.
+- Four persistent parts and prompts: **Problem / Spot it**, **Evidence / Prove it**, **Solution / Solve it**, and **Value / Show why it matters**.
+- Diagnostic first choices, three-part coaching, optional revision, combined Present view, cost follow-up, Results, submission/resubmission, and Retry.
+- Six completion competency IDs: `problem`, `evidence`, `solution`, `audience`, `clear_explanation`, and `communication`. Time Management is excluded.
+- English/Malay `319/319` catalog entries with exact fallback parity; Malay remains `pending_human_review`.
+- Wide/compact responsive layouts, DPR-aware crisp rendering, keyboard focus, pointer input, and safe localized recovery.
+
+## Evidence boundary
+
+Fresh automated acceptance passed EditMode `370/370`, PlayMode `48/48`, Node `17/17`, a zero-warning/error WebGL build, Chrome Primary keyboard smoke, and Edge Secondary pointer smoke. Those checks demonstrate that the implementation follows the tested rules. They do not demonstrate classroom learning effectiveness.
+
+Primary and Secondary educators or representative learners must still review reading level, coaching tone, task length, and transfer usefulness. Qualified Malay review, Firefox/Safari, native touch, a real LMS, unrestricted fullscreen, legal approval, classroom evidence, and human accessibility review remain unclaimed.
+
+Continue with [learner experience](02-LEARNER-EXPERIENCE.md), [architecture](05-TECHNICAL-ARCHITECTURE.md), or [acceptance status](18-VERTICAL-SLICE-ACCEPTANCE.md).

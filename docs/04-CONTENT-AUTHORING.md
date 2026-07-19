@@ -1,24 +1,36 @@
-# Author and Validate Scenario Content
+# Author and Validate Guided Pitch Content
 
 ## Before you edit
 
-Work only in this standalone repository. Keep `Id` and `Version` intentional, obtain learning-owner approval, and preserve reviewed localization keys. The Unity project must be closed or allowed to reimport after JSON changes.
+Work only in this standalone repository. The active authoring file is `Assets/Content/Scenarios/guided-pitch-builder.en.json`; Bootstrap must keep exactly one active guided reference. Treat scenario/content version, stable IDs, reading rules, assessment meaning, and localization keys as reviewed contracts.
 
 ## Authoring workflow
 
-1. Edit `Assets/Content/Scenarios/smart-school-garden.en.json` or add a separately identified scenario.
-2. Define project, judge, learning-objective keys, opening node, supported locales, and a content checksum label.
-3. Build nodes with stable response IDs and explicit destinations/flags.
-4. Add every new key to `Assets/Content/Localization/en.json` and the same key to `ms.json`. Keep Malay status `pending_human_review` until a qualified reviewer approves actual Malay copy.
-5. Run focused dialogue, content, localization, and scoring tests before broad suites.
-6. Have a human learning reviewer play every route and check factual accuracy, fairness, readability, child suitability, and learning value.
+1. Preserve scenario ID `smart-school-garden`, version `2`, the declared locale list, and an intentional content checksum.
+2. Keep two modes: Primary and Secondary. In each mode, author Problem, Evidence, Solution, and Value in that exact order.
+3. Give each part exactly three options: one `Clear`, one `Developing`, and one `NeedsPractice`. Give the cost follow-up the same three-mastery structure.
+4. Keep every option ID stable and ordinal/case-sensitive. New semantics require a new reviewed ID and, when incompatible, a content-version decision.
+5. For every option, provide `TextKey`, `Mastery`, `LegacyConfidenceDelta`, `ReactionCue`, and `WorkedKey`/`MissingKey`/`ImproveKey`.
+6. Keep Primary sentence cards at 12-16 words. Use familiar observations, one idea per card, and direct coaching. Keep Secondary cards at 32 words or fewer and use measurements, qualified scope, audience relevance, and honest uncertainty where appropriate.
+7. Add every learner-facing key to `en.json` and `ms.json`. English is the reviewed source. Malay must retain exact fallback values and `pending_human_review` until qualified human approval.
+8. Run the canonical Unity suites and inspect the relevant fixture totals and complete logs. Do not replace the existing content/localization/reflection tests with an ad hoc parser.
+9. Ask Primary and Secondary educators or representative learners to review reading level, coaching tone, task length, and transfer usefulness.
 
-## Safe content changes
+## Assessment compatibility
 
-Changing visible text behind an existing key is lower risk than changing IDs or score semantics. A released ID/version change needs migration and analytics review. Never add learner free text, names, email addresses, school details, credentials, or secrets to scenario or completion data.
+The learner-facing score uses the current four-part choices. A revision may improve the result, but the initial and replacement IDs both remain in chronological selection history. The cost response is also stored in history. Do not rename the existing completion fields, add Time Management to this untimed activity, or repurpose `FinalConfidence` as Pitch Readiness. `FinalConfidence` remains a hidden legacy calculation based on the current four part deltas plus the follow-up delta.
 
-## Acceptance
+## Privacy and safe errors
 
-No validator issues; no orphaned keys; English review recorded; Malay status honest; all paths terminate; answer ordering has no quality bias; selected-response IDs remain compatible with the intended content version.
+Never add learner free text, names, email addresses, school identifiers, credentials, tokens, complete launch payloads, response-text logs, audio recording, or AI assessment. Validation issues and runtime logs must use stable code/path/severity values without echoing JSON, learner IDs, launch references, or sentence text.
+
+## Acceptance checklist
+
+- Exactly one active Bootstrap-wired content-v2 asset.
+- Exactly `30` tested stable unique option IDs and two terminating mode routes.
+- Every content/UI key resolves; English and Malay remain exact key/value fallback peers.
+- Malay status remains honest.
+- The DTO shape, selected-ID history semantics, and legacy confidence meaning stay compatible.
+- Automated checks are recorded as implementation evidence, followed by the required human learning review.
 
 See [gameplay](03-GAMEPLAY-CONTENT.md), [localization](08-ACCESSIBILITY-LOCALIZATION.md), and [asset manifest/release governance](16-ASSET-MANIFEST.md).

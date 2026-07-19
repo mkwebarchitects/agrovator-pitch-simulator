@@ -1,25 +1,37 @@
-# Navigate the Unity Architecture
+# Navigate the Guided Pitch Architecture
 
 ## Composition
 
-`Assets/Scenes/Bootstrap.unity` owns the persistent `Bootstrapper`, LMS bridge selection, settings/localization construction, audio service, and additive loading of `Game`. `Assets/Scenes/Game.unity` owns one Canvas, one EventSystem, the `GameScreenRouter`, and six screen panels: Title, Briefing, Tutorial, PitchRoom, Results, and Settings. `Assets/Scenes/WebIntegrationTest.unity` is a generated diagnostic scene and is excluded from default build order.
+`Assets/Scenes/Bootstrap.unity` owns the persistent `Bootstrapper`, validated LMS bridge, settings, localization, guided content loading, audio service, session controller, and additive loading of `Game`. It references exactly one guided content asset, `Assets/Content/Scenarios/guided-pitch-builder.en.json` (GUID `07bbb68d99b325549a9a4904cfadd53e`). Localization loads before content validation.
+
+`Assets/Scenes/Game.unity` owns one Canvas, one EventSystem, the generated guided screen hierarchy, `GuidedPitchScreenRouter`, thin presenters, responsive layout, and safe-fallback UI. `Assets/Scenes/WebIntegrationTest.unity` remains a diagnostic scene outside default build order.
+
+`PitchSimulatorProjectBuilder` and `GuidedPitchSceneBuilder` own generated scene structure. Regenerate through those builders instead of making untracked hierarchy changes.
 
 ## Assembly boundaries
 
-- `Agrovator.PitchSimulator.Core`: state machine, timer, save model; engine-free.
-- `Agrovator.PitchSimulator.Dialogue`: DTO validation and immutable runtime graph; engine-free.
-- `Agrovator.PitchSimulator.Scoring`: accumulator, confidence, results; engine-free.
-- `Agrovator.PitchSimulator.Accessibility`: settings and catalog; engine-free.
-- `Agrovator.PitchSimulator.Session`: orchestration across the above and LMS; engine-free.
-- `Agrovator.PitchSimulator.Dialogue.Unity`: ScriptableObject import boundary.
-- `Agrovator.PitchSimulator.LMS`: Unity JSON and WebGL/native bridge boundary.
-- `Agrovator.PitchSimulator.Audio`: plain service plus Unity audio adapters; the UI assembly's `AudioCueDirector` maps user gestures, session events, and the final-five timer threshold onto the nine cue slots.
-- `Agrovator.PitchSimulator.UI`: thin uGUI presenters and composition.
+- `Agrovator.PitchSimulator.GuidedPitch`: engine-independent content DTO/load/validation, types, four-part draft, and assessment rules.
+- `Agrovator.PitchSimulator.Session`: `GuidedPitchSessionController`, immutable snapshots/events, phase commands, payload construction, reset, and submission callback ownership.
+- `Agrovator.PitchSimulator.Accessibility`: validated settings and the English/Malay catalog.
+- `Agrovator.PitchSimulator.LMS`: the unchanged DTO/serialization and mock/WebGL bridge boundary.
+- `Agrovator.PitchSimulator.Audio`: cue service and Unity adapters.
+- `Agrovator.PitchSimulator.UI`: thin routing, views, focus, results, recovery, responsive layout, and composition.
+- The older Core/Dialogue/Scoring session path remains in the repository for legacy vertical-slice coverage but is not the active guided Bootstrap composition.
 
-The `PitchSessionController` owns game rules and emits immutable snapshots/events. `Bootstrapper` is the sole production unscaled clock bridge. Presenters render snapshots and forward commands; they do not duplicate session rules.
+The engine-independent `PitchDraft` records each part's initial response ID/mastery, current response ID/mastery, and revision flag. `PitchAssessmentBuilder` computes from the current snapshot. `GuidedPitchSessionController` is the single rule owner; presenters render snapshots and forward commands.
 
-`TutorialPresenter` owns only its three-page local index. Back and Next do not mutate the session; Skip and Start Practice each invoke the existing session Continue command once. Generated screen cards are centered at the 1280x720 reference: Title `760x500`, Briefing `880x520`, Tutorial `920x560`, Settings `720x420`, and PitchRoom/Results at no more than `960x680`. Gameplay responses are capped at `680px`; normal actions are capped at `520px`; Tutorial navigation renders at `180/180/420px` for Back/Skip/Next.
+## Responsive and WebGL boundary
 
-## Change rules
+The WebGL template sizes the stage from available shell width and viewport height. Its render scale is `clamp(devicePixelRatio, 1, 2)`, so backing dimensions follow displayed resolution while capping memory growth. Three display-only JavaScript exports report CSS width, CSS height, and DPR; they carry no learner, launch, content, or completion data.
 
-Keep deterministic logic outside MonoBehaviours, preserve one composition root, maintain assembly direction, and regenerate scenes through `PitchSimulatorProjectBuilder` rather than ad hoc hierarchy drift. See [state flow](06-STATE-SESSION-FLOW.md), [ADR 0002](adr/0002-three-scene-state-driven-ui.md), and [automation ADR](adr/0004-unity-automation-strategy.md).
+Unity switches to compact layout at CSS width `<= 960` or aspect ratio `< 1.25`. Wide mode uses one-row pitch/card layouts. Compact mode uses a two-column board, one-column cards, stacked action groups, and scrolling. Point filtering is retained for pixel art while text and controls render at the full UI backing resolution.
+
+Fresh browser evidence measured `1276x918` CSS/backing at desktop and `380x783` at mobile in both Chrome and Edge, DPR/render scale `1`, focus retained, containment true, and zero inner/outer horizontal overflow. Higher-DPR formulas have automated source/math coverage but were not exercised by that runtime matrix.
+
+## Compatibility boundaries
+
+`LmsLaunchConfig` has no learner-mode/category field. Primary or Secondary is selected locally after Briefing. `Elementary -> Primary` is conceptual documentation, not code. The `14` launch fields and `19` completion fields/types are unchanged from the approved v1 boundary even though supported content is now v2.
+
+The learner sees Pitch Readiness. The payload's existing `FinalConfidence` stays hidden and keeps legacy delta semantics. Selection history uses the existing `SelectedResponseIds` array; no new transport or DTO field was introduced.
+
+See [state flow](06-STATE-SESSION-FLOW.md), [LMS contract](11-LMS-CONTRACT.md), [ADR 0002](adr/0002-three-scene-state-driven-ui.md), and [automation ADR](adr/0004-unity-automation-strategy.md).
