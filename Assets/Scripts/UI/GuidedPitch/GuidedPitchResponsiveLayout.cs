@@ -10,9 +10,13 @@ namespace Agrovator.PitchSimulator.UI
         private const float CompactAspectThreshold = 1.25f;
         private const float TargetHeight = 96f;
 
+        [SerializeField] private RectTransform viewport;
         [SerializeField] private GridLayoutGroup boardGrid;
         [SerializeField] private GridLayoutGroup sentenceCardGrid;
         [SerializeField] private ScrollRect compactScroll;
+        [SerializeField] private GuidedPitchFlowLayout modeSelectionControls;
+        [SerializeField] private GuidedPitchFlowLayout improveActionControls;
+        [SerializeField] private GuidedPitchFlowLayout primaryActionControls;
 
         private bool? appliedCompact;
         private Vector2? appliedViewportSize;
@@ -26,6 +30,32 @@ namespace Agrovator.PitchSimulator.UI
             compactScroll = scroll ?? throw new ArgumentNullException(nameof(scroll));
             appliedCompact = null;
             appliedViewportSize = null;
+        }
+
+        public void Configure(
+            RectTransform liveViewport,
+            GridLayoutGroup board,
+            GridLayoutGroup sentenceCards,
+            ScrollRect scroll,
+            GuidedPitchFlowLayout modes,
+            GuidedPitchFlowLayout improve,
+            GuidedPitchFlowLayout primary)
+        {
+            Configure(board, sentenceCards, scroll);
+            viewport = liveViewport ?? throw new ArgumentNullException(nameof(liveViewport));
+            modeSelectionControls = modes ?? throw new ArgumentNullException(nameof(modes));
+            improveActionControls = improve ?? throw new ArgumentNullException(nameof(improve));
+            primaryActionControls = primary ?? throw new ArgumentNullException(nameof(primary));
+        }
+
+        private void OnEnable()
+        {
+            ApplyCurrentViewport();
+        }
+
+        private void OnRectTransformDimensionsChange()
+        {
+            ApplyCurrentViewport();
         }
 
         /// <summary>
@@ -60,6 +90,9 @@ namespace Agrovator.PitchSimulator.UI
                 sentenceCardGrid.constraintCount = 1;
                 sentenceCardGrid.cellSize = new Vector2(Mathf.Max(280f, viewportSize.x - 64f), TargetHeight);
                 compactScroll.enabled = true;
+                SetControlLayout(modeSelectionControls, true);
+                SetControlLayout(improveActionControls, true);
+                SetControlLayout(primaryActionControls, true);
             }
             else
             {
@@ -70,9 +103,36 @@ namespace Agrovator.PitchSimulator.UI
                 sentenceCardGrid.constraintCount = 1;
                 sentenceCardGrid.cellSize = new Vector2(288f, TargetHeight);
                 compactScroll.enabled = false;
+                SetControlLayout(modeSelectionControls, false);
+                SetControlLayout(improveActionControls, false);
+                SetControlLayout(primaryActionControls, false);
             }
 
             return modeChanged;
+        }
+
+        private void ApplyCurrentViewport()
+        {
+            if (!isActiveAndEnabled || viewport == null || boardGrid == null ||
+                sentenceCardGrid == null || compactScroll == null)
+            {
+                return;
+            }
+
+            var size = viewport.rect.size;
+            if (size.x > 0f && size.y > 0f)
+            {
+                Apply(size);
+            }
+        }
+
+        private static void SetControlLayout(GuidedPitchFlowLayout layout, bool compact)
+        {
+            if (layout == null)
+            {
+                return;
+            }
+            layout.SetStacked(compact);
         }
 
         private void ValidateReferences()

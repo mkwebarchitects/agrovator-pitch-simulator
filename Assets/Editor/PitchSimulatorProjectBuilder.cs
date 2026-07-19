@@ -65,6 +65,11 @@ namespace Agrovator.PitchSimulator.Editor
             var scene = OpenTarget(BootstrapPath, out var closeAfter);
             try
             {
+                if (HasCurrentBootstrapContract(scene))
+                {
+                    return;
+                }
+
                 var root = ReplaceOwnedRoot(scene, "Generated Bootstrap");
                 var bootstrapObject = new GameObject("Bootstrapper");
                 bootstrapObject.transform.SetParent(root.transform, false);
@@ -114,6 +119,11 @@ namespace Agrovator.PitchSimulator.Editor
             var scene = OpenTarget(GamePath, out var closeAfter);
             try
             {
+                if (HasCurrentGameContract(scene))
+                {
+                    return;
+                }
+
                 var root = ReplaceOwnedRoot(scene, "Generated UI");
 
                 var eventSystemObject = new GameObject("EventSystem", typeof(EventSystem),
@@ -150,6 +160,11 @@ namespace Agrovator.PitchSimulator.Editor
             var scene = OpenTarget(WebTestPath, out var closeAfter);
             try
             {
+                if (HasCurrentWebIntegrationContract(scene))
+                {
+                    return;
+                }
+
                 var root = ReplaceOwnedRoot(scene, "Generated Web Integration Test");
                 var bridgeObject = new GameObject("Bridge Host");
                 bridgeObject.transform.SetParent(root.transform, false);
@@ -205,6 +220,104 @@ namespace Agrovator.PitchSimulator.Editor
             var root = new GameObject(rootName);
             SceneManager.MoveGameObjectToScene(root, scene);
             return root;
+        }
+
+        private static bool HasCurrentBootstrapContract(Scene scene)
+        {
+            if (!TryGetSingleOwnedRoot(scene, "Generated Bootstrap", out var root))
+            {
+                return false;
+            }
+
+            var bootstrappers = root.GetComponentsInChildren<Bootstrapper>(true);
+            if (bootstrappers.Length != 1 || bootstrappers[0].GetComponents<AudioSource>().Length != 2)
+            {
+                return false;
+            }
+
+            var serialized = new SerializedObject(bootstrappers[0]);
+            var content = serialized.FindProperty("guidedPitchContentJson")?.objectReferenceValue;
+            var english = serialized.FindProperty("englishCatalogJson")?.objectReferenceValue;
+            var malay = serialized.FindProperty("malayCatalogJson")?.objectReferenceValue;
+            var bindings = serialized.FindProperty("audioCueBindings");
+            return AssetDatabase.GetAssetPath(content) == GuidedContentPath &&
+                AssetDatabase.GetAssetPath(english) == "Assets/Content/Localization/en.json" &&
+                AssetDatabase.GetAssetPath(malay) == "Assets/Content/Localization/ms.json" &&
+                bindings != null && bindings.arraySize == Enum.GetValues(typeof(AudioCue)).Length;
+        }
+
+        private static bool HasCurrentGameContract(Scene scene)
+        {
+            if (!TryGetSingleOwnedRoot(scene, "Generated UI", out var root))
+            {
+                return false;
+            }
+
+            var canvases = root.GetComponentsInChildren<Canvas>(true);
+            var eventSystems = root.GetComponentsInChildren<EventSystem>(true);
+            var routers = root.GetComponentsInChildren<GuidedPitchScreenRouter>(true);
+            var responsive = root.GetComponentsInChildren<GuidedPitchResponsiveLayout>(true);
+            var selectables = root.GetComponentsInChildren<Selectable>(true);
+            if (canvases.Length != 1 || eventSystems.Length != 1 || routers.Length != 1 ||
+                responsive.Length != 1 || root.GetComponentsInChildren<GuidedPitchFlowLayout>(true).Length != 3 ||
+                selectables.Length == 0 ||
+                root.GetComponentsInChildren<SelectableFocusIndicator>(true).Length != selectables.Length ||
+                selectables.Any(selectable => selectable.targetGraphic == null ||
+                    selectable.targetGraphic.GetComponent<Outline>() == null))
+            {
+                return false;
+            }
+
+            var canvas = canvases[0];
+            var scaler = canvas.GetComponent<CanvasScaler>();
+            var environment = canvas.transform.Find("Guided Pitch/Environment Frame");
+            var environmentImage = environment != null ? environment.GetComponent<Image>() : null;
+            var environmentAspect = environment != null
+                ? environment.GetComponent<AspectRatioFitter>()
+                : null;
+            var screens = canvas.transform.Cast<Transform>().Select(child => child.name).ToArray();
+            var expectedScreens = new[]
+            {
+                "Title", "Briefing", "Guided Pitch", "Results", "Settings", "Safe Fallback",
+            };
+            return scaler != null && scaler.uiScaleMode == CanvasScaler.ScaleMode.ScaleWithScreenSize &&
+                scaler.referenceResolution == new Vector2(1280f, 720f) &&
+                screens.SequenceEqual(expectedScreens) &&
+                environmentImage != null && environmentImage.sprite != null &&
+                environmentAspect != null &&
+                environmentAspect.aspectMode == AspectRatioFitter.AspectMode.EnvelopeParent &&
+                Mathf.Approximately(environmentAspect.aspectRatio,
+                    environmentImage.sprite.rect.width / environmentImage.sprite.rect.height) &&
+                routers[0].ValidateContract(out _) &&
+                eventSystems[0].firstSelectedGameObject ==
+                    canvas.transform.Find("Title/Content Frame/Start Button")?.gameObject;
+        }
+
+        private static bool HasCurrentWebIntegrationContract(Scene scene)
+        {
+            if (!TryGetSingleOwnedRoot(scene, "Generated Web Integration Test", out var root))
+            {
+                return false;
+            }
+
+            var hosts = root.GetComponentsInChildren<WebGlLmsBridgeHost>(true);
+            if (hosts.Length != 1)
+            {
+                return false;
+            }
+
+            var diagnostics = new SerializedObject(hosts[0]).FindProperty("diagnosticsLabel")
+                ?.objectReferenceValue as Text;
+            return diagnostics != null && root.GetComponentsInChildren<Canvas>(true).Length == 1;
+        }
+
+        private static bool TryGetSingleOwnedRoot(Scene scene, string rootName, out GameObject root)
+        {
+            var matches = scene.GetRootGameObjects()
+                .Where(candidate => string.Equals(candidate.name, rootName, StringComparison.Ordinal))
+                .ToArray();
+            root = matches.Length == 1 ? matches[0] : null;
+            return root != null;
         }
 
         private static void CloseIfOwned(Scene scene, bool closeAfter)

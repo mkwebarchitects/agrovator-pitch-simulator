@@ -146,7 +146,7 @@ namespace Agrovator.PitchSimulator.Editor
             var responsive = panel.AddComponent<GuidedPitchResponsiveLayout>();
 
             var environment = new GameObject("Environment Frame", typeof(RectTransform),
-                typeof(Image), typeof(LayoutElement));
+                typeof(Image), typeof(AspectRatioFitter), typeof(LayoutElement));
             environment.transform.SetParent(panel.transform, false);
             Stretch(environment.GetComponent<RectTransform>());
             environment.GetComponent<LayoutElement>().ignoreLayout = true;
@@ -154,6 +154,9 @@ namespace Agrovator.PitchSimulator.Editor
             environmentImage.sprite = garden;
             environmentImage.color = Color.white;
             environmentImage.raycastTarget = false;
+            var environmentAspect = environment.GetComponent<AspectRatioFitter>();
+            environmentAspect.aspectMode = AspectRatioFitter.AspectMode.EnvelopeParent;
+            environmentAspect.aspectRatio = garden.rect.width / garden.rect.height;
 
             var frame = CreateFrame(panel.transform, FrameWidth, FrameHeight, 8, 8, 8f);
 
@@ -172,7 +175,7 @@ namespace Agrovator.PitchSimulator.Editor
             var followUp = new GameObject("Follow Up", typeof(RectTransform));
             followUp.transform.SetParent(scrollContent, false);
 
-            var primaryAction = CreateRow("Primary Action", frame.transform, 12f, 64f);
+            var primaryAction = CreateResponsiveRow("Primary Action", frame.transform, 12f, 64f);
             var continueButton = CreateActionButton(
                 "Continue Button", primaryAction.transform, "Continue", 420f);
             var presentButton = CreateActionButton(
@@ -196,9 +199,13 @@ namespace Agrovator.PitchSimulator.Editor
                 strengthenLabels,
                 phaseScroll);
             responsive.Configure(
+                canvas.GetComponent<RectTransform>(),
                 board.GetComponent<GridLayoutGroup>(),
                 cards.GetComponent<GridLayoutGroup>(),
-                phaseScroll);
+                phaseScroll,
+                modeSelectionPanel.GetComponent<GuidedPitchFlowLayout>(),
+                strengthenButtons[0].transform.parent.GetComponent<GuidedPitchFlowLayout>(),
+                primaryAction.GetComponent<GuidedPitchFlowLayout>());
             ApplyWideLayoutDefaults(board.GetComponent<GridLayoutGroup>(),
                 cards.GetComponent<GridLayoutGroup>(), phaseScroll);
             references.GuidedPresenter = presenter;
@@ -417,10 +424,9 @@ namespace Agrovator.PitchSimulator.Editor
         private static GameObject CreateModeSelection(Transform content)
         {
             var root = new GameObject("Mode Selection", typeof(RectTransform),
-                typeof(HorizontalLayoutGroup), typeof(LayoutElement), typeof(ModeSelectionView));
+                typeof(GuidedPitchFlowLayout), typeof(LayoutElement), typeof(ModeSelectionView));
             root.transform.SetParent(content, false);
-            ConfigureRow(root.GetComponent<HorizontalLayoutGroup>(), 12f, expandWidth: true,
-                expandHeight: true);
+            root.GetComponent<GuidedPitchFlowLayout>().Configure(150f, 12f);
             root.GetComponent<LayoutElement>().preferredHeight = 150f;
 
             var cards = new ModeSelectionCard[2];
@@ -451,6 +457,7 @@ namespace Agrovator.PitchSimulator.Editor
 
                 var button = card.GetComponent<Button>();
                 button.targetGraphic = backing;
+                AddFocusIndicator(button);
                 cards[index] = new ModeSelectionCard(modes[index], button, title, description, backing);
             }
             SetNavigation(cards[0].Button, null, null, null, cards[1].Button);
@@ -510,6 +517,7 @@ namespace Agrovator.PitchSimulator.Editor
 
                 var view = card.GetComponent<SentenceCardView>();
                 view.Configure(card.GetComponent<Button>(), label, backing, outline);
+                AddFocusIndicator(card.GetComponent<Button>());
                 SetNavigation(card.GetComponent<Button>(), null, null, null, null);
                 cards[index] = view;
             }
@@ -560,10 +568,9 @@ namespace Agrovator.PitchSimulator.Editor
         private static Button[] CreateImproveActions(Transform content, out Text[] strengthenLabels)
         {
             var root = new GameObject("Improve Actions", typeof(RectTransform),
-                typeof(HorizontalLayoutGroup), typeof(LayoutElement));
+                typeof(GuidedPitchFlowLayout), typeof(LayoutElement));
             root.transform.SetParent(content, false);
-            ConfigureRow(root.GetComponent<HorizontalLayoutGroup>(), 8f, expandWidth: true,
-                expandHeight: true);
+            root.GetComponent<GuidedPitchFlowLayout>().Configure(64f, 8f);
             root.GetComponent<LayoutElement>().preferredHeight = 64f;
 
             var buttons = new Button[4];
@@ -578,6 +585,7 @@ namespace Agrovator.PitchSimulator.Editor
                 image.color = ActionTeal;
                 var button = buttonObject.GetComponent<Button>();
                 button.targetGraphic = image;
+                AddFocusIndicator(button);
                 var layout = buttonObject.GetComponent<HorizontalLayoutGroup>();
                 ConfigureRow(layout, 8f, expandWidth: false, expandHeight: false);
                 layout.padding = new RectOffset(10, 10, 8, 8);
@@ -851,6 +859,17 @@ namespace Agrovator.PitchSimulator.Editor
             return row;
         }
 
+        private static GameObject CreateResponsiveRow(
+            string name, Transform parent, float spacing, float height)
+        {
+            var row = new GameObject(name, typeof(RectTransform),
+                typeof(GuidedPitchFlowLayout), typeof(LayoutElement));
+            row.transform.SetParent(parent, false);
+            row.GetComponent<GuidedPitchFlowLayout>().Configure(height, spacing);
+            row.GetComponent<LayoutElement>().preferredHeight = height;
+            return row;
+        }
+
         private static void ConfigureRow(
             HorizontalLayoutGroup layout, float spacing, bool expandWidth, bool expandHeight)
         {
@@ -882,6 +901,7 @@ namespace Agrovator.PitchSimulator.Editor
             var button = buttonObject.GetComponent<Button>();
             button.targetGraphic = image;
             button.transition = Selectable.Transition.ColorTint;
+            AddFocusIndicator(button);
             var layout = buttonObject.GetComponent<LayoutElement>();
             layout.minHeight = 64f;
             layout.preferredHeight = 64f;
@@ -891,6 +911,17 @@ namespace Agrovator.PitchSimulator.Editor
             Stretch(labelText.GetComponent<RectTransform>());
             labelText.text = label;
             return button;
+        }
+
+        private static void AddFocusIndicator(Selectable selectable)
+        {
+            var outline = selectable.targetGraphic.gameObject.AddComponent<Outline>();
+            outline.effectColor = FocusGold;
+            outline.effectDistance = new Vector2(4f, -4f);
+            outline.useGraphicAlpha = false;
+            outline.enabled = false;
+            selectable.gameObject.AddComponent<SelectableFocusIndicator>()
+                .Configure(selectable, outline);
         }
 
         private static Text CreateText(

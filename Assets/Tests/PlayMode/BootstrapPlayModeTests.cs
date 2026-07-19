@@ -136,8 +136,72 @@ namespace Agrovator.PitchSimulator.Tests.PlayMode
             Assert.That(eventSystem.currentSelectedGameObject,
                 Is.SameAs(modeView.Cards[0].Button.gameObject),
                 "The first mode card must take the ModeSelection default focus.");
+            var firstIndicator = RequireFocusIndicator(modeView.Cards[0].Button);
+            var secondIndicator = RequireFocusIndicator(modeView.Cards[1].Button);
+            Assert.That(IsFocusIndicatorActive(firstIndicator), Is.True,
+                "The gold indicator must follow the EventSystem's current mode-card focus.");
+            Assert.That(IsFocusIndicatorActive(secondIndicator), Is.False);
+
+            eventSystem.SetSelectedGameObject(modeView.Cards[1].Button.gameObject);
+            yield return null;
+            Assert.That(IsFocusIndicatorActive(firstIndicator), Is.False);
+            Assert.That(IsFocusIndicatorActive(secondIndicator), Is.True,
+                "Moving actual EventSystem focus must move the gold indicator.");
             Assert.That(capturedErrors, Is.Empty,
                 "A healthy boot must log no errors: " + string.Join(", ", capturedErrors));
+        }
+
+        [UnityTest]
+        public IEnumerator GeneratedGame_LiveViewportResize_ReflowsEveryCompactControlGroup()
+        {
+            yield return SceneManager.LoadSceneAsync("Game", LoadSceneMode.Additive);
+            var gameScene = SceneManager.GetSceneByName("Game");
+            var canvas = gameScene.GetRootGameObjects()
+                .SelectMany(root => root.GetComponentsInChildren<Canvas>(true))
+                .Single();
+            var guided = canvas.transform.Find("Guided Pitch");
+            guided.gameObject.SetActive(true);
+
+            var content = guided.Find("Content Frame/Phase Scroll/Viewport/Content");
+            foreach (Transform section in content)
+            {
+                section.gameObject.SetActive(section.name == "Mode Selection" ||
+                    section.name == "Sentence Cards" || section.name == "Improve Actions");
+            }
+            var primaryAction = guided.Find("Content Frame/Primary Action");
+            foreach (Transform button in primaryAction)
+            {
+                button.gameObject.SetActive(true);
+            }
+
+            var objectCount = guided.GetComponentsInChildren<Transform>(true).Length;
+            canvas.renderMode = RenderMode.WorldSpace;
+            var canvasRect = canvas.GetComponent<RectTransform>();
+            canvasRect.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, 720f);
+            canvasRect.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, 960f);
+            yield return null;
+            Canvas.ForceUpdateCanvases();
+            LayoutRebuilder.ForceRebuildLayoutImmediate(canvasRect);
+            LayoutRebuilder.ForceRebuildLayoutImmediate(guided.GetComponent<RectTransform>());
+            yield return null;
+
+            var responsive = guided.GetComponent<GuidedPitchResponsiveLayout>();
+            Assert.That(responsive.IsCompact, Is.True,
+                "A live dimension change must invoke the responsive lifecycle without a direct Apply call.");
+            var board = guided.Find("Content Frame/Pitch Board").GetComponent<GridLayoutGroup>();
+            var cards = content.Find("Sentence Cards").GetComponent<GridLayoutGroup>();
+            Assert.That(board.constraint, Is.EqualTo(GridLayoutGroup.Constraint.FixedColumnCount));
+            Assert.That(board.constraintCount, Is.EqualTo(2));
+            Assert.That(cards.constraint, Is.EqualTo(GridLayoutGroup.Constraint.FixedColumnCount));
+            Assert.That(cards.constraintCount, Is.EqualTo(1));
+            Assert.That(guided.Find("Content Frame/Phase Scroll").GetComponent<ScrollRect>().enabled,
+                Is.True, "Compact live layout must enable scrolling.");
+
+            AssertStacked(content.Find("Mode Selection"));
+            AssertStacked(content.Find("Improve Actions"));
+            AssertStacked(primaryAction);
+            Assert.That(guided.GetComponentsInChildren<Transform>(true).Length, Is.EqualTo(objectCount),
+                "Responsive lifecycle updates must not allocate hierarchy objects.");
         }
 
         [Test]
@@ -294,6 +358,36 @@ namespace Agrovator.PitchSimulator.Tests.PlayMode
         private static TextAsset CreateAsset(string text)
         {
             return text == null ? null : new TextAsset(text);
+        }
+
+        private static void AssertStacked(Transform group)
+        {
+            var layout = group.GetComponents<LayoutGroup>().SingleOrDefault();
+            Assert.That(layout, Is.Not.Null, group.name + " must own one reusable layout group.");
+            Assert.That(layout.GetType().Name, Is.EqualTo("GuidedPitchFlowLayout"),
+                group.name + " must use the reusable generated responsive layout.");
+            var stacked = layout.GetType().GetProperty("IsStacked");
+            Assert.That(stacked, Is.Not.Null);
+            Assert.That(stacked.GetValue(layout), Is.True,
+                group.name + " must switch its existing layout to compact stacking.");
+            Assert.That(group.Cast<Transform>().Select(child => Mathf.Round(child.position.y)).Distinct().Count(),
+                Is.EqualTo(group.childCount), group.name + " controls must render on distinct rows.");
+        }
+
+        private static MonoBehaviour RequireFocusIndicator(Selectable selectable)
+        {
+            var indicator = selectable.GetComponents<MonoBehaviour>()
+                .SingleOrDefault(component => component.GetType().Name == "SelectableFocusIndicator");
+            Assert.That(indicator, Is.Not.Null,
+                selectable.name + " must own the reusable focus indicator.");
+            return indicator;
+        }
+
+        private static bool IsFocusIndicatorActive(MonoBehaviour indicator)
+        {
+            var property = indicator.GetType().GetProperty("IsFocused");
+            Assert.That(property, Is.Not.Null);
+            return (bool)property.GetValue(indicator);
         }
 
         private void CaptureLog(string condition, string stackTrace, LogType type)

@@ -65,11 +65,30 @@ namespace Agrovator.PitchSimulator.Tests.EditMode.UI
                 AssertBootstrapContract();
                 AssertWebIntegrationContract();
                 AssertExactBuildSettings();
+                var firstBuildBytes = GeneratedScenePaths.ToDictionary(
+                    path => path, File.ReadAllBytes, StringComparer.Ordinal);
+                var firstOwnedGameRoot = scene.GetRootGameObjects()
+                    .Single(root => root.name == "Generated UI");
                 PitchSimulatorProjectBuilder.BuildProjectFoundationBatch();
+                Assert.That(scene.GetRootGameObjects().Single(root => root.name == "Generated UI"),
+                    Is.SameAs(firstOwnedGameRoot),
+                    "An unchanged build must reuse the current owned root and its serialized IDs.");
                 AssertGuidedGameContract(scene);
                 AssertBootstrapContract();
                 AssertWebIntegrationContract();
                 AssertExactBuildSettings();
+                foreach (var path in GeneratedScenePaths)
+                {
+                    Assert.That(File.ReadAllBytes(path), Is.EqualTo(firstBuildBytes[path]),
+                        path + " must be byte-identical after a second unchanged builder run.");
+                }
+
+                UnityEngine.Object.DestroyImmediate(firstOwnedGameRoot.transform.Find("Canvas").gameObject);
+                PitchSimulatorProjectBuilder.BuildProjectFoundationBatch();
+                Assert.That(scene.GetRootGameObjects().Single(root => root.name == "Generated UI"),
+                    Is.Not.SameAs(firstOwnedGameRoot),
+                    "A stale generated contract must still be rebuilt and migrated.");
+                AssertGuidedGameContract(scene);
             }
             finally
             {
@@ -275,6 +294,15 @@ namespace Agrovator.PitchSimulator.Tests.EditMode.UI
             {
                 Assert.That(selectable.navigation.mode, Is.EqualTo(Navigation.Mode.Explicit),
                     selectable.name + " must use explicit navigation.");
+                var indicator = selectable.GetComponents<MonoBehaviour>()
+                    .SingleOrDefault(component => component.GetType().Name == "SelectableFocusIndicator");
+                Assert.That(indicator, Is.Not.Null,
+                    selectable.name + " must own the reusable keyboard-focus indicator.");
+                var outline = selectable.targetGraphic.GetComponent<Outline>();
+                Assert.That(outline, Is.Not.Null, selectable.name + " must render a focus outline.");
+                Assert.That(outline.effectColor, Is.EqualTo(FocusGold));
+                Assert.That(ContrastRatio(outline.effectColor, DeepNavy), Is.GreaterThanOrEqualTo(3f),
+                    selectable.name + " focus must contrast with the adjacent navy surface by 3:1.");
             }
 
             var targetFailures = new List<string>();
@@ -389,6 +417,39 @@ namespace Agrovator.PitchSimulator.Tests.EditMode.UI
                     "Judge Aya must render at her native sprite width without stretching.");
                 Assert.That(judgeRect.rect.height, Is.EqualTo(judgeImage.sprite.rect.height).Within(0.5f),
                     "Judge Aya must render at her native sprite height without stretching.");
+            }
+        }
+
+        [Test]
+        public void GeneratedEnvironment_CropsToFillWithoutStretchingInLandscapeAndPortrait()
+        {
+            foreach (var size in new[] { WideSize, new Vector2(720f, 960f) })
+            {
+                var canvas = OpenGameCanvas(size);
+                var guided = RequireChild(canvas, "Guided Pitch");
+                using (new ActiveScope(guided.gameObject))
+                {
+                    ForceGuidedLayout(canvas, guided);
+                    var environment = RequireChild(guided, "Environment Frame");
+                    var image = environment.GetComponent<Image>();
+                    var fitter = environment.GetComponent<AspectRatioFitter>();
+                    Assert.That(fitter, Is.Not.Null,
+                        "The original garden must use an aspect-preserving crop-to-fill fitter.");
+                    Assert.That(fitter.aspectMode, Is.EqualTo(AspectRatioFitter.AspectMode.EnvelopeParent));
+
+                    var sourceAspect = image.sprite.rect.width / image.sprite.rect.height;
+                    Assert.That(fitter.aspectRatio, Is.EqualTo(sourceAspect).Within(0.0001f));
+                    var environmentRect = environment.GetComponent<RectTransform>();
+                    var guidedRect = guided.GetComponent<RectTransform>();
+                    Assert.That(environmentRect.rect.width / environmentRect.rect.height,
+                        Is.EqualTo(sourceAspect).Within(0.001f),
+                        size + " must preserve the original garden aspect ratio.");
+                    Assert.That(environmentRect.rect.width, Is.GreaterThanOrEqualTo(guidedRect.rect.width - 0.5f));
+                    Assert.That(environmentRect.rect.height, Is.GreaterThanOrEqualTo(guidedRect.rect.height - 0.5f));
+                    Assert.That(environmentRect.rect.width / image.sprite.rect.width,
+                        Is.EqualTo(environmentRect.rect.height / image.sprite.rect.height).Within(0.001f),
+                        size + " must scale the garden uniformly on both axes.");
+                }
             }
         }
 
