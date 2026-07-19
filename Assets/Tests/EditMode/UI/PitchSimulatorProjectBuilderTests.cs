@@ -83,11 +83,28 @@ namespace Agrovator.PitchSimulator.Tests.EditMode.UI
                         path + " must be byte-identical after a second unchanged builder run.");
                 }
 
-                UnityEngine.Object.DestroyImmediate(firstOwnedGameRoot.transform.Find("Canvas").gameObject);
+                var responsive = firstOwnedGameRoot
+                    .GetComponentInChildren<GuidedPitchResponsiveLayout>(true);
+                var responsiveSerialized = new SerializedObject(responsive);
+                responsiveSerialized.FindProperty("modeSelectionControls").objectReferenceValue = null;
+                responsiveSerialized.ApplyModifiedPropertiesWithoutUndo();
+                PitchSimulatorProjectBuilder.BuildProjectFoundationBatch();
+                var responsiveMigratedRoot = scene.GetRootGameObjects()
+                    .Single(root => root.name == "Generated UI");
+                Assert.That(responsiveMigratedRoot,
+                    Is.Not.SameAs(firstOwnedGameRoot),
+                    "A partial responsive-reference contract must be rebuilt and migrated.");
+                var migratedResponsive = responsiveMigratedRoot
+                    .GetComponentInChildren<GuidedPitchResponsiveLayout>(true);
+                Assert.That(migratedResponsive.ValidateContract(out var responsiveReason), Is.True,
+                    responsiveReason);
+
+                UnityEngine.Object.DestroyImmediate(
+                    responsiveMigratedRoot.transform.Find("Canvas").gameObject);
                 PitchSimulatorProjectBuilder.BuildProjectFoundationBatch();
                 Assert.That(scene.GetRootGameObjects().Single(root => root.name == "Generated UI"),
-                    Is.Not.SameAs(firstOwnedGameRoot),
-                    "A stale generated contract must still be rebuilt and migrated.");
+                    Is.Not.SameAs(responsiveMigratedRoot),
+                    "A structurally stale generated contract must still be rebuilt and migrated.");
                 AssertGuidedGameContract(scene);
             }
             finally
@@ -193,9 +210,10 @@ namespace Agrovator.PitchSimulator.Tests.EditMode.UI
                     layout.Apply(size);
                     Assert.That(layout.IsCompact, Is.True, size + " must reflow to the compact layout.");
                     SetPhaseSections(guided, "Sentence Cards");
+                    var frame = RequireChild(guided, "Content Frame");
+                    var primaryAction = RequireChild(frame, "Primary Action");
                     ForceGuidedLayout(canvas, guided);
 
-                    var frame = RequireChild(guided, "Content Frame");
                     var frameRect = frame.GetComponent<RectTransform>();
                     Assert.That(frameRect.rect.width, Is.LessThanOrEqualTo(size.x - 48f),
                         size + " must keep 24px horizontal safe padding.");
@@ -245,6 +263,38 @@ namespace Agrovator.PitchSimulator.Tests.EditMode.UI
                         var rect = (RectTransform)selectable.transform;
                         Assert.That(rect.rect.height, Is.LessThanOrEqualTo(viewport.rect.height + 0.5f),
                             selectable.name + " must be scrollable fully visible at " + size);
+                    }
+
+                    SetPhaseSections(guided, PhaseSectionNames);
+                    foreach (Transform button in primaryAction)
+                    {
+                        button.gameObject.SetActive(true);
+                    }
+                    ForceGuidedLayout(canvas, guided);
+
+                    foreach (var groupPath in new[] { "Mode Selection", "Improve Actions" })
+                    {
+                        var group = content.Find(groupPath).GetComponent<RectTransform>();
+                        Assert.That(group.GetComponent<LayoutElement>(), Is.Null,
+                            group.name + " must use its flow layout as the sole size authority.");
+                        foreach (Transform child in group)
+                        {
+                            AssertContained(group, child.GetComponent<RectTransform>());
+                        }
+                    }
+                    foreach (Transform activeGroup in content)
+                    {
+                        if (activeGroup.gameObject.activeSelf)
+                        {
+                            AssertContained(content, activeGroup.GetComponent<RectTransform>());
+                        }
+                    }
+                    var primaryRect = primaryAction.GetComponent<RectTransform>();
+                    Assert.That(primaryRect.GetComponent<LayoutElement>(), Is.Null,
+                        "Primary Action must use its flow layout as the sole size authority.");
+                    foreach (Transform child in primaryAction)
+                    {
+                        AssertContained(primaryRect, child.GetComponent<RectTransform>());
                     }
                 }
 

@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using Agrovator.PitchSimulator.GuidedPitch;
 using Agrovator.PitchSimulator.LMS;
 using Agrovator.PitchSimulator.UI;
@@ -152,7 +153,7 @@ namespace Agrovator.PitchSimulator.Tests.PlayMode
         }
 
         [UnityTest]
-        public IEnumerator GeneratedGame_LiveViewportResize_ReflowsEveryCompactControlGroup()
+        public IEnumerator GeneratedGame_LiveScreenSpaceOverlayResize_UsesPhysicalCompactBreakpoints()
         {
             yield return SceneManager.LoadSceneAsync("Game", LoadSceneMode.Additive);
             var gameScene = SceneManager.GetSceneByName("Game");
@@ -175,33 +176,49 @@ namespace Agrovator.PitchSimulator.Tests.PlayMode
             }
 
             var objectCount = guided.GetComponentsInChildren<Transform>(true).Length;
-            canvas.renderMode = RenderMode.WorldSpace;
+            Assert.That(canvas.renderMode, Is.EqualTo(RenderMode.ScreenSpaceOverlay));
             var canvasRect = canvas.GetComponent<RectTransform>();
-            canvasRect.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, 720f);
-            canvasRect.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, 960f);
-            yield return null;
-            Canvas.ForceUpdateCanvases();
-            LayoutRebuilder.ForceRebuildLayoutImmediate(canvasRect);
-            LayoutRebuilder.ForceRebuildLayoutImmediate(guided.GetComponent<RectTransform>());
-            yield return null;
-
             var responsive = guided.GetComponent<GuidedPitchResponsiveLayout>();
-            Assert.That(responsive.IsCompact, Is.True,
-                "A live dimension change must invoke the responsive lifecycle without a direct Apply call.");
             var board = guided.Find("Content Frame/Pitch Board").GetComponent<GridLayoutGroup>();
             var cards = content.Find("Sentence Cards").GetComponent<GridLayoutGroup>();
-            Assert.That(board.constraint, Is.EqualTo(GridLayoutGroup.Constraint.FixedColumnCount));
-            Assert.That(board.constraintCount, Is.EqualTo(2));
-            Assert.That(cards.constraint, Is.EqualTo(GridLayoutGroup.Constraint.FixedColumnCount));
-            Assert.That(cards.constraintCount, Is.EqualTo(1));
-            Assert.That(guided.Find("Content Frame/Phase Scroll").GetComponent<ScrollRect>().enabled,
-                Is.True, "Compact live layout must enable scrolling.");
+            var canvasField = typeof(GuidedPitchResponsiveLayout).GetField(
+                "viewportCanvas", BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.That(canvasField, Is.Not.Null,
+                "Generated runtime layout must serialize the physical Canvas viewport source.");
+            Assert.That(canvasField.GetValue(responsive), Is.SameAs(canvas));
+            var sourceObject = new GameObject("Physical Viewport Source", typeof(RectTransform));
+            roots.Add(sourceObject);
+            var physicalViewport = sourceObject.GetComponent<RectTransform>();
+            responsive.ConfigurePhysicalViewportSource(physicalViewport);
 
-            AssertStacked(content.Find("Mode Selection"));
-            AssertStacked(content.Find("Improve Actions"));
-            AssertStacked(primaryAction);
-            Assert.That(guided.GetComponentsInChildren<Transform>(true).Length, Is.EqualTo(objectCount),
-                "Responsive lifecycle updates must not allocate hierarchy objects.");
+            foreach (var physicalSize in new[]
+                { new Vector2Int(960, 720), new Vector2Int(720, 960) })
+            {
+                physicalViewport.SetSizeWithCurrentAnchors(
+                    RectTransform.Axis.Horizontal, physicalSize.x);
+                physicalViewport.SetSizeWithCurrentAnchors(
+                    RectTransform.Axis.Vertical, physicalSize.y);
+                yield return null;
+                Canvas.ForceUpdateCanvases();
+                LayoutRebuilder.ForceRebuildLayoutImmediate(canvasRect);
+                LayoutRebuilder.ForceRebuildLayoutImmediate(guided.GetComponent<RectTransform>());
+                yield return null;
+
+                Assert.That(responsive.IsCompact, Is.True,
+                    physicalSize + " physical pixels must invoke compact lifecycle rules.");
+                Assert.That(board.constraint, Is.EqualTo(GridLayoutGroup.Constraint.FixedColumnCount));
+                Assert.That(board.constraintCount, Is.EqualTo(2));
+                Assert.That(cards.constraint, Is.EqualTo(GridLayoutGroup.Constraint.FixedColumnCount));
+                Assert.That(cards.constraintCount, Is.EqualTo(1));
+                Assert.That(guided.Find("Content Frame/Phase Scroll").GetComponent<ScrollRect>().enabled,
+                    Is.True, "Compact live layout must enable scrolling.");
+                AssertStacked(content.Find("Mode Selection"));
+                AssertStacked(content.Find("Improve Actions"));
+                AssertStacked(primaryAction);
+                Assert.That(guided.GetComponentsInChildren<Transform>(true).Length,
+                    Is.EqualTo(objectCount),
+                    "Responsive lifecycle updates must not allocate hierarchy objects.");
+            }
         }
 
         [Test]

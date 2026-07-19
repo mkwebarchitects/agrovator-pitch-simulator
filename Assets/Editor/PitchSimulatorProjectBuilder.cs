@@ -258,8 +258,10 @@ namespace Agrovator.PitchSimulator.Editor
             var routers = root.GetComponentsInChildren<GuidedPitchScreenRouter>(true);
             var responsive = root.GetComponentsInChildren<GuidedPitchResponsiveLayout>(true);
             var selectables = root.GetComponentsInChildren<Selectable>(true);
+            var flowLayouts = root.GetComponentsInChildren<GuidedPitchFlowLayout>(true);
             if (canvases.Length != 1 || eventSystems.Length != 1 || routers.Length != 1 ||
-                responsive.Length != 1 || root.GetComponentsInChildren<GuidedPitchFlowLayout>(true).Length != 3 ||
+                responsive.Length != 1 || flowLayouts.Length != 3 ||
+                flowLayouts.Any(layout => layout.GetComponent<LayoutElement>() != null) ||
                 selectables.Length == 0 ||
                 root.GetComponentsInChildren<SelectableFocusIndicator>(true).Length != selectables.Length ||
                 selectables.Any(selectable => selectable.targetGraphic == null ||
@@ -282,6 +284,7 @@ namespace Agrovator.PitchSimulator.Editor
             };
             return scaler != null && scaler.uiScaleMode == CanvasScaler.ScaleMode.ScaleWithScreenSize &&
                 scaler.referenceResolution == new Vector2(1280f, 720f) &&
+                responsive[0].ValidateContract(out _) &&
                 screens.SequenceEqual(expectedScreens) &&
                 environmentImage != null && environmentImage.sprite != null &&
                 environmentAspect != null &&

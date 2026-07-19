@@ -10,6 +10,7 @@ namespace Agrovator.PitchSimulator.UI
         private const float CompactAspectThreshold = 1.25f;
         private const float TargetHeight = 96f;
 
+        [SerializeField] private Canvas viewportCanvas;
         [SerializeField] private RectTransform viewport;
         [SerializeField] private GridLayoutGroup boardGrid;
         [SerializeField] private GridLayoutGroup sentenceCardGrid;
@@ -20,6 +21,7 @@ namespace Agrovator.PitchSimulator.UI
 
         private bool? appliedCompact;
         private Vector2? appliedViewportSize;
+        private RectTransform physicalViewportSource;
 
         public bool IsCompact => appliedCompact == true;
 
@@ -33,7 +35,7 @@ namespace Agrovator.PitchSimulator.UI
         }
 
         public void Configure(
-            RectTransform liveViewport,
+            Canvas liveCanvas,
             GridLayoutGroup board,
             GridLayoutGroup sentenceCards,
             ScrollRect scroll,
@@ -42,10 +44,21 @@ namespace Agrovator.PitchSimulator.UI
             GuidedPitchFlowLayout primary)
         {
             Configure(board, sentenceCards, scroll);
-            viewport = liveViewport ?? throw new ArgumentNullException(nameof(liveViewport));
+            viewportCanvas = liveCanvas ?? throw new ArgumentNullException(nameof(liveCanvas));
+            viewport = liveCanvas.GetComponent<RectTransform>();
             modeSelectionControls = modes ?? throw new ArgumentNullException(nameof(modes));
             improveActionControls = improve ?? throw new ArgumentNullException(nameof(improve));
             primaryActionControls = primary ?? throw new ArgumentNullException(nameof(primary));
+        }
+
+        /// <summary>
+        /// Supplies a deterministic physical-size source for embedded viewport hosts and test rigs.
+        /// Generated ScreenSpace canvases normally use <see cref="Canvas.pixelRect"/> directly.
+        /// </summary>
+        public void ConfigurePhysicalViewportSource(RectTransform source)
+        {
+            physicalViewportSource = source ?? throw new ArgumentNullException(nameof(source));
+            appliedViewportSize = null;
         }
 
         private void OnEnable()
@@ -58,6 +71,11 @@ namespace Agrovator.PitchSimulator.UI
             ApplyCurrentViewport();
         }
 
+        private void Update()
+        {
+            ApplyCurrentViewport();
+        }
+
         /// <summary>
         /// Applies the wide or compact layout rules for the viewport without allocating objects.
         /// Returns true only when the layout mode (wide/compact) changed. Width-dependent cell
@@ -66,7 +84,7 @@ namespace Agrovator.PitchSimulator.UI
         /// </summary>
         public bool Apply(Vector2 viewportSize)
         {
-            ValidateReferences();
+            ValidateApplyReferences();
             if (viewportSize.x <= 0f || viewportSize.y <= 0f)
             {
                 throw new ArgumentOutOfRangeException(nameof(viewportSize), "Viewport dimensions must be positive.");
@@ -111,6 +129,33 @@ namespace Agrovator.PitchSimulator.UI
             return modeChanged;
         }
 
+        public bool ValidateContract(out string reason)
+        {
+            if (viewportCanvas == null || viewport == null || boardGrid == null ||
+                sentenceCardGrid == null || compactScroll == null ||
+                modeSelectionControls == null || improveActionControls == null ||
+                primaryActionControls == null)
+            {
+                reason = "responsive_layout_references_missing";
+                return false;
+            }
+            if (viewportCanvas.GetComponent<RectTransform>() != viewport)
+            {
+                reason = "responsive_viewport_mismatch";
+                return false;
+            }
+            if (modeSelectionControls == improveActionControls ||
+                modeSelectionControls == primaryActionControls ||
+                improveActionControls == primaryActionControls)
+            {
+                reason = "responsive_control_groups_not_distinct";
+                return false;
+            }
+
+            reason = null;
+            return true;
+        }
+
         private void ApplyCurrentViewport()
         {
             if (!isActiveAndEnabled || viewport == null || boardGrid == null ||
@@ -119,11 +164,24 @@ namespace Agrovator.PitchSimulator.UI
                 return;
             }
 
-            var size = viewport.rect.size;
+            var size = GetPhysicalViewportSize();
             if (size.x > 0f && size.y > 0f)
             {
                 Apply(size);
             }
+        }
+
+        private Vector2 GetPhysicalViewportSize()
+        {
+            if (physicalViewportSource != null)
+            {
+                return physicalViewportSource.rect.size;
+            }
+            if (viewportCanvas != null && viewportCanvas.renderMode != RenderMode.WorldSpace)
+            {
+                return viewportCanvas.pixelRect.size;
+            }
+            return viewport != null ? viewport.rect.size : Vector2.zero;
         }
 
         private static void SetControlLayout(GuidedPitchFlowLayout layout, bool compact)
@@ -135,7 +193,7 @@ namespace Agrovator.PitchSimulator.UI
             layout.SetStacked(compact);
         }
 
-        private void ValidateReferences()
+        private void ValidateApplyReferences()
         {
             if (boardGrid == null || sentenceCardGrid == null || compactScroll == null)
             {

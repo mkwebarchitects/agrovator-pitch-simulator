@@ -199,7 +199,7 @@ namespace Agrovator.PitchSimulator.Editor
                 strengthenLabels,
                 phaseScroll);
             responsive.Configure(
-                canvas.GetComponent<RectTransform>(),
+                canvas.GetComponent<Canvas>(),
                 board.GetComponent<GridLayoutGroup>(),
                 cards.GetComponent<GridLayoutGroup>(),
                 phaseScroll,
@@ -424,10 +424,9 @@ namespace Agrovator.PitchSimulator.Editor
         private static GameObject CreateModeSelection(Transform content)
         {
             var root = new GameObject("Mode Selection", typeof(RectTransform),
-                typeof(GuidedPitchFlowLayout), typeof(LayoutElement), typeof(ModeSelectionView));
+                typeof(GuidedPitchFlowLayout), typeof(ModeSelectionView));
             root.transform.SetParent(content, false);
             root.GetComponent<GuidedPitchFlowLayout>().Configure(150f, 12f);
-            root.GetComponent<LayoutElement>().preferredHeight = 150f;
 
             var cards = new ModeSelectionCard[2];
             var modes = new[] { LearnerMode.Primary, LearnerMode.Secondary };
@@ -568,10 +567,9 @@ namespace Agrovator.PitchSimulator.Editor
         private static Button[] CreateImproveActions(Transform content, out Text[] strengthenLabels)
         {
             var root = new GameObject("Improve Actions", typeof(RectTransform),
-                typeof(GuidedPitchFlowLayout), typeof(LayoutElement));
+                typeof(GuidedPitchFlowLayout));
             root.transform.SetParent(content, false);
             root.GetComponent<GuidedPitchFlowLayout>().Configure(64f, 8f);
-            root.GetComponent<LayoutElement>().preferredHeight = 64f;
 
             var buttons = new Button[4];
             strengthenLabels = new Text[4];
@@ -863,10 +861,9 @@ namespace Agrovator.PitchSimulator.Editor
             string name, Transform parent, float spacing, float height)
         {
             var row = new GameObject(name, typeof(RectTransform),
-                typeof(GuidedPitchFlowLayout), typeof(LayoutElement));
+                typeof(GuidedPitchFlowLayout));
             row.transform.SetParent(parent, false);
             row.GetComponent<GuidedPitchFlowLayout>().Configure(height, spacing);
-            row.GetComponent<LayoutElement>().preferredHeight = height;
             return row;
         }
 
