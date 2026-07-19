@@ -419,6 +419,119 @@ namespace Agrovator.PitchSimulator.Tests.EditMode.UI
         }
 
         [Test]
+        public void GeneratedResults_SecondaryPitchClearsMaskAndFixedActionsAtCapturedDesktopSize()
+        {
+            var physicalSize = new Vector2(1276f, 918f);
+            var canvas = OpenGameCanvas(CanvasReferenceSizeForPhysical(physicalSize));
+            var results = RequireChild(canvas, "Results");
+            using (new ActiveScope(results.gameObject))
+            {
+                var sentences = new[]
+                {
+                    "We water on fixed schedules even when soil is wet, wasting water and weakening canteen crops.",
+                    "In our two-week bed trial, sensor watering used 18% less water than the fixed schedule, while the plants stayed healthy.",
+                    "The sensor checks soil moisture, the valve waters a dry bed, and students review the plants and readings daily.",
+                    "The garden saves water, teaches students through real sensor data, supplies useful canteen vegetables, and gives the school evidence for improving future beds.",
+                };
+                var partViews = results.GetComponentsInChildren<PitchResultPartView>(true)
+                    .OrderBy(view => (int)view.Part).ToArray();
+                Assert.That(partViews, Has.Length.EqualTo(sentences.Length));
+                for (var index = 0; index < partViews.Length; index++)
+                {
+                    var view = partViews[index];
+                    view.gameObject.SetActive(true);
+                    SetActiveText(view.SentenceText, sentences[index]);
+                    SetActiveText(view.StatusText, "Clear");
+                    view.RevisionNoteText.gameObject.SetActive(index == 0);
+                    view.RevisionNoteText.text = index == 0
+                        ? "Strengthened after feedback"
+                        : string.Empty;
+                }
+
+                var frame = RequireChild(results, "Content Frame").GetComponent<RectTransform>();
+                var scroll = RequireChild(results, "Content Frame/Results Scroll")
+                    .GetComponent<ScrollRect>();
+                var viewport = scroll.viewport;
+                Assert.That(viewport.GetComponent<RectMask2D>(), Is.Not.Null,
+                    "The Results assertion must use the generated clipping mask.");
+                var content = scroll.content;
+                SetActiveText(RequireText(content, "Readiness"), "Pitch Readiness: 100%");
+                SetActiveText(RequireText(content, "Improvement"),
+                    "You strengthened 1 part of this pitch.");
+                SetActiveText(RequireText(content, "Final Pitch Heading"), "Your final pitch");
+                var finalPitch = RequireText(content, "Final Pitch");
+                SetActiveText(finalPitch, string.Join("\n\n", sentences));
+                SetActiveText(RequireText(content, "Transfer Prompt"),
+                    "Use these four parts when your team explains another school improvement idea.");
+                var status = RequireText(results, "Content Frame/Submission Status");
+                SetActiveText(status, "Ready to submit.");
+                SetActiveText(RequireText(results, "Content Frame/Footer/Submit Button/Label"),
+                    "Submit results");
+                SetActiveText(RequireText(results, "Content Frame/Footer/Retry Button/Label"),
+                    "Retry");
+
+                ForceResultsLayout(canvas, results);
+                scroll.verticalNormalizedPosition = 1f;
+                ForceResultsLayout(canvas, results);
+                finalPitch.cachedTextGenerator.Populate(
+                    finalPitch.text,
+                    finalPitch.GetGenerationSettings(finalPitch.rectTransform.rect.size));
+                Assert.That(finalPitch.text, Does.EndWith("beds."),
+                    "The regression copy must reproduce the clipped final word exactly.");
+                Assert.That(finalPitch.cachedTextGenerator.characterCountVisible,
+                    Is.EqualTo(finalPitch.text.Length),
+                    "The TextGenerator can report every character even while the mask clips beds.");
+
+                var viewportBounds = RectTransformUtility.CalculateRelativeRectTransformBounds(
+                    frame, viewport);
+                var finalPitchBounds = RectTransformUtility.CalculateRelativeRectTransformBounds(
+                    frame, finalPitch.rectTransform);
+                var statusBounds = RectTransformUtility.CalculateRelativeRectTransformBounds(
+                    frame, status.rectTransform);
+                var footerBounds = RectTransformUtility.CalculateRelativeRectTransformBounds(
+                    frame, RequireChild(results, "Content Frame/Footer")
+                        .GetComponent<RectTransform>());
+                var glyphBottom = CalculateGeneratedGlyphBottom(frame, finalPitch);
+
+                var clippingFailures = new List<string>();
+                if (finalPitchBounds.min.y < viewportBounds.min.y + 0.5f)
+                {
+                    clippingFailures.Add(string.Format(
+                        "The exact Secondary final-pitch rectangle crosses the Results mask: " +
+                        "pitch bottom {0:F2}, mask bottom {1:F2}.",
+                        finalPitchBounds.min.y, viewportBounds.min.y));
+                }
+                if (glyphBottom < viewportBounds.min.y + 0.5f)
+                {
+                    clippingFailures.Add(string.Format(
+                        "The generated beds. glyphs cross the Results mask: glyph bottom {0:F2}, " +
+                        "mask bottom {1:F2}.", glyphBottom, viewportBounds.min.y));
+                }
+                if (finalPitchBounds.min.y <= statusBounds.max.y)
+                {
+                    clippingFailures.Add(string.Format(
+                        "The final-pitch rectangle overlaps the fixed submission status: " +
+                        "pitch bottom {0:F2}, status top {1:F2}.",
+                        finalPitchBounds.min.y, statusBounds.max.y));
+                }
+                if (glyphBottom <= statusBounds.max.y)
+                {
+                    clippingFailures.Add(string.Format(
+                        "The beds. glyphs overlap the fixed submission status: glyph bottom " +
+                        "{0:F2}, status top {1:F2}.", glyphBottom, statusBounds.max.y));
+                }
+                if (statusBounds.min.y <= footerBounds.max.y)
+                {
+                    clippingFailures.Add(string.Format(
+                        "The fixed status overlaps the 64px action footer: status bottom {0:F2}, " +
+                        "footer top {1:F2}.", statusBounds.min.y, footerBounds.max.y));
+                }
+                Assert.That(clippingFailures, Is.Empty, string.Join(Environment.NewLine,
+                    clippingFailures));
+            }
+        }
+
+        [Test]
         public void GeneratedModeSelection_CompactPhoneCanFullyRevealEachCard()
         {
             var physicalSize = new Vector2(390f, 844f);
@@ -1099,6 +1212,22 @@ namespace Agrovator.PitchSimulator.Tests.EditMode.UI
             var logarithmicHeight = Mathf.Log(physicalSize.y / reference.y, 2f);
             var scale = Mathf.Pow(2f, Mathf.Lerp(logarithmicWidth, logarithmicHeight, 0.5f));
             return physicalSize / scale;
+        }
+
+        private static float CalculateGeneratedGlyphBottom(RectTransform relativeTo, Text text)
+        {
+            var vertices = text.cachedTextGenerator.verts;
+            var vertexCount = Mathf.Max(0, vertices.Count - 4);
+            Assert.That(vertexCount, Is.GreaterThan(0), "The final pitch must generate glyph vertices.");
+            var bottom = float.PositiveInfinity;
+            for (var index = 0; index < vertexCount; index++)
+            {
+                var local = vertices[index].position / text.pixelsPerUnit;
+                var world = text.rectTransform.TransformPoint(local);
+                bottom = Mathf.Min(bottom, relativeTo.InverseTransformPoint(world).y);
+            }
+
+            return bottom;
         }
 
         private static void ApplyResponsiveLayout(Transform guided, Vector2 size)

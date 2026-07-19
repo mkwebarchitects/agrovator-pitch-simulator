@@ -660,7 +660,7 @@ namespace Agrovator.PitchSimulator.Editor
             contentRect.anchoredPosition = Vector2.zero;
             contentRect.sizeDelta = Vector2.zero;
             var contentLayout = contentObject.GetComponent<VerticalLayoutGroup>();
-            ConfigureColumn(contentLayout, 8f, expandWidth: true, expandHeight: false);
+            ConfigureColumn(contentLayout, 5f, expandWidth: true, expandHeight: false);
             contentLayout.padding = new RectOffset(12, 12, 12, 12);
             contentObject.GetComponent<ContentSizeFitter>().verticalFit =
                 ContentSizeFitter.FitMode.PreferredSize;

@@ -283,6 +283,9 @@ namespace Agrovator.PitchSimulator.Editor
             var presentLayout = canvas.transform.Find(
                 "Guided Pitch/Content Frame/Phase Scroll/Viewport/Content/Present Pitch")
                 ?.GetComponent<VerticalLayoutGroup>();
+            var resultsLayout = canvas.transform.Find(
+                "Results/Content Frame/Results Scroll/Viewport/Content")
+                ?.GetComponent<VerticalLayoutGroup>();
             var screens = canvas.transform.Cast<Transform>().Select(child => child.name).ToArray();
             var expectedScreens = new[]
             {
@@ -301,6 +304,7 @@ namespace Agrovator.PitchSimulator.Editor
                 modeLayout != null && Mathf.Approximately(modeLayout.StackedItemHeight, 96f) &&
                 presentLayout != null && presentLayout.padding.top == 14 &&
                 presentLayout.padding.bottom == 14 &&
+                resultsLayout != null && Mathf.Approximately(resultsLayout.spacing, 5f) &&
                 routers[0].ValidateContract(out _) &&
                 eventSystems[0].firstSelectedGameObject ==
                     canvas.transform.Find("Title/Content Frame/Start Button")?.gameObject;
