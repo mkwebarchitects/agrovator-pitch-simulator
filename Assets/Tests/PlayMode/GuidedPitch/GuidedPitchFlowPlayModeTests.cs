@@ -850,6 +850,36 @@ namespace Agrovator.PitchSimulator.Tests.PlayMode
         }
 
         [Test]
+        public void PresentPhase_ResetsStaleSentenceCardScrollBeforeRenderingThePitch()
+        {
+            var fixture = GuidedRigFactory.LoadAuthoredContent();
+            var bridge = new MockLmsBridge(
+                MockLmsBridgeMode.Success, GuidedRigFactory.CreateLaunch(fixture.Content));
+            var controller = GuidedRigFactory.CreateController(fixture, bridge);
+            Assert.That(controller.FinishLaunch(), Is.True);
+            var rig = GuidedRigFactory.CreateRig(roots);
+            rig.Router.Initialize(controller, fixture.Localize);
+            rig.StartButton.onClick.Invoke();
+            rig.BriefingContinueButton.onClick.Invoke();
+            rig.ModeSelection.Cards[0].Button.onClick.Invoke();
+            rig.ContinueButton.onClick.Invoke();
+            foreach (var part in PitchParts.Ordered)
+            {
+                ClickCard(rig, fixture.Option(LearnerMode.Primary, part, MasteryState.Clear).Id);
+                rig.ContinueButton.onClick.Invoke();
+            }
+
+            Assert.That(rig.Router.ActivePhase, Is.EqualTo(GuidedPitchPhase.Improve));
+            rig.CardsScroll.content.anchoredPosition = new Vector2(0f, 96f);
+            rig.PresentButton.onClick.Invoke();
+
+            Assert.That(rig.Router.ActivePhase, Is.EqualTo(GuidedPitchPhase.Present));
+            Assert.That(rig.CardsScroll.content.anchoredPosition.y, Is.EqualTo(0f).Within(0.01f),
+                "A keyboard-scrolled sentence list must not clip the shorter Present content.");
+            controller.Dispose();
+        }
+
+        [Test]
         public void Keyboard_RouterTab_CyclesModeCardsWhileTheGuidedPresenterPanelIsInactive()
         {
             var fixture = GuidedRigFactory.LoadAuthoredContent();

@@ -81,5 +81,19 @@ mergeInto(LibraryManager.library, {
   PitchSimulatorBridge_CancelSubmission: function (requestId) {
     PitchSimulatorLmsBridge.initialize();
     delete PitchSimulatorLmsBridge.pending[requestId];
+  },
+
+  PitchSimulatorViewportWidth: function () {
+    var canvas = document.getElementById("unity-canvas");
+    return Math.max(1, Math.round(canvas ? canvas.clientWidth : window.innerWidth));
+  },
+
+  PitchSimulatorViewportHeight: function () {
+    var canvas = document.getElementById("unity-canvas");
+    return Math.max(1, Math.round(canvas ? canvas.clientHeight : window.innerHeight));
+  },
+
+  PitchSimulatorDevicePixelRatioTimes100: function () {
+    return Math.max(100, Math.round((window.devicePixelRatio || 1) * 100));
   }
 });

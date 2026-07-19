@@ -482,6 +482,259 @@ async function verifyMissingConfigRecovery(page, options) {
   return true;
 }
 
+async function waitForStableRegionChange(canvas, previousHash, timeoutMs, label) {
+  const deadline = Date.now() + timeoutMs;
+  let lastHash = null;
+  let stableSamples = 0;
+  while (Date.now() < deadline) {
+    const currentHash = await canvasHash(canvas);
+    if (currentHash !== previousHash) {
+      stableSamples = currentHash === lastHash ? stableSamples + 1 : 1;
+      if (stableSamples >= 3) return currentHash;
+    } else {
+      stableSamples = 0;
+    }
+    lastHash = currentHash;
+    await new Promise(resolveWait => setTimeout(resolveWait, 80));
+  }
+  throw new Error(`Canvas did not reach a stable changed state for ${label}.`);
+}
+
+async function waitForStableCanvas(canvas, timeoutMs, label) {
+  const deadline = Date.now() + timeoutMs;
+  let lastHash = null;
+  let stableSamples = 0;
+  while (Date.now() < deadline) {
+    const currentHash = await canvasHash(canvas);
+    stableSamples = currentHash === lastHash ? stableSamples + 1 : 1;
+    if (stableSamples >= 3) return currentHash;
+    lastHash = currentHash;
+    await new Promise(resolveWait => setTimeout(resolveWait, 80));
+  }
+  throw new Error(`Canvas did not settle for ${label}.`);
+}
+
+async function keyboardStableStep(canvas, key, options, label) {
+  await canvas.focus();
+  await waitForStableCanvas(canvas, options.timeoutMs, `${label} focus`);
+  const before = await canvasHash(canvas);
+  await canvas.press(key, { delay: 120 });
+  return waitForStableRegionChange(canvas, before, options.timeoutMs, label);
+}
+
+async function pointerStableStep(canvas, normalizedX, normalizedY, options, label) {
+  await canvas.focus();
+  await waitForStableCanvas(canvas, options.timeoutMs, `${label} focus`);
+  const bounds = await canvas.boundingBox();
+  if (!bounds) throw new Error(`Unity canvas has no pointer bounds for ${label}.`);
+  const position = { x: bounds.width * normalizedX, y: bounds.height * normalizedY };
+  await canvas.hover({ position });
+  await waitForStableCanvas(canvas, options.timeoutMs, `${label} hover`);
+  const before = await canvasHash(canvas);
+  await canvas.click({
+    position,
+    delay: 120,
+  });
+  return waitForStableRegionChange(canvas, before, options.timeoutMs, label);
+}
+
+async function captureCanvas(canvas, options, filename) {
+  await canvas.screenshot({ path: join(options.outputDirectory, filename), type: "png" });
+}
+
+async function waitForSubmission(page, expectedStatus, options, label) {
+  await page.waitForFunction(status => [...document.querySelectorAll("#progress li")]
+    .some(item => item.textContent.includes(status)), expectedStatus, { timeout: options.timeoutMs });
+  const completion = sanitizeText(await page.locator("#completion").innerText());
+  if (!completion) throw new Error(`Harness did not expose sanitized completion for ${label}.`);
+  return completion;
+}
+
+async function setHarnessMode(page, mode) {
+  await page.evaluate(nextMode => {
+    const select = document.querySelector("#mode");
+    select.value = nextMode;
+    select.dispatchEvent(new Event("change", { bubbles: true }));
+  }, mode);
+}
+
+async function useFullscreenHarness(page, viewport) {
+  await page.setViewportSize(viewport);
+  await page.evaluate(() => {
+    let style = document.querySelector("#smoke-fullscreen-harness");
+    if (!style) {
+      style = document.createElement("style");
+      style.id = "smoke-fullscreen-harness";
+      style.textContent = `
+        html, body { width: 100%; height: 100%; max-width: none; padding: 0; overflow: hidden; }
+        header, main > section:not(.player) { display: none; }
+        main, .player { display: block; width: 100%; height: 100%; margin: 0; padding: 0; border: 0; }
+        iframe { width: 100vw; height: 100vh; min-height: 100vh; border-radius: 0; }
+      `;
+      document.head.appendChild(style);
+    }
+  });
+}
+
+async function runPrimaryKeyboardPath(definition, page, frame, canvas, options) {
+  if (definition.name !== "chrome") return null;
+  const pathContract = { interaction: "keyboard", mode: "Primary" };
+  await keyboardStableStep(canvas, "Enter", options, "title start");
+  await keyboardStableStep(canvas, "Enter", options, "briefing continue");
+  await captureCanvas(canvas, options, "chrome-primary-mode.png");
+  await waitForStableCanvas(canvas, options.timeoutMs, "mode");
+
+  const mobile = await verifyCanvasContract(page, frame, canvas, { width: 390, height: 844 });
+  await captureCanvas(canvas, options, "chrome-mobile-compact.png");
+  const desktop = await verifyCanvasContract(page, frame, canvas, { width: 1440, height: 1000 });
+
+  await keyboardStableStep(canvas, "Enter", options, "learn");
+  await keyboardStableStep(canvas, "Enter", options, "build");
+  await captureCanvas(canvas, options, "chrome-primary-build.png");
+  await keyboardStableStep(canvas, "Tab", options, "problem developing option");
+  await keyboardStableStep(canvas, "Enter", options, "problem feedback");
+  await keyboardStableStep(canvas, "Enter", options, "evidence build");
+  await keyboardStableStep(canvas, "Enter", options, "evidence feedback");
+  await keyboardStableStep(canvas, "Enter", options, "solution build");
+  await keyboardStableStep(canvas, "Enter", options, "solution feedback");
+  await keyboardStableStep(canvas, "Enter", options, "value build");
+  await keyboardStableStep(canvas, "Enter", options, "value feedback");
+  await keyboardStableStep(canvas, "Enter", options, "improve");
+  await captureCanvas(canvas, options, "chrome-primary-improve.png");
+  await keyboardStableStep(canvas, "Enter", options, "revision options");
+  await keyboardStableStep(canvas, "Tab", options, "revision focus present");
+  await keyboardStableStep(canvas, "Tab", options, "revision focus clear option");
+  await keyboardStableStep(canvas, "Enter", options, "one revision");
+  await keyboardStableStep(canvas, "Enter", options, "present");
+  await captureCanvas(canvas, options, "chrome-primary-present.png");
+  await keyboardStableStep(canvas, "Enter", options, "cost follow-up");
+  await keyboardStableStep(canvas, "Enter", options, "cost feedback");
+  await keyboardStableStep(canvas, "Enter", options, "results");
+  await captureCanvas(canvas, options, "chrome-primary-results.png");
+
+  await setHarnessMode(page, "failure");
+  await keyboardStableStep(canvas, "Enter", options, "submission failure");
+  await waitForSubmission(page, "failure", options, "failed result");
+  await setHarnessMode(page, "success");
+  await keyboardStableStep(canvas, "Enter", options, "submission success");
+  const completion = await waitForSubmission(page, "success", options, "successful result");
+  await keyboardStableStep(canvas, "Enter", options, "retry");
+  await keyboardStableStep(canvas, "Enter", options, "fresh mode selection");
+  return { ...pathContract, completion, mobile, desktop };
+}
+
+async function runSecondaryPointerPath(definition, page, frame, canvas, options) {
+  if (definition.name !== "edge") return null;
+  const pathContract = { interaction: "pointer", mode: "Secondary" };
+  await pointerStableStep(canvas, 0.50, 0.50, options, "title start");
+  await pointerStableStep(canvas, 0.50, 0.60, options, "briefing continue");
+  await captureCanvas(canvas, options, "edge-secondary-mode.png");
+  await waitForStableCanvas(canvas, options.timeoutMs, "mode");
+
+  const mobile = await verifyCanvasContract(page, frame, canvas, { width: 390, height: 844 });
+  await captureCanvas(canvas, options, "edge-mobile-compact.png");
+  const desktop = await verifyCanvasContract(page, frame, canvas, { width: 1440, height: 1000 });
+
+  await pointerStableStep(canvas, 0.70, 0.76, options, "learn");
+  await pointerStableStep(canvas, 0.50, 0.86, options, "build");
+  await captureCanvas(canvas, options, "edge-secondary-build.png");
+  await pointerStableStep(canvas, 0.50, 0.70, options, "problem feedback");
+  await pointerStableStep(canvas, 0.50, 0.86, options, "evidence build");
+  await pointerStableStep(canvas, 0.27, 0.70, options, "evidence feedback");
+  await pointerStableStep(canvas, 0.50, 0.86, options, "solution build");
+  await pointerStableStep(canvas, 0.27, 0.70, options, "solution feedback");
+  await pointerStableStep(canvas, 0.50, 0.86, options, "value build");
+  await pointerStableStep(canvas, 0.27, 0.70, options, "value feedback");
+  await pointerStableStep(canvas, 0.50, 0.86, options, "improve");
+  await pointerStableStep(canvas, 0.50, 0.62, options, "revision options");
+  await pointerStableStep(canvas, 0.27, 0.70, options, "one revision");
+  await pointerStableStep(canvas, 0.50, 0.86, options, "present");
+  await captureCanvas(canvas, options, "edge-secondary-present.png");
+  await pointerStableStep(canvas, 0.50, 0.86, options, "cost follow-up");
+  await pointerStableStep(canvas, 0.27, 0.70, options, "cost feedback");
+  await pointerStableStep(canvas, 0.50, 0.86, options, "results");
+  await captureCanvas(canvas, options, "edge-secondary-results.png");
+
+  await setHarnessMode(page, "failure");
+  await pointerStableStep(canvas, 0.36, 0.82, options, "submission failure");
+  await waitForSubmission(page, "failure", options, "failed result");
+  await setHarnessMode(page, "success");
+  await pointerStableStep(canvas, 0.36, 0.82, options, "submission success");
+  const completion = await waitForSubmission(page, "success", options, "successful result");
+  await pointerStableStep(canvas, 0.64, 0.82, options, "retry");
+  await pointerStableStep(canvas, 0.50, 0.60, options, "fresh mode selection");
+  return { ...pathContract, completion, mobile, desktop };
+}
+
+async function verifyCanvasContract(page, frame, canvas, viewport) {
+  await useFullscreenHarness(page, viewport);
+  await frame.waitForFunction(expected => {
+    const canvas = document.querySelector("#unity-canvas");
+    const rect = canvas && canvas.getBoundingClientRect();
+    return rect && rect.width > 0 && rect.height > 0 &&
+      Math.abs(innerWidth - expected.width) < 1 && Math.abs(innerHeight - expected.height) < 1;
+  }, viewport, { timeout: 10_000 });
+  const sizingDeadline = Date.now() + 10_000;
+  let sizingSignature = null;
+  let sizingStableSamples = 0;
+  while (Date.now() < sizingDeadline && sizingStableSamples < 3) {
+    const sizing = await frame.evaluate(() => {
+      const canvas = document.querySelector("#unity-canvas");
+      const stage = document.querySelector("#unity-stage");
+      if (!canvas || !stage || canvas.clientWidth <= 0 || canvas.clientHeight <= 0) return null;
+      const scale = window.AgrovatorLayout.renderScale(window.devicePixelRatio || 1);
+      const ready = Boolean(stage.style.width && stage.style.height) &&
+        Math.abs((canvas.width / canvas.clientWidth) - scale) <= 0.05 &&
+        Math.abs((canvas.height / canvas.clientHeight) - scale) <= 0.05;
+      return {
+        ready,
+        signature: `${stage.style.width}|${stage.style.height}|${canvas.clientWidth}|` +
+          `${canvas.clientHeight}|${canvas.width}|${canvas.height}|${scale}`,
+      };
+    });
+    if (sizing?.ready) {
+      sizingStableSamples = sizing.signature === sizingSignature ? sizingStableSamples + 1 : 1;
+      sizingSignature = sizing.signature;
+    } else {
+      sizingStableSamples = 0;
+      sizingSignature = null;
+    }
+    if (sizingStableSamples < 3) {
+      await new Promise(resolveWait => setTimeout(resolveWait, 80));
+    }
+  }
+  if (sizingStableSamples < 3) throw new Error("Canvas CSS/backing sizing did not settle.");
+  await canvas.focus();
+  const metrics = await frame.evaluate(() => {
+    const canvas = document.querySelector("#unity-canvas");
+    const stage = document.querySelector("#unity-stage");
+    const rect = canvas.getBoundingClientRect();
+    const stageRect = stage.getBoundingClientRect();
+    const renderScale = window.AgrovatorLayout.renderScale(window.devicePixelRatio || 1);
+    return {
+      css: { width: rect.width, height: rect.height },
+      backing: { width: canvas.width, height: canvas.height },
+      dpr: window.devicePixelRatio || 1,
+      renderScale,
+      ratios: { x: canvas.width / rect.width, y: canvas.height / rect.height },
+      contained: rect.left >= stageRect.left - 0.5 && rect.top >= stageRect.top - 0.5 &&
+        rect.right <= stageRect.right + 0.5 && rect.bottom <= stageRect.bottom + 0.5,
+      horizontalOverflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+      canvasFocused: document.activeElement === canvas,
+    };
+  });
+  const outerOverflow = await page.evaluate(() =>
+    document.documentElement.scrollWidth - document.documentElement.clientWidth);
+  if (Math.abs(metrics.ratios.x - metrics.renderScale) > 0.05 ||
+      Math.abs(metrics.ratios.y - metrics.renderScale) > 0.05) {
+    throw new Error(`Canvas backing/CSS metrics did not match render scale: ${JSON.stringify(metrics)}.`);
+  }
+  if (!metrics.contained || !metrics.canvasFocused || metrics.horizontalOverflow > 0.5 || outerOverflow > 0.5) {
+    throw new Error(`Canvas containment/focus/overflow contract failed: ${JSON.stringify({ metrics, outerOverflow })}`);
+  }
+  return { viewport, ...metrics, outerHorizontalOverflow: outerOverflow };
+}
+
 async function runBrowser(playwright, definition, server, options) {
   const startedAt = new Date().toISOString();
   const result = {
@@ -499,7 +752,11 @@ async function runBrowser(playwright, definition, server, options) {
     warnings: [],
     completionSummary: null,
     modes: { success: false, failure: false, missingConfig: false, expired: "not-exercised" },
-    interactionContract: "Measured Start pointer at (0.50, 0.61), Briefing pointer at (0.50, 0.66); three focused Enter presses held 120ms complete Tutorial; pitch-room Continue pointer at (0.50, 0.86); tutorial pointer response at (0.50, 0.73); six focused Enter responses held 120ms; Continue x3 between Q1-Q5 and x2 after Q6 to Results. After successful completion, Retry uses pointer-only Briefing and Tutorial Skip at (0.40, 0.79), then proves the downstream pointer-only practice sequence through fresh Q1 reveal, preventing focus-tint-only false positives. Stable lower-control-region changes plus 220ms settle gate observable swaps; 180ms bounded waits cover internal reaction/feedback transitions. Final recovery requires changed content and control regions to remain identical for three bounded samples before capture.",
+    interactionContract: definition.name === "chrome"
+      ? "Primary path is keyboard-only from Title through fresh Mode Selection; every action waits for a changed canvas hash stable across three samples."
+      : definition.name === "edge"
+        ? "Secondary path is pointer-only from Title through fresh Mode Selection; every action waits for a changed canvas hash stable across three samples."
+        : "Availability and canvas sizing only; no guided flow coverage claimed.",
     screenshot: null,
   };
   if (!definition.path || !existsSync(definition.path)) {
@@ -541,18 +798,20 @@ async function runBrowser(playwright, definition, server, options) {
     await frame.locator("#unity-loading").waitFor({ state: "hidden", timeout: options.unityTimeoutMs });
     await canvas.waitFor({ state: "visible", timeout: options.timeoutMs });
 
-    result.desktop = await canvasMetrics(page, frame, canvas, { width: 1440, height: 1000 });
-    result.mobile = await canvasMetrics(page, frame, canvas, { width: 390, height: 844 });
-    await canvasMetrics(page, frame, canvas, { width: 1440, height: 1000 });
-
-    result.completionSummary = await playAttempt(page, frame, canvas, options, definition.name);
+    result.desktop = await verifyCanvasContract(page, frame, canvas, { width: 1440, height: 1000 });
+    const pathResult = await runPrimaryKeyboardPath(definition, page, frame, canvas, options) ||
+      await runSecondaryPointerPath(definition, page, frame, canvas, options);
+    if (!pathResult) {
+      result.status = "not-covered";
+      result.reason = "Browser is available, but Task 8 assigns complete guided paths only to Chrome and Edge.";
+      return result;
+    }
+    result.desktop = pathResult.desktop;
+    result.mobile = pathResult.mobile;
+    result.completionSummary = pathResult.completion;
     result.modes.failure = true;
     result.modes.success = true;
-    result.modes.missingConfig = await verifyMissingConfigRecovery(page, options);
-
-    const screenshotPath = join(options.outputDirectory, `${definition.name}-smoke.png`);
-    await page.screenshot({ path: screenshotPath, fullPage: true });
-    result.screenshot = screenshotPath.substring(projectRoot.length + 1).replaceAll("\\", "/");
+    result.screenshot = `artifacts/smoke/${definition.name}-${pathResult.mode.toLowerCase()}-results.png`;
     if (result.consoleErrors.length || result.pageErrors.length) {
       throw new Error(`Browser emitted ${result.consoleErrors.length} console errors and ${result.pageErrors.length} page errors.`);
     }
@@ -604,7 +863,8 @@ async function main() {
   }
 
   const requiredFailure = matrix.results.some(result => result.browser === "chrome" && result.status !== "passed");
-  const availableFailure = matrix.results.some(result => !["passed", "unavailable", "incompatible"].includes(result.status));
+  const availableFailure = matrix.results.some(result =>
+    !["passed", "unavailable", "incompatible", "not-covered"].includes(result.status));
   if (!matrix.server.stopped || requiredFailure || availableFailure) process.exitCode = 1;
   console.log(JSON.stringify({
     outputDirectory: options.outputDirectory,

@@ -22,6 +22,8 @@ namespace Agrovator.PitchSimulator.UI
         private bool? appliedCompact;
         private Vector2? appliedViewportSize;
         private RectTransform physicalViewportSource;
+        private Func<WebViewportMetrics> viewportMetricsReader = WebViewportMetrics.Read;
+        private WebViewportMetrics? observedViewportMetrics;
 
         public bool IsCompact => appliedCompact == true;
 
@@ -32,6 +34,7 @@ namespace Agrovator.PitchSimulator.UI
             compactScroll = scroll ?? throw new ArgumentNullException(nameof(scroll));
             appliedCompact = null;
             appliedViewportSize = null;
+            observedViewportMetrics = null;
         }
 
         public void Configure(
@@ -59,6 +62,18 @@ namespace Agrovator.PitchSimulator.UI
         {
             physicalViewportSource = source ?? throw new ArgumentNullException(nameof(source));
             appliedViewportSize = null;
+            observedViewportMetrics = null;
+        }
+
+        /// <summary>
+        /// Supplies viewport display metrics for embedded hosts and deterministic tests.
+        /// The reader is sampled during the existing layout lifecycle and only a changed
+        /// CSS width, CSS height, or DPR can trigger another layout application.
+        /// </summary>
+        public void ConfigureViewportMetricsReader(Func<WebViewportMetrics> reader)
+        {
+            viewportMetricsReader = reader ?? throw new ArgumentNullException(nameof(reader));
+            observedViewportMetrics = null;
         }
 
         private void OnEnable()
@@ -158,30 +173,44 @@ namespace Agrovator.PitchSimulator.UI
 
         private void ApplyCurrentViewport()
         {
-            if (!isActiveAndEnabled || viewport == null || boardGrid == null ||
-                sentenceCardGrid == null || compactScroll == null)
+            if (!isActiveAndEnabled || boardGrid == null || sentenceCardGrid == null ||
+                compactScroll == null)
             {
                 return;
             }
 
-            var size = GetPhysicalViewportSize();
-            if (size.x > 0f && size.y > 0f)
+            var metrics = GetViewportMetrics();
+            if (observedViewportMetrics.HasValue && observedViewportMetrics.Value == metrics)
             {
-                Apply(size);
+                return;
             }
+
+            observedViewportMetrics = metrics;
+            // A DPR-only change keeps the CSS size but still represents a new WebGL
+            // backing-store contract, so force one application for the new metrics.
+            appliedViewportSize = null;
+            Apply(metrics.CssSize);
         }
 
-        private Vector2 GetPhysicalViewportSize()
+        private WebViewportMetrics GetViewportMetrics()
         {
             if (physicalViewportSource != null)
             {
-                return physicalViewportSource.rect.size;
+                var size = physicalViewportSource.rect.size;
+                return new WebViewportMetrics(
+                    Mathf.Max(1, Mathf.RoundToInt(size.x)),
+                    Mathf.Max(1, Mathf.RoundToInt(size.y)),
+                    1f);
             }
-            if (viewportCanvas != null && viewportCanvas.renderMode != RenderMode.WorldSpace)
+            if (viewportCanvas != null && viewportCanvas.renderMode == RenderMode.WorldSpace)
             {
-                return viewportCanvas.pixelRect.size;
+                var size = viewport != null ? viewport.rect.size : Vector2.one;
+                return new WebViewportMetrics(
+                    Mathf.Max(1, Mathf.RoundToInt(size.x)),
+                    Mathf.Max(1, Mathf.RoundToInt(size.y)),
+                    1f);
             }
-            return viewport != null ? viewport.rect.size : Vector2.zero;
+            return viewportMetricsReader();
         }
 
         private static void SetControlLayout(GuidedPitchFlowLayout layout, bool compact)

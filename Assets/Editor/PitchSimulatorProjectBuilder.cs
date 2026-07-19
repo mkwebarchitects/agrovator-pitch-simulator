@@ -288,9 +288,10 @@ namespace Agrovator.PitchSimulator.Editor
                 screens.SequenceEqual(expectedScreens) &&
                 environmentImage != null && environmentImage.sprite != null &&
                 environmentAspect != null &&
-                environmentAspect.aspectMode == AspectRatioFitter.AspectMode.EnvelopeParent &&
-                Mathf.Approximately(environmentAspect.aspectRatio,
-                    environmentImage.sprite.rect.width / environmentImage.sprite.rect.height) &&
+                environmentAspect.aspectMode == AspectRatioFitter.AspectMode.FitInParent &&
+                Mathf.Approximately(environmentAspect.aspectRatio, 16f / 9f) &&
+                canvas.transform.Find("Guided Pitch")?.GetComponent<Image>()?.color ==
+                    new Color32(0x0E, 0x17, 0x1F, 0xFF) &&
                 routers[0].ValidateContract(out _) &&
                 eventSystems[0].firstSelectedGameObject ==
                     canvas.transform.Find("Title/Content Frame/Start Button")?.gameObject;

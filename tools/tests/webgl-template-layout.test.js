@@ -15,62 +15,26 @@ test("warning alert starts hidden and is revealed only by showBanner", () => {
   assert.match(html, /function showBanner[\s\S]*warning\.hidden = false/);
 });
 
-test("layout calculator reserves measured chrome on desktop and mobile viewports", () => {
-  const { calculateStageWidth } = require(path.join(templateRoot, "TemplateData", "layout.js"));
+test("layout calculator uses the full available portrait or landscape stage", () => {
+  const { calculateStageSize } = require(path.join(templateRoot, "TemplateData", "layout.js"));
 
-  const desktop = calculateStageWidth({
-    shellWidth: 1280,
-    viewportHeight: 798,
-    bodyPaddingTop: 12,
-    bodyPaddingBottom: 12,
-    shellRowGap: 10,
-    controlHeight: 44,
-    controlMarginTop: 0,
-    controlMarginBottom: 0,
-  });
-  assert.equal(desktop, 1280);
-
-  const constrainedDesktop = calculateStageWidth({
-    shellWidth: 1280,
-    viewportHeight: 720,
-    bodyPaddingTop: 12,
-    bodyPaddingBottom: 12,
-    shellRowGap: 10,
-    controlHeight: 44,
-    controlMarginTop: 5,
-    controlMarginBottom: 7,
-  });
-  assert.equal(constrainedDesktop, 1120);
-  assert.ok(constrainedDesktop * 9 / 16 + 12 + 12 + 10 + 44 + 5 + 7 <= 720);
-
-  const mobilePortrait = calculateStageWidth({
-    shellWidth: 382,
-    viewportHeight: 844,
-    bodyPaddingTop: 4,
-    bodyPaddingBottom: 4,
-    shellRowGap: 10,
-    controlHeight: 40,
-    controlMarginTop: 0,
-    controlMarginBottom: 0,
-  });
-  assert.equal(mobilePortrait, 382);
-
-  const mobileLandscape = calculateStageWidth({
-    shellWidth: 836,
-    viewportHeight: 390,
-    bodyPaddingTop: 4,
-    bodyPaddingBottom: 4,
-    shellRowGap: 10,
-    controlHeight: 40,
-    controlMarginTop: 0,
-    controlMarginBottom: 0,
-  });
-  assert.equal(mobileLandscape, 590);
-  assert.ok(mobileLandscape * 9 / 16 + 4 + 4 + 10 + 40 <= 390);
+  assert.deepEqual(calculateStageSize({ shellWidth: 1280, viewportHeight: 798, verticalChrome: 78 }),
+    { width: 1280, height: 720 });
+  assert.deepEqual(calculateStageSize({ shellWidth: 382, viewportHeight: 844, verticalChrome: 54 }),
+    { width: 382, height: 790 });
 });
 
-test("template measures styled chrome and coalesces ResizeObserver writes", () => {
+test("render scale accounts for DPR while capping WebGL memory growth", () => {
+  const { renderScale } = require(path.join(templateRoot, "TemplateData", "layout.js"));
+
+  assert.equal(renderScale(1), 1);
+  assert.equal(renderScale(1.5), 1.5);
+  assert.equal(renderScale(3), 2);
+});
+
+test("template applies variable stage dimensions, capped DPR and coalesced viewport observers", () => {
   const html = fs.readFileSync(path.join(templateRoot, "index.html"), "utf8");
+  const css = fs.readFileSync(path.join(templateRoot, "TemplateData", "style.css"), "utf8");
 
   for (const contract of [
     "getComputedStyle(document.body)",
@@ -83,9 +47,39 @@ test("template measures styled chrome and coalesces ResizeObserver writes", () =
     "controlMarginBottom",
     "window.visualViewport",
     "requestAnimationFrame",
+    "AgrovatorLayout.calculateStageSize",
+    "AgrovatorLayout.renderScale(window.devicePixelRatio || 1)",
+    "config.devicePixelRatio = renderScale",
     "stage.style.width !== nextWidth",
+    "stage.style.height !== nextHeight",
     "new ResizeObserver(requestLayout)",
   ]) {
     assert.ok(html.includes(contract), `missing layout contract: ${contract}`);
   }
+
+  assert.match(css, /#unity-canvas\s*\{[^}]*width:\s*100%;[^}]*height:\s*100%;/s);
+  assert.doesNotMatch(css, /#unity-stage\s*\{[^}]*aspect-ratio\s*:/s);
+});
+
+test("inline desktop stage dimensions cannot become mobile min-content overflow", () => {
+  const css = fs.readFileSync(path.join(templateRoot, "TemplateData", "style.css"), "utf8");
+
+  assert.match(css, /#unity-shell\s*\{[^}]*min-width:\s*0;/s);
+  assert.match(css, /#unity-stage\s*\{[^}]*min-width:\s*0;[^}]*max-width:\s*100%;/s);
+});
+
+test("Unity owns the 16:9 environment frame and viewport bridge exposes display metrics only", () => {
+  const builder = fs.readFileSync(path.join(projectRoot, "Assets", "Editor", "GuidedPitchSceneBuilder.cs"), "utf8");
+  const bridge = fs.readFileSync(path.join(projectRoot, "Assets", "Plugins", "WebGL", "PitchSimulatorBridge.jslib"), "utf8");
+
+  assert.match(builder, /new GameObject\("Environment Frame"[\s\S]*?AspectRatioFitter/);
+  for (const name of [
+    "PitchSimulatorViewportWidth",
+    "PitchSimulatorViewportHeight",
+    "PitchSimulatorDevicePixelRatioTimes100",
+  ]) {
+    assert.match(bridge, new RegExp(`${name}\\s*:\\s*function\\s*\\(`));
+  }
+  const viewportFunctions = bridge.slice(bridge.indexOf("PitchSimulatorViewportWidth"));
+  assert.doesNotMatch(viewportFunctions, /postMessage|SendMessage|launchConfigJson|completion/i);
 });

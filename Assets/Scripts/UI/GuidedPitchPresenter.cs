@@ -211,6 +211,7 @@ namespace Agrovator.PitchSimulator.UI
             }
             if (snapshot == null) throw new ArgumentNullException(nameof(snapshot));
 
+            var phaseChanged = lastSnapshot == null || lastSnapshot.Phase != snapshot.Phase;
             lastSnapshot = snapshot;
             var phase = snapshot.Phase;
 
@@ -307,6 +308,11 @@ namespace Agrovator.PitchSimulator.UI
                     strengthenLabels[index].text = localize(
                         PitchPartVisuals.MasteryLabelKey(section.CurrentMastery.Value));
                 }
+            }
+
+            if (phaseChanged)
+            {
+                ResetPhaseScroll();
             }
         }
 
@@ -415,6 +421,20 @@ namespace Agrovator.PitchSimulator.UI
                 cardsScroll.StopMovement();
                 cardsScroll.content.anchoredPosition += new Vector2(0f, delta);
             }
+        }
+
+        private void ResetPhaseScroll()
+        {
+            if (cardsScroll == null || cardsScroll.content == null)
+            {
+                return;
+            }
+
+            cardsScroll.StopMovement();
+            cardsScroll.verticalNormalizedPosition = 1f;
+            var anchored = cardsScroll.content.anchoredPosition;
+            cardsScroll.content.anchoredPosition = new Vector2(anchored.x, 0f);
+            lastScrollTarget = null;
         }
 
         private void HandleModeSelected(LearnerMode mode)

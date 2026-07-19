@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -9,6 +10,7 @@ using Agrovator.PitchSimulator.UI;
 using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.EventSystems;
+using UnityEngine.TestTools;
 using UnityEngine.UI;
 
 namespace Agrovator.PitchSimulator.Tests.PlayMode
@@ -212,6 +214,51 @@ namespace Agrovator.PitchSimulator.Tests.PlayMode
 
             Assert.That(rig.Layout.Apply(new Vector2(700, 900)), Is.False);
             Assert.That(rig.Root.GetComponentsInChildren<Transform>(true).Length, Is.EqualTo(objectCount));
+        }
+
+        [Test]
+        public void WebViewportMetrics_EditorFallbackUsesScreenCssSizeAndUnitDpr()
+        {
+            var metrics = WebViewportMetrics.Read();
+
+            Assert.That(metrics.CssWidth, Is.EqualTo(Screen.width));
+            Assert.That(metrics.CssHeight, Is.EqualTo(Screen.height));
+            Assert.That(metrics.DevicePixelRatio, Is.EqualTo(1f));
+            Assert.That(metrics.CssWidth, Is.GreaterThan(0));
+            Assert.That(metrics.CssHeight, Is.GreaterThan(0));
+        }
+
+        [UnityTest]
+        public IEnumerator ResponsiveLayout_ReappliesOnlyWhenCssMetricsOrDprChange()
+        {
+            var rig = CreateResponsive();
+            var metrics = new WebViewportMetrics(720, 960, 1f);
+            rig.Layout.ConfigureViewportMetricsReader(() => metrics);
+
+            yield return null;
+            yield return null;
+            Assert.That(rig.Layout.IsCompact, Is.True);
+            var expected = rig.Board.cellSize;
+
+            var sentinel = new Vector2(111f, 222f);
+            rig.Board.cellSize = sentinel;
+            yield return null;
+            yield return null;
+            Assert.That(rig.Board.cellSize, Is.EqualTo(sentinel),
+                "Identical CSS width, height and DPR must not reapply the layout.");
+
+            metrics = new WebViewportMetrics(720, 960, 1.5f);
+            yield return null;
+            yield return null;
+            Assert.That(rig.Board.cellSize, Is.EqualTo(expected),
+                "A DPR-only change must reapply against the same CSS viewport.");
+
+            rig.Board.cellSize = sentinel;
+            metrics = new WebViewportMetrics(700, 960, 1.5f);
+            yield return null;
+            yield return null;
+            Assert.That(rig.Board.cellSize, Is.Not.EqualTo(sentinel),
+                "A CSS viewport change must reapply the compact cell widths.");
         }
 
         [Test]

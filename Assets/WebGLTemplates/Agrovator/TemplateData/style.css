@@ -28,6 +28,7 @@ body {
 
 #unity-shell {
   width: min(100%, 1280px);
+  min-width: 0;
   display: grid;
   justify-items: center;
   gap: 10px;
@@ -36,8 +37,9 @@ body {
 #unity-stage {
   position: relative;
   width: 100%;
-  max-width: 1280px;
-  aspect-ratio: 16 / 9;
+  height: 100%;
+  min-width: 0;
+  max-width: 100%;
   overflow: hidden;
   border: 2px solid #f4ead5;
   border-radius: 6px;

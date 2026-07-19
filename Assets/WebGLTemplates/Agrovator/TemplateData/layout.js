@@ -14,19 +14,21 @@
     return Number.isFinite(value) ? Math.max(0, value) : 0;
   }
 
-  function calculateStageWidth(metrics) {
+  function calculateStageSize(metrics) {
     const shellWidth = Math.max(1, nonNegative(metrics.shellWidth));
     const viewportHeight = Math.max(1, nonNegative(metrics.viewportHeight));
-    const verticalChrome =
-      nonNegative(metrics.bodyPaddingTop) +
-      nonNegative(metrics.bodyPaddingBottom) +
-      nonNegative(metrics.shellRowGap) +
-      nonNegative(metrics.controlHeight) +
-      nonNegative(metrics.controlMarginTop) +
-      nonNegative(metrics.controlMarginBottom);
+    const verticalChrome = nonNegative(metrics.verticalChrome);
     const availableHeight = Math.max(1, viewportHeight - verticalChrome);
-    return Math.max(1, Math.floor(Math.min(shellWidth, availableHeight * 16 / 9)));
+    return Object.freeze({
+      width: Math.floor(shellWidth),
+      height: Math.floor(availableHeight),
+    });
   }
 
-  return Object.freeze({ calculateStageWidth });
+  function renderScale(devicePixelRatio) {
+    const ratio = Number.isFinite(devicePixelRatio) ? devicePixelRatio : 1;
+    return Math.min(2, Math.max(1, ratio));
+  }
+
+  return Object.freeze({ calculateStageSize, renderScale });
 });

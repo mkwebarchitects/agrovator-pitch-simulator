@@ -337,6 +337,38 @@ namespace Agrovator.PitchSimulator.Tests.EditMode.UI
         }
 
         [Test]
+        public void GeneratedPresentPitch_TallDesktopKeepsAllPrimarySentencesInsideThePhaseViewport()
+        {
+            var size = new Vector2(1276f, 918f);
+            var canvas = OpenGameCanvas(size);
+            var guided = RequireChild(canvas, "Guided Pitch");
+            using (new ActiveScope(guided.gameObject))
+            {
+                ApplyResponsiveLayout(guided, size);
+                SetPhaseSections(guided, "Present Pitch");
+                var presentation = RequireText(
+                    guided, ContentRoot + "/Present Pitch/Presentation");
+                SetActiveText(presentation, string.Join("\n\n", new[]
+                {
+                    "Our garden beds get too dry because we water them at the wrong times.",
+                    "We saw dry soil on three days and puddles after it rained.",
+                    "A sensor checks the soil, then waters only when the garden is dry.",
+                    "It saves water, helps vegetables grow, and teaches students how sensors work.",
+                }));
+                ForceGuidedLayout(canvas, guided);
+
+                var viewport = RequireChild(guided, "Content Frame/Phase Scroll/Viewport")
+                    .GetComponent<RectTransform>();
+                AssertContained(viewport, presentation.rectTransform);
+                var presentationBounds = RectTransformUtility.CalculateRelativeRectTransformBounds(
+                    viewport, presentation.rectTransform);
+                Assert.That(presentationBounds.min.y - viewport.rect.yMin,
+                    Is.GreaterThanOrEqualTo(presentation.fontSize * 0.5f),
+                    "The final sentence needs visible breathing room above the viewport mask and action bar.");
+            }
+        }
+
+        [Test]
         public void GeneratedScenes_MeetTargetContrastNavigationAndPixelArtContracts()
         {
             var canvas = OpenGameCanvas(WideSize);
@@ -471,7 +503,7 @@ namespace Agrovator.PitchSimulator.Tests.EditMode.UI
         }
 
         [Test]
-        public void GeneratedEnvironment_CropsToFillWithoutStretchingInLandscapeAndPortrait()
+        public void GeneratedEnvironment_FitsCenteredSixteenByNineWithoutStretchingInLandscapeAndPortrait()
         {
             foreach (var size in new[] { WideSize, new Vector2(720f, 960f) })
             {
@@ -484,18 +516,22 @@ namespace Agrovator.PitchSimulator.Tests.EditMode.UI
                     var image = environment.GetComponent<Image>();
                     var fitter = environment.GetComponent<AspectRatioFitter>();
                     Assert.That(fitter, Is.Not.Null,
-                        "The original garden must use an aspect-preserving crop-to-fill fitter.");
-                    Assert.That(fitter.aspectMode, Is.EqualTo(AspectRatioFitter.AspectMode.EnvelopeParent));
+                        "The original garden must use an aspect-preserving fit-to-frame fitter.");
+                    Assert.That(fitter.aspectMode, Is.EqualTo(AspectRatioFitter.AspectMode.FitInParent));
+                    Assert.That(guided.GetComponent<Image>().color, Is.EqualTo(DeepNavy),
+                        "Unused viewport space must render as deep-navy letterboxing.");
 
-                    var sourceAspect = image.sprite.rect.width / image.sprite.rect.height;
+                    const float sourceAspect = 16f / 9f;
                     Assert.That(fitter.aspectRatio, Is.EqualTo(sourceAspect).Within(0.0001f));
                     var environmentRect = environment.GetComponent<RectTransform>();
                     var guidedRect = guided.GetComponent<RectTransform>();
                     Assert.That(environmentRect.rect.width / environmentRect.rect.height,
                         Is.EqualTo(sourceAspect).Within(0.001f),
                         size + " must preserve the original garden aspect ratio.");
-                    Assert.That(environmentRect.rect.width, Is.GreaterThanOrEqualTo(guidedRect.rect.width - 0.5f));
-                    Assert.That(environmentRect.rect.height, Is.GreaterThanOrEqualTo(guidedRect.rect.height - 0.5f));
+                    Assert.That(environmentRect.rect.width, Is.LessThanOrEqualTo(guidedRect.rect.width + 0.5f));
+                    Assert.That(environmentRect.rect.height, Is.LessThanOrEqualTo(guidedRect.rect.height + 0.5f));
+                    Assert.That(environmentRect.anchoredPosition.sqrMagnitude, Is.LessThanOrEqualTo(0.25f),
+                        size + " must center the garden inside its letterbox frame.");
                     Assert.That(environmentRect.rect.width / image.sprite.rect.width,
                         Is.EqualTo(environmentRect.rect.height / image.sprite.rect.height).Within(0.001f),
                         size + " must scale the garden uniformly on both axes.");

@@ -142,6 +142,7 @@ namespace Agrovator.PitchSimulator.Editor
             GuidedPitchSceneReferences references, out GameObject modeSelectionPanel)
         {
             var panel = CreateScreen("Guided Pitch", canvas);
+            panel.GetComponent<Image>().color = DeepNavy;
             var presenter = panel.AddComponent<GuidedPitchPresenter>();
             var responsive = panel.AddComponent<GuidedPitchResponsiveLayout>();
 
@@ -155,8 +156,8 @@ namespace Agrovator.PitchSimulator.Editor
             environmentImage.color = Color.white;
             environmentImage.raycastTarget = false;
             var environmentAspect = environment.GetComponent<AspectRatioFitter>();
-            environmentAspect.aspectMode = AspectRatioFitter.AspectMode.EnvelopeParent;
-            environmentAspect.aspectRatio = garden.rect.width / garden.rect.height;
+            environmentAspect.aspectMode = AspectRatioFitter.AspectMode.FitInParent;
+            environmentAspect.aspectRatio = 16f / 9f;
 
             var frame = CreateFrame(panel.transform, FrameWidth, FrameHeight, 8, 8, 8f);
 
