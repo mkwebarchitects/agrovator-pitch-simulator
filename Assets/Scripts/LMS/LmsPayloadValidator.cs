@@ -28,7 +28,7 @@ namespace Agrovator.PitchSimulator.LMS
 
     public static class LmsPayloadValidator
     {
-        public const int SupportedContentVersion = 1;
+        public const int SupportedContentVersion = 2;
 
         private static readonly string[] CanonicalUtcTimestampFormats =
         {

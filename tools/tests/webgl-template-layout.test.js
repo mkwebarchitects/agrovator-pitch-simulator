@@ -4,88 +4,119 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const test = require("node:test");
+const {
+  canonicalCode,
+  extractFunction,
+  extractPropertyFunction,
+  findCalls,
+  lastQuotedValue,
+  propertyFunctionNames,
+} = require("./javascript-contract.js");
 
 const projectRoot = path.resolve(__dirname, "..", "..");
 const templateRoot = path.join(projectRoot, "Assets", "WebGLTemplates", "Agrovator");
 
-test("warning alert starts hidden and is revealed only by showBanner", () => {
+test("warning alert starts hidden and is revealed only by executable showBanner code", () => {
   const html = fs.readFileSync(path.join(templateRoot, "index.html"), "utf8");
-
+  const showBanner = canonicalCode(extractFunction(html, "showBanner"));
   assert.match(html, /<div\s+id="unity-warning"[^>]*\shidden(?:\s|>)/);
-  assert.match(html, /function showBanner[\s\S]*warning\.hidden = false/);
+  assert.match(showBanner, /warning\.hidden = false/);
 });
 
-test("layout calculator reserves measured chrome on desktop and mobile viewports", () => {
-  const { calculateStageWidth } = require(path.join(templateRoot, "TemplateData", "layout.js"));
-
-  const desktop = calculateStageWidth({
-    shellWidth: 1280,
-    viewportHeight: 798,
-    bodyPaddingTop: 12,
-    bodyPaddingBottom: 12,
-    shellRowGap: 10,
-    controlHeight: 44,
-    controlMarginTop: 0,
-    controlMarginBottom: 0,
-  });
-  assert.equal(desktop, 1280);
-
-  const constrainedDesktop = calculateStageWidth({
-    shellWidth: 1280,
-    viewportHeight: 720,
-    bodyPaddingTop: 12,
-    bodyPaddingBottom: 12,
-    shellRowGap: 10,
-    controlHeight: 44,
-    controlMarginTop: 5,
-    controlMarginBottom: 7,
-  });
-  assert.equal(constrainedDesktop, 1120);
-  assert.ok(constrainedDesktop * 9 / 16 + 12 + 12 + 10 + 44 + 5 + 7 <= 720);
-
-  const mobilePortrait = calculateStageWidth({
-    shellWidth: 382,
-    viewportHeight: 844,
-    bodyPaddingTop: 4,
-    bodyPaddingBottom: 4,
-    shellRowGap: 10,
-    controlHeight: 40,
-    controlMarginTop: 0,
-    controlMarginBottom: 0,
-  });
-  assert.equal(mobilePortrait, 382);
-
-  const mobileLandscape = calculateStageWidth({
-    shellWidth: 836,
-    viewportHeight: 390,
-    bodyPaddingTop: 4,
-    bodyPaddingBottom: 4,
-    shellRowGap: 10,
-    controlHeight: 40,
-    controlMarginTop: 0,
-    controlMarginBottom: 0,
-  });
-  assert.equal(mobileLandscape, 590);
-  assert.ok(mobileLandscape * 9 / 16 + 4 + 4 + 10 + 40 <= 390);
+test("layout calculator uses the full available portrait or landscape stage", () => {
+  const { calculateStageSize } = require(path.join(templateRoot, "TemplateData", "layout.js"));
+  assert.deepEqual(calculateStageSize({ shellWidth: 1280, viewportHeight: 798, verticalChrome: 78 }),
+    { width: 1280, height: 720 });
+  assert.deepEqual(calculateStageSize({ shellWidth: 382, viewportHeight: 844, verticalChrome: 54 }),
+    { width: 382, height: 790 });
 });
 
-test("template measures styled chrome and coalesces ResizeObserver writes", () => {
+test("render scale accounts for DPR while capping WebGL memory growth", () => {
+  const { renderScale } = require(path.join(templateRoot, "TemplateData", "layout.js"));
+  assert.equal(renderScale(1), 1);
+  assert.equal(renderScale(1.5), 1.5);
+  assert.equal(renderScale(3), 2);
+});
+
+test("template wires executable observer events through requestLayout to fitCanvas", () => {
   const html = fs.readFileSync(path.join(templateRoot, "index.html"), "utf8");
+  const fitCanvas = extractFunction(html, "fitCanvas");
+  const requestLayout = extractFunction(html, "requestLayout");
+  assert.equal(findCalls(requestLayout, "window.requestAnimationFrame", { awaited: false }).length, 1);
+  assert.equal(findCalls(requestLayout, "fitCanvas", { awaited: false }).length, 1);
+  assert.equal(findCalls(fitCanvas, "AgrovatorLayout.calculateStageSize", { awaited: false }).length, 1);
+  assert.match(canonicalCode(fitCanvas), /stage\.style\.width = nextWidth/);
+  assert.match(canonicalCode(fitCanvas), /stage\.style\.height = nextHeight/);
 
-  for (const contract of [
-    "getComputedStyle(document.body)",
-    "getComputedStyle(shell)",
-    "getComputedStyle(fullscreen)",
-    "bodyPaddingTop",
-    "bodyPaddingBottom",
-    "shellRowGap",
-    "controlMarginTop",
-    "controlMarginBottom",
-    "window.visualViewport",
-    "requestAnimationFrame",
-    "stage.style.width !== nextWidth",
-    "new ResizeObserver(requestLayout)",
-  ]) {
-    assert.ok(html.includes(contract), `missing layout contract: ${contract}`);
+  const windowEvents = findCalls(html, "window.addEventListener", { awaited: false });
+  assert.deepEqual(windowEvents.map(call => lastQuotedValue(call)), ["resize", "orientationchange"]);
+  assert.ok(windowEvents.every(call => /,\s*requestLayout\s*,/.test(call.text)));
+  const visualEvents = findCalls(html, "window.visualViewport.addEventListener", { awaited: false });
+  assert.deepEqual(visualEvents.map(call => lastQuotedValue(call)), ["resize"]);
+  assert.match(canonicalCode(visualEvents[0].text),
+    /^window\.visualViewport\.addEventListener\("resize", requestLayout,/);
+  const observers = findCalls(html, "ResizeObserver", { awaited: false });
+  assert.equal(observers.length, 1);
+  assert.match(canonicalCode(observers[0].text), /^ResizeObserver\(requestLayout\)$/);
+  assert.equal(findCalls(html, "requestLayout", { awaited: false }).length, 1,
+    "observer callback references are not calls; exactly one startup call is required");
+});
+
+test("template sends the executable DPR result into Unity config", () => {
+  const html = fs.readFileSync(path.join(templateRoot, "index.html"), "utf8");
+  const scaleCalls = findCalls(html, "AgrovatorLayout.renderScale", { awaited: false });
+  assert.equal(scaleCalls.length, 1);
+  assert.match(canonicalCode(scaleCalls[0].text),
+    /^AgrovatorLayout\.renderScale\(window\.devicePixelRatio \|\| 1\)$/);
+  const code = canonicalCode(html);
+  const scaleAssignment = code.indexOf("const renderScale = AgrovatorLayout.renderScale(window.devicePixelRatio || 1)");
+  const configAssignment = code.indexOf("config.devicePixelRatio = renderScale");
+  assert.ok(scaleAssignment >= 0 && configAssignment > scaleAssignment,
+    "computed DPR must flow into config after config creation");
+});
+
+test("template keeps variable dimensions and cannot become mobile min-content overflow", () => {
+  const css = fs.readFileSync(path.join(templateRoot, "TemplateData", "style.css"), "utf8");
+  assert.match(css, /#unity-canvas\s*\{[^}]*width:\s*100%;[^}]*height:\s*100%;/s);
+  assert.doesNotMatch(css, /#unity-stage\s*\{[^}]*aspect-ratio\s*:/s);
+  assert.match(css, /#unity-shell\s*\{[^}]*min-width:\s*0;/s);
+  assert.match(css, /#unity-stage\s*\{[^}]*min-width:\s*0;[^}]*max-width:\s*100%;/s);
+});
+
+test("viewport bridge exposes exactly three unique display-only executable exports", () => {
+  const builder = fs.readFileSync(path.join(projectRoot, "Assets", "Editor", "GuidedPitchSceneBuilder.cs"), "utf8");
+  const bridge = fs.readFileSync(path.join(projectRoot, "Assets", "Plugins", "WebGL", "PitchSimulatorBridge.jslib"), "utf8");
+  assert.match(builder, /new GameObject\("Environment Frame"[\s\S]*?AspectRatioFitter/);
+
+  const expected = [
+    "PitchSimulatorViewportWidth",
+    "PitchSimulatorViewportHeight",
+    "PitchSimulatorDevicePixelRatioTimes100",
+  ];
+  assert.deepEqual(propertyFunctionNames(bridge, "PitchSimulatorViewport"), expected.slice(0, 2));
+  assert.deepEqual(propertyFunctionNames(bridge, "PitchSimulatorDevicePixelRatio"), expected.slice(2));
+
+  const width = canonicalCode(extractPropertyFunction(bridge, expected[0]));
+  const height = canonicalCode(extractPropertyFunction(bridge, expected[1]));
+  const dpr = canonicalCode(extractPropertyFunction(bridge, expected[2]));
+  assert.match(width,
+    /^PitchSimulatorViewportWidth: function \(\) \{ var canvas = document\.getElementById\("unity-canvas"\); return Math\.max\(1, Math\.round\(canvas \? canvas\.clientWidth : window\.innerWidth\)\); \}$/);
+  assert.match(height,
+    /^PitchSimulatorViewportHeight: function \(\) \{ var canvas = document\.getElementById\("unity-canvas"\); return Math\.max\(1, Math\.round\(canvas \? canvas\.clientHeight : window\.innerHeight\)\); \}$/);
+  assert.match(dpr,
+    /^PitchSimulatorDevicePixelRatioTimes100: function \(\) \{ return Math\.max\(100, Math\.round\(\(window\.devicePixelRatio \|\| 1\) \* 100\)\); \}$/);
+  for (const body of [width, height, dpr]) {
+    assert.doesNotMatch(body, /postMessage|SendMessage|launchConfigJson|completion/i);
   }
+});
+
+test("contract parser ignores observer and viewport exports hidden in comments or strings", () => {
+  const fixture = `
+    // window.addEventListener("resize", requestLayout);
+    const dead = 'PitchSimulatorViewportFake: function () {}';
+    /* PitchSimulatorViewportComment: function () {} */
+    PitchSimulatorViewportWidth: function () { return 1; }
+  `;
+  assert.equal(findCalls(fixture, "window.addEventListener", { awaited: false }).length, 0);
+  assert.deepEqual(propertyFunctionNames(fixture, "PitchSimulatorViewport"), ["PitchSimulatorViewportWidth"]);
 });

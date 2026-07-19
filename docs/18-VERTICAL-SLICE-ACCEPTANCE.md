@@ -1,63 +1,71 @@
-# Assess Vertical Slice Acceptance
+# Assess Guided Pitch Builder Acceptance
 
-## Task 20 and UI-polish evidence boundary
+## Acceptance decision and boundary
 
-On 2026-07-15 (`Asia/Kuala_Lumpur`), Task 20 accepted the standalone vertical-slice implementation and the later UI-polish gate recorded the dedicated Tutorial and centered-card experience for Unity `6000.5.3f1`. This is not production WebGL/LMS release approval. The external AGROVATOR LMS repository was not inspected, and real LMS submission, deployment, legal, language, audio, classroom, accessibility, browser-support, and human release decisions remain outside this acceptance.
+Task 9 records fresh local implementation evidence for the guided pitch builder at source baseline `e241eaa` on 2026-07-19 (`Asia/Kuala_Lumpur`) with Unity `6000.5.3f1`. The tested implementation meets the automated content, contract, layout, build, browser, asset, link, and privacy gates described below.
 
-Fresh execution evidence:
+This is not a pedagogical-effectiveness or production-release decision. Automated tests demonstrate implementation behavior. Primary and Secondary educators or representative learners must review reading level, coaching tone, task length, and transfer usefulness before any learning-effectiveness claim.
 
-- Canonical EditMode passed `311/311`; canonical PlayMode passed `39/39`; Node passed `14/14`. Unity XML recorded zero failures, skips, or inconclusive tests, and both complete logs had zero compile/exception markers. The additional generated-layout regression assigns every authored Pitch Room prompt/outcome and response string plus all five confidence labels at `1280x720` and requires complete UGUI TextGenerator character counts.
-- `tools/Build-WebGL.ps1` exited `0` in `48.8 s`. BuildReport was `Succeeded`, `92,374,282` bytes, `00:00:07.2820626`, with zero warnings and zero errors.
-- The build contained exactly seven files: `index.html` `5,505`; `style.css` `2,717`; `layout.js` `1,115`; loader `58,622`; framework `711,897`; data `9,293,457`; wasm `82,300,969` bytes.
-- The repaired matrix generated at `2026-07-15T08:38:15.819Z` (`2026-07-15 16:38:15.819` local) used Playwright `1.61.1`. Chrome `150.0.7871.116` passed with `7,293 ms` Unity-ready and `36.210 s` total; Edge `150.0.4078.65` passed with `7,549 ms` Unity-ready and `36.559 s` total. Both recorded zero console/page errors; all three Tutorial pages, launch, Success, Failure, Missing Configuration, pointer-only Retry Tutorial Skip, and a fresh Question 1 reveal were present; the server stopped cleanly with zero stderr. Final capture followed a bounded three-sample stable-content/control repaint gate. An initial Edge attempt sampled stale desktop canvas bounds before its asynchronous mobile resize; the later screenshot showed the contained mobile canvas, and the unchanged full rerun passed.
-- Firefox was unavailable at standard Windows paths. Safari is unavailable on Windows. Neither is claimed as passed.
+The external AGROVATOR LMS repository was not accessed. Real LMS behavior, Malay human review, Firefox/Safari, native touch, unrestricted fullscreen, legal approval, classroom evidence, and human accessibility/assistive-technology review remain unclaimed.
 
-The earlier Task 18 measurements remain historical evidence in [web deployment](10-WEB-DEPLOYMENT.md); they are not substituted for the fresh UI-polish build.
+## Fresh execution evidence
 
-## Line-by-line acceptance
+- EditMode XML `Passed`: `370/370`, zero failures/skips/inconclusive, `3.6042203 s`; complete `906`-line log with zero configured compile/exception/failure markers. (Final post-cleanup re-run; the pre-cleanup run passed the same `370/370`.)
+- PlayMode XML `Passed`: `48/48`, zero failures/skips/inconclusive, `2.3099064 s`; complete `895`-line log with zero configured markers. (Final post-cleanup re-run; the pre-cleanup run passed the same `48/48`.)
+- JavaScript syntax passed; Node contracts passed `20/20` with zero failures/skips/todos, including three repair contracts that require reachable recorded missing-configuration recovery, hidden-fullscreen-control operation, and retried frame-polled presses on the recovered Title.
+- WebGL BuildReport `Succeeded`: `92,631,312` bytes, `00:00:02.0019569`, zero warnings/errors; complete `626`-line log with zero configured markers.
+- Server self-test passed on temporary port `58382`.
+- An earlier acceptance matrix claimed missing-configuration recovery without executing it (`modes.missingConfig: false`); `runBrowser` was repaired to invoke and record `verifyMissingConfigRecovery`, one intermediate run exposed a frame-polled press miss on the recovered Title that a retrying press gate now prevents, and the matrix below is the final run.
+- Chrome `150.0.7871.127` passed Primary keyboard-only from `15:05:05.793Z` to `15:05:52.988Z` with `7,654 ms` load and zero console/page errors.
+- Edge `150.0.4078.83` passed Secondary pointer-only from `15:05:52.988Z` to `15:06:50.264Z` with `7,647 ms` load and zero console/page errors.
+- Both browsers passed desktop/mobile containment, four Build rounds, feedback, revision, Present, cost follow-up, Results, forced failure-to-success resubmission, Retry/fresh mode, executed missing-config recovery recorded as `modes.missingConfig: true`, and six-competency completion. Firefox was unavailable and is not claimed.
 
-An independent source/test/scenario review plus the final repair review through commit `616e2ed` found direct automated or authored-data evidence for every requested implementation capability. Fresh broad suites, build, and browser smoke above provide the final execution checkpoint.
+## Line-by-line guided acceptance
 
-| Requirement | Current status | Evidence summary |
+| Requirement | Status | Evidence summary |
 | --- | --- | --- |
-| Title | Pass | Generated Title is initially active/focused; launch-to-Title is covered by Bootstrap and session-controller tests. |
-| Briefing | Pass | Start routes to Briefing and focuses Continue; session tests assert fresh tutorial state. |
-| Tutorial | Pass | A dedicated three-page UI appears from page one on every attempt. Back/Next mutate only the page index; Skip is available on every page; Start Practice and Skip each advance once. The existing zero-timer, zero-score, zero-confidence practice opening remains unchanged. |
-| Centered layouts | Pass | Title `760x500`, Briefing `880x520`, Tutorial `920x560`, Settings `720x420`, and capped `960x680` PitchRoom/Results cards are centered and contained at the 1280x720 reference; all actions remain at least 64px high, and the Results scrollbar has a 64px target plus `14.09:1` selected-focus contrast. Pitch Room text uses a readable `22px` minimum, 72px response targets, and complete generated character-count coverage. |
-| Judge | Pass | Generated PitchRoom contains configured Judge Aya with active talk-loop behavior. |
-| Five-or-more scored questions | Pass | All `729` playable paths terminate with exactly six scored questions. |
-| Three choices | Pass | Every scored question has exactly three respectful responses; runtime uses a fixed three-view pool. |
-| Two-or-more branches | Pass | Conditional standard/recovery gates provide at least two authored branch behaviors. |
-| Recovery | Pass | The unique `weak_claim_made` recovery route is tested through Results history and retry reset. |
-| Timers | Pass | Authored `20`, `15`, and `12` second timers, final-five presentation, reduced-motion behavior, and neutral expiry are covered. |
-| Confidence | Pass | Exact five bands, fill/art fallback, scored confidence changes, and full rendering of every state label are covered. |
-| Reactions | Pass | All 11 typed reactions, authored mappings, fallback, talk/blink, one-shot, and reduced-motion behavior are covered. |
-| Audio hooks | Pass for hooks only | Exact nine-hook inventory, first-gesture music, response/reaction, once-per-question timer warning, feedback/results, completion routing, and null safety are covered; final audible/licensed clips are absent. |
-| Scoring | Pass | Seven category caps, 100 overall clamp, rollups, confidence bounds, levels, and feedback selection are covered. |
-| Results | Pass | Terminal payload, scores, confidence, rollups, two strengths, two improvements, and status rendering are covered. |
-| Review | Pass | Ordered response/feedback/explanation history, fixed six-item pool, scrolling, focus, and reset behavior are covered. |
-| Retry | Pass | Retry from Results or successful Complete increments the attempt while runtime state, Results view, and review state reset; browser smoke proves the fresh flow through Question 1 reveal. |
-| Mock launch/completion | Pass for mock contract | Success, Failure, Expired, Missing Configuration, resend/recovery, payload construction, and browser JSON paths are covered; this is not real LMS proof. |
-| WebGL build | Pass for development build | Deterministic Bootstrap/Game build contract and fresh successful seven-file artifact are recorded above. |
+| Briefing and explicit mode | Pass | The learner sees the individual-practice/untimed Briefing, then chooses Primary or Secondary. No LMS field or category inference selects the mode; `Elementary -> Primary` is conceptual only. |
+| Learn | Pass | The incomplete-pitch example and explanation introduce Problem, Evidence, Solution, and Value with persistent icon/colour language. |
+| Four Build rounds | Pass | Problem, Evidence, Solution, and Value each offer exactly three respectful cards, add one sentence to the Pitch Board, and show worked/missing/improve coaching. |
+| Primary fidelity | Pass for implementation | Exact 12-16 word cards, concrete familiar examples, direct prompts/coaching, and the four plain-language labels are content-tested. Human age/reading suitability is not claimed. |
+| Secondary fidelity | Pass for implementation | Exact content distinguishes observation/assumption, measurements, qualified scope, audience relevance, and uncertainty without changing mechanics/theme. Human suitability is not claimed. |
+| Improve and revision | Pass | Developing/Needs Practice parts are framed as opportunities; one replacement updates current assessment, retains the initial history ID, and recognizes only a mastery increase. |
+| Present and adaptability | Pass | The four current sentences render completely in order; one cost/uncertainty follow-up must be answered before Results. |
+| Untimed completion | Pass | No construction deadline or TimerWarning; completion requires full assembly/review/follow-up rather than a score threshold; timeout count is zero. |
+| Results and transfer | Pass | Four current part/mastery cards, strengthened count, Pitch Readiness, complete final pitch, transfer prompt, status/actions, scrolling, and Retry are covered. |
+| Assessment | Pass | Current revised choices drive readiness: Needs Practice `10`, Developing `20`, Clear `25` per part. Competencies use `40/70/100`; Clear Explanation/Communication are the rounded mean. |
+| LMS compatibility | Pass for local contract | Scenario/content v2, six competency IDs, no Time Management, history in `SelectedResponseIds`, unchanged `14`/`19` DTO shapes/types, and hidden legacy `FinalConfidence` semantics are tested. Real LMS is not claimed. |
+| Retry and error handling | Pass | Retry clears mode/draft/history/assessment/follow-up/submission and reaches fresh mode selection; incomplete drafts cannot Present; failure preserves Results; invalid startup state blocks safely with sanitized recovery. |
+| Responsive, DPR, focus | Pass for tested environments | Wide/compact layout, DPR formula, point-filtered art/full-resolution UI, keyboard/focus, target sizing, long-copy containment, scrolling, and zero-overflow Chrome/Edge smoke passed. Higher-DPR runtime, touch, Firefox/Safari remain unclaimed. |
 
-## Privacy, secret, and asset audit
+## Content, contract, asset, link, and privacy reconciliation
 
-The fresh UI-polish scan searched `Assets`, `WebHarness`, `docs`, `tools`, and the root release records while excluding `.meta` and PNG binaries. It found zero email-like, AWS, OpenAI, GitHub, private-key, credential-query, or secret-named tracked-file hits. The only bearer/JWT-shaped matches were the deliberate malformed rejection literals `Bearer abcdefghijklmnop` and `eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxIn0.signature`, once in the LMS negative test and once in this explanatory record; therefore the unexpected-secret count is zero. Pseudonymous `local_*`, `test_*`, `learner-*`, `session-*`, and `lref_*` fixtures are intentionally non-production. Fresh DTO inspection confirms no learner name, email, school, date of birth, address, credential, raw answer text, or open-ended learner input field exists in launch/completion payloads.
+- Exactly one active guided v2 asset is wired into Bootstrap. `GuidedPitchContentTests` passed `18/18`; `BootstrapPlayModeTests` passed `9/9`.
+- Both terminating routes and exactly `30` stable unique authored option IDs are asserted. Every content key and feedback pattern resolves.
+- English and Malay each have `319` entries. `LocalizationTests` passed `27/27` for exact key/fallback parity; Malay remains `pending_human_review`.
+- `LmsPayloadTests` passed `92/92`; both DTO source files are unchanged from the guided baseline. No free-text or direct identity field was added.
+- `142` logical files plus `40` directories have `182` matching metas; missing/orphan counts are zero.
+- `48` tracked Markdown files and `78` relative links were checked; broken count is zero.
+- `Library`, `Temp`, `Logs`, `UserSettings`, `Build`, and `artifacts` are ignored; generated verification/editor outputs are not tracked.
+- Exact and broader privacy scans found zero unexpected secrets, emails, credential-query shapes, secret-named files, learner names, school identifiers, free-text inputs, response-text logs, or full launch/completion payload logs after every match was reviewed. Deliberate malformed bearer/JWT negative fixtures remain non-production.
+- Six known trailing spaces in two guided folder `.meta` files were removed without GUID/content changes. `git diff --check ce7f8ac` now exits zero.
 
-Selected response IDs remain learning records, so production purpose, retention, access, and privacy approval are still required. Browser/harness sinks remain allowlisted and sanitized; no launch reference is put in URLs or full payloads in logs/UI.
+## Original-detail visual evidence
 
-The fresh UI-polish asset reconciliation found `109` logical files plus `145` meta sidecars, with no missing/orphaned meta. All `13` non-code logical assets are individually covered by [the consolidated asset manifest](16-ASSET-MANIFEST.md). All four PNG paths/dimensions match their detailed provenance records; no third-party binary media, remote font/media dependency, or audio binary was identified.
+All eleven required guided PNGs were opened at original detail. Primary/Secondary mode and wide Build views are readable; Primary Improve is complete; both Present captures show four complete sentences; both compact captures show complete Primary and Secondary cards; both Results captures show the full final pitch, including Secondary `beds.`, with fixed submission/Retry actions and scrollable long content. The repaired run regenerated all eleven captures with unchanged Results hashes, and each browser recorded only twelve disclosed non-error root-only/audio-placeholder warnings — the recovery reload's second boot repeats the `DontDestroyOnLoad`, `MusicLoop`, and `ButtonPress` warnings without adding any new class.
 
-## Known gaps and warnings
+Paths and exact browser/layout measurements are listed in [the QA plan](13-QA-PLAN.md). These screenshots are visual implementation evidence, not proof of comprehension, transfer, accessibility conformance, or classroom value.
 
-- Intentional null-cue warnings and the existing non-root `DontDestroyOnLoad` warning remain. The fast browser path reaches eight cue slots; `TimerWarning` has focused once-per-question EditMode evidence. Final audio is absent.
-- No repository-wide licence exists. The OpenAI output-terms version and generating-account authority are not archived. Human creative/legal/release authority must resolve these before distribution.
-- Malay remains `pending_human_review`; no final Malay approval is claimed.
-- Real LMS submission/compatibility, production privacy/security controls, hosting, monitoring, rollback, and support ownership remain unverified.
-- Firefox, Safari, native touch, unrestricted fullscreen, classroom usability, assistive-technology/accessibility human review, and full manual content/pedagogy review are not claimed as passed.
+## Remaining gaps and review state
+
+- Primary/Secondary educator or representative-learner review is the next unchecked action.
+- Malay human review, Firefox/Safari, native touch, real LMS, unrestricted fullscreen, legal, classroom, and human accessibility review are not claimed.
+- Final audio clips and hearing/loudness review are absent.
+- The lexical JavaScript source-contract extractor treats calls in constant-unreachable branches such as `if (false)` as reachable. Runtime smoke is the current backstop; the retained minor belongs to final review triage and was not changed in Task 9.
+- Independent Task 9 and whole-branch reviews occur after the acceptance commit. This document does not claim they have occurred.
 
 ## Decision
 
-The standalone vertical slice plus UI-polish implementation record now includes fresh tests, a development build, Chrome/Edge local smoke, stable-ready final PNG inspection, mobile containment metrics, privacy scanning, asset reconciliation, provenance gaps, and known limitations. The regenerated Chrome/Edge finals are byte-identical complete Briefing checkpoints; no partial-repaint image is accepted. This is a local evidence gate only. The project remains not approved for production WebGL/LMS distribution until the human and environment gates above are closed.
+The local guided implementation has fresh passing automated acceptance evidence and a reconciled documentation/privacy/asset record. It remains outside production and pedagogical-effectiveness approval until the named human and environment gates are closed.
 
 See [QA plan](13-QA-PLAN.md), [deployment](10-WEB-DEPLOYMENT.md), [asset manifest/release governance](16-ASSET-MANIFEST.md), and [production roadmap](15-PRODUCTION-ROADMAP.md).

@@ -87,7 +87,12 @@ namespace Agrovator.PitchSimulator.Tests.EditMode.UI
                 "The empty assertive warning region must be hidden before the first banner.");
             StringAssert.Contains("ResizeObserver", html);
             StringAssert.Contains("orientationchange", html);
-            StringAssert.Contains("aspect-ratio: 16 / 9", css);
+            StringAssert.Contains("visualViewport", html);
+            StringAssert.Contains("config.devicePixelRatio = renderScale", html);
+            StringAssert.Contains("#unity-canvas", css);
+            StringAssert.Contains("width: 100%", css);
+            StringAssert.Contains("height: 100%", css);
+            StringAssert.DoesNotContain("aspect-ratio", css);
             StringAssert.DoesNotContain("<audio", html.ToLowerInvariant());
             StringAssert.DoesNotContain("autoplay", html.ToLowerInvariant());
             StringAssert.DoesNotContain("audiocontext", html.ToLowerInvariant());

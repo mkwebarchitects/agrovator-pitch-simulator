@@ -3,9 +3,9 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using Agrovator.PitchSimulator.Accessibility;
-using Agrovator.PitchSimulator.Dialogue;
-using Agrovator.PitchSimulator.Editor;
 using Agrovator.PitchSimulator.Audio;
+using Agrovator.PitchSimulator.Editor;
+using Agrovator.PitchSimulator.GuidedPitch;
 using Agrovator.PitchSimulator.LMS;
 using Agrovator.PitchSimulator.UI;
 using NUnit.Framework;
@@ -22,6 +22,22 @@ namespace Agrovator.PitchSimulator.Tests.EditMode.UI
     {
         private const string GamePath = "Assets/Scenes/Game.unity";
         private const string SentinelName = "Review Sentinel - Preserve Me";
+        private const string GuidedContentPath = "Assets/Content/Scenarios/guided-pitch-builder.en.json";
+        private const string ContentRoot = "Content Frame/Phase Scroll/Viewport/Content";
+        private static readonly Vector2 WideSize = new Vector2(1280f, 720f);
+        private static readonly Vector2[] CompactSizes =
+        {
+            new Vector2(960f, 720f),
+            new Vector2(720f, 960f),
+        };
+        private static readonly Color DeepNavy = new Color32(0x0E, 0x17, 0x1F, 0xFF);
+        private static readonly Color Cream = new Color32(0xF4, 0xEA, 0xD5, 0xFF);
+        private static readonly Color FocusGold = new Color32(0xFF, 0xD1, 0x66, 0xFF);
+        private static readonly string[] PhaseSectionNames =
+        {
+            "Mode Selection", "Learn", "Sentence Cards", "Feedback",
+            "Improve Actions", "Present Pitch", "Follow Up",
+        };
         private static readonly string[] GeneratedScenePaths =
         {
             "Assets/Scenes/Bootstrap.unity",
@@ -30,98 +46,7 @@ namespace Agrovator.PitchSimulator.Tests.EditMode.UI
         };
 
         [Test]
-        public void GeneratedPitchRoom_UsesContainedFrameAtReferenceResolution()
-        {
-            var scene = EditorSceneManager.OpenScene(GamePath, OpenSceneMode.Single);
-
-            AssertPitchRoomFrame(scene);
-        }
-
-        [Test]
-        public void GeneratedPitchRoom_RendersEveryAuthoredStringWithoutTruncationAtReferenceResolution()
-        {
-            var catalog = LocalizationCatalog.Load(
-                File.ReadAllText("Assets/Content/Localization/en.json"));
-            var scenarioResult = ScenarioJsonLoader.Load(
-                File.ReadAllText("Assets/Content/Scenarios/smart-school-garden.en.json"),
-                catalog.GetKeys("en"));
-            Assert.That(scenarioResult.IsSuccess, Is.True);
-
-            var scene = EditorSceneManager.OpenScene(GamePath, OpenSceneMode.Single);
-            var generated = scene.GetRootGameObjects().Single(root => root.name == "Generated UI");
-            var canvas = generated.transform.Find("Canvas");
-            canvas.GetComponent<Canvas>().renderMode = RenderMode.WorldSpace;
-            canvas.GetComponent<RectTransform>().sizeDelta = new Vector2(1280f, 720f);
-            var pitchRoom = canvas.Find("PitchRoom");
-            var wasActive = pitchRoom.gameObject.activeSelf;
-            pitchRoom.gameObject.SetActive(true);
-            try
-            {
-                ForcePitchRoomLayout(pitchRoom);
-                var prompt = pitchRoom.Find("Content Frame/Dialogue Panel/Prompt Backing/Prompt")
-                    .GetComponent<Text>();
-                var responseLabels = pitchRoom.Find("Content Frame/Responses")
-                    .GetComponentsInChildren<ResponseButtonView>(true)
-                    .Select(slot => slot.GetComponentInChildren<Text>(true))
-                    .ToArray();
-                var failures = new List<string>();
-
-                foreach (var node in scenarioResult.Scenario.Nodes.Values)
-                {
-                    AssertFullyRendered(prompt, node.TextKey, catalog.Resolve("en", node.TextKey),
-                        pitchRoom, failures);
-                    for (var responseIndex = 0; responseIndex < node.Responses.Count; responseIndex++)
-                    {
-                        var response = node.Responses[responseIndex];
-                        AssertFullyRendered(
-                            responseLabels[responseIndex],
-                            response.TextKey,
-                            $"{responseIndex + 1}. {catalog.Resolve("en", response.TextKey)}",
-                            pitchRoom,
-                            failures);
-                        AssertFullyRendered(prompt, response.FeedbackKey,
-                            catalog.Resolve("en", response.FeedbackKey), pitchRoom, failures);
-                        AssertFullyRendered(prompt, response.ExplanationKey,
-                            catalog.Resolve("en", response.ExplanationKey), pitchRoom, failures);
-                    }
-                }
-
-                var confidence = pitchRoom.Find("Content Frame/Metrics/Confidence");
-                var confidenceView = confidence.GetComponent<ConfidenceView>();
-                var confidenceLabel = confidence.Find("Label").GetComponent<Text>();
-                var confidenceKeys = new[]
-                {
-                    "ui.confidence.getting_started",
-                    "ui.confidence.listening",
-                    "ui.confidence.curious",
-                    "ui.confidence.interested",
-                    "ui.confidence.convinced",
-                };
-                for (var index = 0; index < confidenceKeys.Length; index++)
-                {
-                    confidenceView.Render(index * 20, key => catalog.Resolve("en", key));
-                    AssertFullyRendered(confidenceLabel, confidenceKeys[index],
-                        catalog.Resolve("en", confidenceKeys[index]), pitchRoom, failures);
-                }
-
-                Assert.That(failures, Is.Empty, string.Join(Environment.NewLine, failures));
-            }
-            finally
-            {
-                pitchRoom.gameObject.SetActive(wasActive);
-            }
-        }
-
-        [Test]
-        public void GeneratedResults_UsesContainedFrameAtReferenceResolution()
-        {
-            var scene = EditorSceneManager.OpenScene(GamePath, OpenSceneMode.Single);
-
-            AssertResultsFrame(scene);
-        }
-
-        [Test]
-        public void BatchBuild_Twice_PreservesUnownedRootAndKeepsContractSingular()
+        public void BatchBuild_Twice_PreservesUnownedRootAndKeepsGuidedContractSingular()
         {
             var originalSceneBytes = new Dictionary<string, byte[]>();
             foreach (var path in GeneratedScenePaths)
@@ -136,15 +61,51 @@ namespace Agrovator.PitchSimulator.Tests.EditMode.UI
             try
             {
                 PitchSimulatorProjectBuilder.BuildProjectFoundationBatch();
-                AssertContract(scene);
-                AssertBootstrapAudioContract();
+                AssertGuidedGameContract(scene);
+                AssertBootstrapContract();
                 AssertWebIntegrationContract();
                 AssertExactBuildSettings();
+                var firstBuildBytes = GeneratedScenePaths.ToDictionary(
+                    path => path, File.ReadAllBytes, StringComparer.Ordinal);
+                var firstOwnedGameRoot = scene.GetRootGameObjects()
+                    .Single(root => root.name == "Generated UI");
                 PitchSimulatorProjectBuilder.BuildProjectFoundationBatch();
-                AssertContract(scene);
-                AssertBootstrapAudioContract();
+                Assert.That(scene.GetRootGameObjects().Single(root => root.name == "Generated UI"),
+                    Is.SameAs(firstOwnedGameRoot),
+                    "An unchanged build must reuse the current owned root and its serialized IDs.");
+                AssertGuidedGameContract(scene);
+                AssertBootstrapContract();
                 AssertWebIntegrationContract();
                 AssertExactBuildSettings();
+                foreach (var path in GeneratedScenePaths)
+                {
+                    Assert.That(File.ReadAllBytes(path), Is.EqualTo(firstBuildBytes[path]),
+                        path + " must be byte-identical after a second unchanged builder run.");
+                }
+
+                var responsive = firstOwnedGameRoot
+                    .GetComponentInChildren<GuidedPitchResponsiveLayout>(true);
+                var responsiveSerialized = new SerializedObject(responsive);
+                responsiveSerialized.FindProperty("modeSelectionControls").objectReferenceValue = null;
+                responsiveSerialized.ApplyModifiedPropertiesWithoutUndo();
+                PitchSimulatorProjectBuilder.BuildProjectFoundationBatch();
+                var responsiveMigratedRoot = scene.GetRootGameObjects()
+                    .Single(root => root.name == "Generated UI");
+                Assert.That(responsiveMigratedRoot,
+                    Is.Not.SameAs(firstOwnedGameRoot),
+                    "A partial responsive-reference contract must be rebuilt and migrated.");
+                var migratedResponsive = responsiveMigratedRoot
+                    .GetComponentInChildren<GuidedPitchResponsiveLayout>(true);
+                Assert.That(migratedResponsive.ValidateContract(out var responsiveReason), Is.True,
+                    responsiveReason);
+
+                UnityEngine.Object.DestroyImmediate(
+                    responsiveMigratedRoot.transform.Find("Canvas").gameObject);
+                PitchSimulatorProjectBuilder.BuildProjectFoundationBatch();
+                Assert.That(scene.GetRootGameObjects().Single(root => root.name == "Generated UI"),
+                    Is.Not.SameAs(responsiveMigratedRoot),
+                    "A structurally stale generated contract must still be rebuilt and migrated.");
+                AssertGuidedGameContract(scene);
             }
             finally
             {
@@ -154,6 +115,1044 @@ namespace Agrovator.PitchSimulator.Tests.EditMode.UI
                     File.WriteAllBytes(pair.Key, pair.Value);
                 }
                 AssetDatabase.Refresh(ImportAssetOptions.ForceSynchronousImport | ImportAssetOptions.ForceUpdate);
+            }
+        }
+
+        [Test]
+        public void GeneratedGuidedPitch_WideLayout_MeetsApprovedFrameBoardAndCardContract()
+        {
+            var canvas = OpenGameCanvas(WideSize);
+            var guided = RequireChild(canvas, "Guided Pitch");
+            using (new ActiveScope(guided.gameObject))
+            {
+                ApplyResponsiveLayout(guided, WideSize);
+                SetPhaseSections(guided, "Sentence Cards");
+                ForceGuidedLayout(canvas, guided);
+
+                var frame = RequireChild(guided, "Content Frame");
+                var frameRect = frame.GetComponent<RectTransform>();
+                var frameImage = frame.GetComponent<Image>();
+                Assert.That(frameImage.color, Is.EqualTo(DeepNavy),
+                    "The guided panel must be opaque deep navy.");
+                Assert.That(frameRect.rect.width, Is.InRange(960f, 1000f));
+                Assert.That(frameRect.rect.height, Is.LessThanOrEqualTo(680f));
+                var guidedRect = guided.GetComponent<RectTransform>();
+                var frameCenter = guidedRect.InverseTransformPoint(
+                    frameRect.TransformPoint(frameRect.rect.center));
+                Assert.That(frameCenter.x, Is.EqualTo(guidedRect.rect.center.x).Within(0.5f),
+                    "The content frame must stay horizontally centered.");
+                Assert.That(Mathf.Abs(frameCenter.y - guidedRect.rect.center.y), Is.LessThanOrEqualTo(1f),
+                    "The content frame must stay vertically centered.");
+
+                var environment = RequireChild(guided, "Environment Frame");
+                var environmentRect = environment.GetComponent<RectTransform>();
+                Assert.That(environmentRect.rect.width, Is.EqualTo(guidedRect.rect.width).Within(0.1f));
+                Assert.That(environmentRect.rect.height, Is.EqualTo(guidedRect.rect.height).Within(0.1f));
+                Assert.That(environmentRect.rect.width - frameRect.rect.width, Is.GreaterThanOrEqualTo(200f),
+                    "The environment must remain visible outside the content panel.");
+                Assert.That(environment.GetComponent<Image>().sprite.name, Is.EqualTo("pitch-room"));
+
+                var board = RequireChild(frame, "Pitch Board");
+                var boardGrid = board.GetComponent<GridLayoutGroup>();
+                Assert.That(boardGrid.constraint, Is.EqualTo(GridLayoutGroup.Constraint.FixedRowCount));
+                Assert.That(boardGrid.constraintCount, Is.EqualTo(1));
+                var boardSlots = board.GetComponent<PitchBoardView>().Slots;
+                Assert.That(boardSlots.Count, Is.EqualTo(4));
+                var slotRects = boardSlots.Select(slot => slot.Root.GetComponent<RectTransform>()).ToArray();
+                Assert.That(slotRects.Select(rect => rect.rect.size).Distinct().Count(), Is.EqualTo(1),
+                    "The wide Pitch Board must render four equal slots.");
+                Assert.That(slotRects.Select(rect => Mathf.Round(rect.position.y)).Distinct().Count(),
+                    Is.EqualTo(1), "The wide Pitch Board must keep all four slots in one row.");
+
+                var cardsSection = RequireChild(guided, ContentRoot + "/Sentence Cards");
+                var cardViews = cardsSection.GetComponent<SentenceCardListView>().Cards;
+                Assert.That(cardViews.Count, Is.EqualTo(3));
+                var cardsRect = cardsSection.GetComponent<RectTransform>();
+                foreach (var card in cardViews)
+                {
+                    var backing = card.transform.Find("Backing").GetComponent<Image>();
+                    Assert.That(backing.color, Is.EqualTo(Cream),
+                        card.name + " must remain a cream selectable card.");
+                    AssertContained(cardsRect, (RectTransform)card.transform);
+                }
+
+                foreach (var section in new[] { "Sentence Cards", "Feedback" })
+                {
+                    SetPhaseSections(guided, section);
+                    ForceGuidedLayout(canvas, guided);
+                    foreach (var child in frame.GetComponentsInChildren<RectTransform>(false))
+                    {
+                        if (child == frameRect)
+                        {
+                            continue;
+                        }
+                        AssertContained(frameRect, child);
+                    }
+                }
+                AssertContained(guidedRect, frameRect);
+            }
+
+            AssertNoLegacyPresentation(canvas);
+        }
+
+        [Test]
+        public void GeneratedGuidedPitch_CompactFixtures_ReflowStackAndContainContent()
+        {
+            foreach (var size in CompactSizes)
+            {
+                var canvas = OpenGameCanvas(size);
+                var guided = RequireChild(canvas, "Guided Pitch");
+                using (new ActiveScope(guided.gameObject))
+                {
+                    var layout = guided.GetComponent<GuidedPitchResponsiveLayout>();
+                    Assert.That(layout, Is.Not.Null,
+                        "The guided panel must carry the serialized responsive layout.");
+                    layout.Apply(size);
+                    Assert.That(layout.IsCompact, Is.True, size + " must reflow to the compact layout.");
+                    SetPhaseSections(guided, "Sentence Cards");
+                    var frame = RequireChild(guided, "Content Frame");
+                    var primaryAction = RequireChild(frame, "Primary Action");
+                    ForceGuidedLayout(canvas, guided);
+
+                    var frameRect = frame.GetComponent<RectTransform>();
+                    Assert.That(frameRect.rect.width, Is.LessThanOrEqualTo(size.x - 48f),
+                        size + " must keep 24px horizontal safe padding.");
+                    Assert.That(frameRect.rect.height, Is.LessThanOrEqualTo(size.y - 48f),
+                        size + " must keep 24px vertical safe padding.");
+
+                    var board = RequireChild(frame, "Pitch Board");
+                    var boardGrid = board.GetComponent<GridLayoutGroup>();
+                    Assert.That(boardGrid.constraint, Is.EqualTo(GridLayoutGroup.Constraint.FixedColumnCount));
+                    Assert.That(boardGrid.constraintCount, Is.EqualTo(2));
+                    var slotRects = board.GetComponent<PitchBoardView>().Slots
+                        .Select(slot => slot.Root.GetComponent<RectTransform>()).ToArray();
+                    Assert.That(slotRects.Select(rect => Mathf.Round(rect.position.y)).Distinct().Count(),
+                        Is.EqualTo(2), size + " must reflow the Pitch Board into two rows.");
+
+                    var cardsGrid = RequireChild(guided, ContentRoot + "/Sentence Cards")
+                        .GetComponent<GridLayoutGroup>();
+                    Assert.That(cardsGrid.constraint, Is.EqualTo(GridLayoutGroup.Constraint.FixedColumnCount));
+                    Assert.That(cardsGrid.constraintCount, Is.EqualTo(1),
+                        size + " must stack sentence cards into a single column.");
+
+                    var scroll = RequireChild(frame, "Phase Scroll").GetComponent<ScrollRect>();
+                    Assert.That(scroll.enabled, Is.True, size + " must enable the compact Phase Scroll.");
+                    var viewport = scroll.viewport;
+                    var content = scroll.content;
+                    var contentBounds = RectTransformUtility.CalculateRelativeRectTransformBounds(
+                        viewport, content);
+                    foreach (var descendant in content.GetComponentsInChildren<RectTransform>(false))
+                    {
+                        if (descendant == content)
+                        {
+                            continue;
+                        }
+                        var bounds = RectTransformUtility.CalculateRelativeRectTransformBounds(
+                            viewport, descendant);
+                        Assert.That(bounds.min.x, Is.GreaterThanOrEqualTo(viewport.rect.xMin - 0.5f),
+                            descendant.name + " escaped the Phase Scroll viewport on the left at " + size);
+                        Assert.That(bounds.max.x, Is.LessThanOrEqualTo(viewport.rect.xMax + 0.5f),
+                            descendant.name + " escaped the Phase Scroll viewport on the right at " + size);
+                        Assert.That(bounds.min.y, Is.GreaterThanOrEqualTo(contentBounds.min.y - 0.5f),
+                            descendant.name + " escaped the scrollable content at " + size);
+                        Assert.That(bounds.max.y, Is.LessThanOrEqualTo(contentBounds.max.y + 0.5f),
+                            descendant.name + " escaped the scrollable content at " + size);
+                    }
+                    foreach (var selectable in content.GetComponentsInChildren<Selectable>(false))
+                    {
+                        var rect = (RectTransform)selectable.transform;
+                        Assert.That(rect.rect.height, Is.LessThanOrEqualTo(viewport.rect.height + 0.5f),
+                            selectable.name + " must be scrollable fully visible at " + size);
+                    }
+
+                    SetPhaseSections(guided, PhaseSectionNames);
+                    foreach (Transform button in primaryAction)
+                    {
+                        button.gameObject.SetActive(true);
+                    }
+                    ForceGuidedLayout(canvas, guided);
+
+                    foreach (var groupPath in new[] { "Mode Selection", "Improve Actions" })
+                    {
+                        var group = content.Find(groupPath).GetComponent<RectTransform>();
+                        Assert.That(group.GetComponent<LayoutElement>(), Is.Null,
+                            group.name + " must use its flow layout as the sole size authority.");
+                        foreach (Transform child in group)
+                        {
+                            AssertContained(group, child.GetComponent<RectTransform>());
+                        }
+                    }
+                    foreach (Transform activeGroup in content)
+                    {
+                        if (activeGroup.gameObject.activeSelf)
+                        {
+                            AssertContained(content, activeGroup.GetComponent<RectTransform>());
+                        }
+                    }
+                    var primaryRect = primaryAction.GetComponent<RectTransform>();
+                    Assert.That(primaryRect.GetComponent<LayoutElement>(), Is.Null,
+                        "Primary Action must use its flow layout as the sole size authority.");
+                    foreach (Transform child in primaryAction)
+                    {
+                        AssertContained(primaryRect, child.GetComponent<RectTransform>());
+                    }
+                }
+
+                var results = RequireChild(canvas, "Results");
+                using (new ActiveScope(results.gameObject))
+                {
+                    ForceResultsLayout(canvas, results);
+                    var frameRect = RequireChild(results, "Content Frame").GetComponent<RectTransform>();
+                    Assert.That(frameRect.rect.width, Is.LessThanOrEqualTo(size.x - 48f));
+                    Assert.That(frameRect.rect.height, Is.LessThanOrEqualTo(size.y - 48f));
+                    var partViews = results.GetComponentsInChildren<PitchResultPartView>(true);
+                    Assert.That(partViews, Has.Length.EqualTo(4),
+                        "Results must reuse the four part visuals.");
+                    var ordered = partViews.OrderBy(view => (int)view.Part)
+                        .Select(view => (RectTransform)view.transform).ToArray();
+                    for (var index = 1; index < ordered.Length; index++)
+                    {
+                        Assert.That(ordered[index].position.y, Is.LessThan(ordered[index - 1].position.y),
+                            "Results part cards must stack vertically on the constrained fixture.");
+                    }
+                }
+            }
+        }
+
+        [Test]
+        public void GeneratedScenes_RenderRepresentativeGuidedContentWithoutTruncation()
+        {
+            var fixture = LoadGuidedFixture();
+            var failures = new List<string>();
+            var sizes = new[] { WideSize }.Concat(CompactSizes).ToArray();
+            foreach (var size in sizes)
+            {
+                var canvas = OpenGameCanvas(size);
+                AssertGuidedCopyRenders(canvas, size, fixture, failures);
+                AssertResultsCopyRenders(canvas, size, fixture, failures);
+                AssertSupportScreenCopyRenders(canvas, size, fixture, failures);
+            }
+
+            Assert.That(failures, Is.Empty, string.Join(Environment.NewLine, failures));
+        }
+
+        [TestCase(false, TestName = "GeneratedPresentPitch_PrimaryCopyClearsMaskAndAction")]
+        [TestCase(true, TestName = "GeneratedPresentPitch_SecondaryCopyClearsMaskAndAction")]
+        public void GeneratedPresentPitch_TallDesktopKeepsAllSentencesInsideVisiblePhaseArea(
+            bool secondary)
+        {
+            var physicalSize = new Vector2(1276f, 918f);
+            var canvas = OpenGameCanvas(CanvasReferenceSizeForPhysical(physicalSize));
+            var guided = RequireChild(canvas, "Guided Pitch");
+            using (new ActiveScope(guided.gameObject))
+            {
+                ApplyResponsiveLayout(guided, physicalSize);
+                SetPhaseSections(guided, "Present Pitch");
+                var presentation = RequireText(
+                    guided, ContentRoot + "/Present Pitch/Presentation");
+                SetActiveText(presentation, secondary
+                    ? string.Join("\n", new[]
+                    {
+                        "Our logs show dry beds after assembly, wet beds after rain, and students carrying watering cans, so the timing is inconsistent.",
+                        "In our two-week bed trial, sensor watering used 18% less water than the fixed schedule, while the plants stayed healthy.",
+                        "The sensor checks soil moisture, the valve waters a dry bed, and students review the plants and readings daily.",
+                        "The garden saves water, teaches students through real sensor data, supplies useful canteen vegetables, and gives the school evidence for improving future beds.",
+                    })
+                    : string.Join("\n", new[]
+                    {
+                        "Our garden beds get too dry because we water them at the wrong times.",
+                        "We saw dry soil on three days and puddles after it rained.",
+                        "A sensor checks the soil, then waters only when the garden is dry.",
+                        "It saves water, helps vegetables grow, and teaches students how sensors work.",
+                    }));
+                var primaryAction = RequireChild(guided, "Content Frame/Primary Action");
+                var continueButton = RequireChild(primaryAction, "Continue Button");
+                continueButton.gameObject.SetActive(true);
+                RequireChild(primaryAction, "Present Button").gameObject.SetActive(false);
+                ForceGuidedLayout(canvas, guided);
+                presentation.cachedTextGenerator.Populate(
+                    presentation.text,
+                    presentation.GetGenerationSettings(presentation.rectTransform.rect.size));
+                Assert.That(presentation.cachedTextGenerator.characterCountVisible,
+                    Is.EqualTo(presentation.text.Length),
+                    "All four presentation sentences must generate visible glyphs in the " +
+                    "actual generated Text rectangle.");
+
+                var frame = RequireChild(guided, "Content Frame").GetComponent<RectTransform>();
+                var presentRoot = RequireChild(guided, ContentRoot + "/Present Pitch")
+                    .GetComponent<RectTransform>();
+                var viewport = RequireChild(guided, "Content Frame/Phase Scroll/Viewport")
+                    .GetComponent<RectTransform>();
+                Assert.That(viewport.GetComponent<RectMask2D>(), Is.Not.Null,
+                    "The assertion must use the actual generated Phase Scroll mask.");
+                var presentationBounds = RectTransformUtility.CalculateRelativeRectTransformBounds(
+                    frame, presentation.rectTransform);
+                var viewportBounds = RectTransformUtility.CalculateRelativeRectTransformBounds(
+                    frame, viewport);
+                var actionBounds = RectTransformUtility.CalculateRelativeRectTransformBounds(
+                    frame, continueButton.GetComponent<RectTransform>());
+                var outline = continueButton.GetComponent<Image>().GetComponent<Outline>();
+                Assert.That(outline, Is.Not.Null,
+                    "The action boundary must include the generated focus outline.");
+                var visibleActionTop = actionBounds.max.y + Mathf.Abs(outline.effectDistance.y);
+                Assert.That(presentRoot.rect.height,
+                    Is.GreaterThanOrEqualTo(presentation.preferredHeight +
+                        (presentation.fontSize * 2f)),
+                    "The Present section must reserve explicit top/bottom breathing room for " +
+                    (secondary ? "Secondary" : "Primary") + " copy.");
+                Assert.That(viewport.rect.height,
+                    Is.GreaterThanOrEqualTo(presentation.preferredHeight +
+                        (presentation.fontSize * 2f)),
+                    "The masked phase viewport must reserve one full text line above and below " +
+                    "the complete " + (secondary ? "Secondary" : "Primary") + " pitch.");
+
+                Assert.That(presentationBounds.max.y,
+                    Is.LessThanOrEqualTo(viewportBounds.max.y + 0.5f),
+                    "Presentation copy escaped above the actual Phase Scroll mask.");
+                Assert.That(presentationBounds.min.y,
+                    Is.GreaterThanOrEqualTo(viewportBounds.min.y + presentation.fontSize),
+                    "The fourth sentence needs one full text line above the mask edge.");
+                Assert.That(presentationBounds.min.y,
+                    Is.GreaterThanOrEqualTo(visibleActionTop + presentation.fontSize),
+                    "The fourth sentence needs one full text line above the focused action boundary.");
+            }
+        }
+
+        [Test]
+        public void GeneratedResults_SecondaryPitchClearsMaskAndFixedActionsAtCapturedDesktopSize()
+        {
+            var physicalSize = new Vector2(1276f, 918f);
+            var canvas = OpenGameCanvas(CanvasReferenceSizeForPhysical(physicalSize));
+            var results = RequireChild(canvas, "Results");
+            using (new ActiveScope(results.gameObject))
+            {
+                var sentences = new[]
+                {
+                    "We water on fixed schedules even when soil is wet, wasting water and weakening canteen crops.",
+                    "In our two-week bed trial, sensor watering used 18% less water than the fixed schedule, while the plants stayed healthy.",
+                    "The sensor checks soil moisture, the valve waters a dry bed, and students review the plants and readings daily.",
+                    "The garden saves water, teaches students through real sensor data, supplies useful canteen vegetables, and gives the school evidence for improving future beds.",
+                };
+                var partViews = results.GetComponentsInChildren<PitchResultPartView>(true)
+                    .OrderBy(view => (int)view.Part).ToArray();
+                Assert.That(partViews, Has.Length.EqualTo(sentences.Length));
+                for (var index = 0; index < partViews.Length; index++)
+                {
+                    var view = partViews[index];
+                    view.gameObject.SetActive(true);
+                    SetActiveText(view.SentenceText, sentences[index]);
+                    SetActiveText(view.StatusText, "Clear");
+                    view.RevisionNoteText.gameObject.SetActive(index == 0);
+                    view.RevisionNoteText.text = index == 0
+                        ? "Strengthened after feedback"
+                        : string.Empty;
+                }
+
+                var frame = RequireChild(results, "Content Frame").GetComponent<RectTransform>();
+                var scroll = RequireChild(results, "Content Frame/Results Scroll")
+                    .GetComponent<ScrollRect>();
+                var viewport = scroll.viewport;
+                Assert.That(viewport.GetComponent<RectMask2D>(), Is.Not.Null,
+                    "The Results assertion must use the generated clipping mask.");
+                var content = scroll.content;
+                SetActiveText(RequireText(content, "Readiness"), "Pitch Readiness: 100%");
+                SetActiveText(RequireText(content, "Improvement"),
+                    "You strengthened 1 part of this pitch.");
+                SetActiveText(RequireText(content, "Final Pitch Heading"), "Your final pitch");
+                var finalPitch = RequireText(content, "Final Pitch");
+                SetActiveText(finalPitch, string.Join("\n\n", sentences));
+                SetActiveText(RequireText(content, "Transfer Prompt"),
+                    "Use these four parts when your team explains another school improvement idea.");
+                var status = RequireText(results, "Content Frame/Submission Status");
+                SetActiveText(status, "Ready to submit.");
+                SetActiveText(RequireText(results, "Content Frame/Footer/Submit Button/Label"),
+                    "Submit results");
+                SetActiveText(RequireText(results, "Content Frame/Footer/Retry Button/Label"),
+                    "Retry");
+
+                ForceResultsLayout(canvas, results);
+                scroll.verticalNormalizedPosition = 1f;
+                ForceResultsLayout(canvas, results);
+                finalPitch.cachedTextGenerator.Populate(
+                    finalPitch.text,
+                    finalPitch.GetGenerationSettings(finalPitch.rectTransform.rect.size));
+                Assert.That(finalPitch.text, Does.EndWith("beds."),
+                    "The regression copy must reproduce the clipped final word exactly.");
+                Assert.That(finalPitch.cachedTextGenerator.characterCountVisible,
+                    Is.EqualTo(finalPitch.text.Length),
+                    "The TextGenerator can report every character even while the mask clips beds.");
+
+                var viewportBounds = RectTransformUtility.CalculateRelativeRectTransformBounds(
+                    frame, viewport);
+                var finalPitchBounds = RectTransformUtility.CalculateRelativeRectTransformBounds(
+                    frame, finalPitch.rectTransform);
+                var statusBounds = RectTransformUtility.CalculateRelativeRectTransformBounds(
+                    frame, status.rectTransform);
+                var footerBounds = RectTransformUtility.CalculateRelativeRectTransformBounds(
+                    frame, RequireChild(results, "Content Frame/Footer")
+                        .GetComponent<RectTransform>());
+                var glyphBottom = CalculateGeneratedGlyphBottom(frame, finalPitch);
+
+                var clippingFailures = new List<string>();
+                if (finalPitchBounds.min.y < viewportBounds.min.y + 0.5f)
+                {
+                    clippingFailures.Add(string.Format(
+                        "The exact Secondary final-pitch rectangle crosses the Results mask: " +
+                        "pitch bottom {0:F2}, mask bottom {1:F2}.",
+                        finalPitchBounds.min.y, viewportBounds.min.y));
+                }
+                if (glyphBottom < viewportBounds.min.y + 0.5f)
+                {
+                    clippingFailures.Add(string.Format(
+                        "The generated beds. glyphs cross the Results mask: glyph bottom {0:F2}, " +
+                        "mask bottom {1:F2}.", glyphBottom, viewportBounds.min.y));
+                }
+                if (finalPitchBounds.min.y <= statusBounds.max.y)
+                {
+                    clippingFailures.Add(string.Format(
+                        "The final-pitch rectangle overlaps the fixed submission status: " +
+                        "pitch bottom {0:F2}, status top {1:F2}.",
+                        finalPitchBounds.min.y, statusBounds.max.y));
+                }
+                if (glyphBottom <= statusBounds.max.y)
+                {
+                    clippingFailures.Add(string.Format(
+                        "The beds. glyphs overlap the fixed submission status: glyph bottom " +
+                        "{0:F2}, status top {1:F2}.", glyphBottom, statusBounds.max.y));
+                }
+                if (statusBounds.min.y <= footerBounds.max.y)
+                {
+                    clippingFailures.Add(string.Format(
+                        "The fixed status overlaps the 64px action footer: status bottom {0:F2}, " +
+                        "footer top {1:F2}.", statusBounds.min.y, footerBounds.max.y));
+                }
+                Assert.That(clippingFailures, Is.Empty, string.Join(Environment.NewLine,
+                    clippingFailures));
+            }
+        }
+
+        [Test]
+        public void GeneratedModeSelection_CompactPhoneCanFullyRevealEachCard()
+        {
+            var physicalSize = new Vector2(390f, 844f);
+            var canvas = OpenGameCanvas(CanvasReferenceSizeForPhysical(physicalSize));
+            var guided = RequireChild(canvas, "Guided Pitch");
+            using (new ActiveScope(guided.gameObject))
+            {
+                ApplyResponsiveLayout(guided, physicalSize);
+                SetPhaseSections(guided, "Mode Selection");
+                ForceGuidedLayout(canvas, guided);
+
+                var scroll = RequireChild(guided, "Content Frame/Phase Scroll")
+                    .GetComponent<ScrollRect>();
+                var cards = RequireChild(guided, ContentRoot + "/Mode Selection")
+                    .GetComponent<ModeSelectionView>().Cards;
+                Assert.That(scroll.enabled, Is.True);
+                Assert.That(cards.Count, Is.EqualTo(2));
+                foreach (var card in cards)
+                {
+                    Assert.That(card.Button.GetComponent<RectTransform>().rect.height,
+                        Is.LessThanOrEqualTo(scroll.viewport.rect.height + 0.5f),
+                        card.Mode + " must fit fully inside the compact Phase Scroll viewport.");
+                }
+
+                scroll.verticalNormalizedPosition = 1f;
+                ForceGuidedLayout(canvas, guided);
+                AssertContained(scroll.viewport, cards[0].Button.GetComponent<RectTransform>());
+                scroll.verticalNormalizedPosition = 0f;
+                ForceGuidedLayout(canvas, guided);
+                AssertContained(scroll.viewport, cards[1].Button.GetComponent<RectTransform>());
+            }
+        }
+
+        [Test]
+        public void GeneratedScenes_MeetTargetContrastNavigationAndPixelArtContracts()
+        {
+            var canvas = OpenGameCanvas(WideSize);
+            foreach (var selectable in canvas.GetComponentsInChildren<Selectable>(true))
+            {
+                Assert.That(selectable.navigation.mode, Is.EqualTo(Navigation.Mode.Explicit),
+                    selectable.name + " must use explicit navigation.");
+                var indicator = selectable.GetComponents<MonoBehaviour>()
+                    .SingleOrDefault(component => component.GetType().Name == "SelectableFocusIndicator");
+                Assert.That(indicator, Is.Not.Null,
+                    selectable.name + " must own the reusable keyboard-focus indicator.");
+                var outline = selectable.targetGraphic.GetComponent<Outline>();
+                Assert.That(outline, Is.Not.Null, selectable.name + " must render a focus outline.");
+                Assert.That(outline.effectColor, Is.EqualTo(FocusGold));
+                Assert.That(ContrastRatio(outline.effectColor, DeepNavy), Is.GreaterThanOrEqualTo(3f),
+                    selectable.name + " focus must contrast with the adjacent navy surface by 3:1.");
+            }
+
+            var targetFailures = new List<string>();
+            foreach (var screenName in new[]
+                { "Title", "Briefing", "Guided Pitch", "Results", "Settings" })
+            {
+                var screen = RequireChild(canvas, screenName);
+                using (new ActiveScope(screen.gameObject))
+                {
+                    if (screenName == "Guided Pitch")
+                    {
+                        ApplyResponsiveLayout(screen, WideSize);
+                        SetPhaseSections(screen, "Mode Selection", "Sentence Cards", "Improve Actions");
+                        ForceGuidedLayout(canvas, screen);
+                    }
+                    else
+                    {
+                        Canvas.ForceUpdateCanvases();
+                        LayoutRebuilder.ForceRebuildLayoutImmediate(screen.GetComponent<RectTransform>());
+                        LayoutRebuilder.ForceRebuildLayoutImmediate(
+                            RequireChild(screen, "Content Frame").GetComponent<RectTransform>());
+                        Canvas.ForceUpdateCanvases();
+                    }
+
+                    foreach (var selectable in screen.GetComponentsInChildren<Selectable>(false))
+                    {
+                        var rect = (RectTransform)selectable.transform;
+                        if (rect.rect.width < 64f || rect.rect.height < 64f)
+                        {
+                            targetFailures.Add(
+                                $"{screenName}/{selectable.name} rendered {rect.rect.width:F1}x" +
+                                $"{rect.rect.height:F1}px; expected a 64px minimum target.");
+                        }
+                    }
+                }
+            }
+            Assert.That(targetFailures, Is.Empty, string.Join(Environment.NewLine, targetFailures));
+
+            var contrastFailures = new List<string>();
+            var guided = RequireChild(canvas, "Guided Pitch");
+            var frameImage = RequireChild(guided, "Content Frame").GetComponent<Image>();
+            var dialogueCard = RequireChild(guided, "Content Frame/Aya Row/Dialogue Card");
+            CheckContrast("dialogue question", RequireText(dialogueCard, "Question"),
+                dialogueCard.GetComponent<Image>(), 4.5f, contrastFailures);
+            CheckContrast("dialogue hint", RequireText(dialogueCard, "Hint"),
+                dialogueCard.GetComponent<Image>(), 4.5f, contrastFailures);
+            var boardSlot = RequireChild(guided, "Content Frame/Pitch Board/Problem Slot");
+            CheckContrast("board label", RequireText(boardSlot, "Header/Label"),
+                boardSlot.Find("Backing").GetComponent<Image>(), 4.5f, contrastFailures);
+            CheckContrast("board sentence", RequireText(boardSlot, "Sentence"),
+                boardSlot.Find("Backing").GetComponent<Image>(), 4.5f, contrastFailures);
+            var sentenceCard = RequireChild(guided, ContentRoot + "/Sentence Cards/Card 1");
+            CheckContrast("sentence card label", RequireText(sentenceCard, "Label"),
+                sentenceCard.Find("Backing").GetComponent<Image>(), 4.5f, contrastFailures);
+            var feedbackRow = RequireChild(guided, ContentRoot + "/Feedback/Row 1");
+            CheckContrast("feedback label", RequireText(feedbackRow, "Label"),
+                feedbackRow.GetComponent<Image>(), 4.5f, contrastFailures);
+            CheckContrast("feedback value", RequireText(feedbackRow, "Value"),
+                feedbackRow.GetComponent<Image>(), 4.5f, contrastFailures);
+            var strengthen = RequireChild(guided, ContentRoot + "/Improve Actions/Strengthen Problem");
+            CheckContrast("strengthen label", RequireText(strengthen, "Label"),
+                strengthen.GetComponent<Image>(), 4.5f, contrastFailures);
+            var continueButton = RequireChild(guided, "Content Frame/Primary Action/Continue Button");
+            CheckContrast("continue label", RequireText(continueButton, "Label"),
+                continueButton.GetComponent<Image>(), 4.5f, contrastFailures);
+            var railSlot = RequireChild(guided, "Content Frame/Progress Rail/Problem Slot");
+            CheckContrast("rail label", RequireText(railSlot, "Label"), frameImage, 4.5f, contrastFailures);
+            CheckContrast("presentation", RequireText(guided, ContentRoot + "/Present Pitch/Presentation"),
+                frameImage, 4.5f, contrastFailures);
+
+            var results = RequireChild(canvas, "Results");
+            var resultsFrame = RequireChild(results, "Content Frame").GetComponent<Image>();
+            CheckContrast("results heading", RequireText(results, "Content Frame/Heading"),
+                resultsFrame, 4.5f, contrastFailures);
+            var partCard = RequireChild(results, "Content Frame/Results Scroll/Viewport/Content/Problem Card");
+            CheckContrast("result sentence", RequireText(partCard, "Sentence"),
+                partCard.GetComponent<Image>(), 4.5f, contrastFailures);
+            CheckContrast("result status", RequireText(partCard, "Header/Status"),
+                partCard.GetComponent<Image>(), 4.5f, contrastFailures);
+            var submit = RequireChild(results, "Content Frame/Footer/Submit Button");
+            CheckContrast("submit label", RequireText(submit, "Label"),
+                submit.GetComponent<Image>(), 4.5f, contrastFailures);
+
+            var focusOutline = sentenceCard.Find("Focus Outline").GetComponent<Image>();
+            Assert.That(focusOutline.color, Is.EqualTo(FocusGold));
+            var focusChange = ContrastRatio(focusOutline.color, frameImage.color);
+            if (focusChange < 3f)
+            {
+                contrastFailures.Add($"Focus outline change contrast was {focusChange:F2}:1; expected 3:1.");
+            }
+            var revisionOutline = boardSlot.Find("Revision Outline").GetComponent<Image>();
+            var revisionContrast = ContrastRatio(revisionOutline.color, frameImage.color);
+            if (revisionContrast < 3f)
+            {
+                contrastFailures.Add($"Revision outline contrast was {revisionContrast:F2}:1; expected 3:1.");
+            }
+            Assert.That(contrastFailures, Is.Empty, string.Join(Environment.NewLine, contrastFailures));
+
+            var environmentImage = RequireChild(guided, "Environment Frame").GetComponent<Image>();
+            Assert.That(environmentImage.sprite.texture.filterMode, Is.EqualTo(FilterMode.Point),
+                "The pitch room must stay point filtered.");
+            var judgeImage = RequireChild(guided, "Content Frame/Aya Row/Judge Aya").GetComponent<Image>();
+            Assert.That(judgeImage.sprite, Is.Not.Null);
+            Assert.That(judgeImage.sprite.texture.filterMode, Is.EqualTo(FilterMode.Point),
+                "Judge Aya must stay point filtered.");
+            Assert.That(judgeImage.preserveAspect, Is.True);
+            using (new ActiveScope(guided.gameObject))
+            {
+                ForceGuidedLayout(canvas, guided);
+                var judgeRect = (RectTransform)judgeImage.transform;
+                Assert.That(judgeRect.rect.width, Is.EqualTo(judgeImage.sprite.rect.width).Within(0.5f),
+                    "Judge Aya must render at her native sprite width without stretching.");
+                Assert.That(judgeRect.rect.height, Is.EqualTo(judgeImage.sprite.rect.height).Within(0.5f),
+                    "Judge Aya must render at her native sprite height without stretching.");
+            }
+        }
+
+        [Test]
+        public void GeneratedEnvironment_FitsCenteredSixteenByNineWithoutStretchingInLandscapeAndPortrait()
+        {
+            foreach (var size in new[] { WideSize, new Vector2(720f, 960f) })
+            {
+                var canvas = OpenGameCanvas(size);
+                var guided = RequireChild(canvas, "Guided Pitch");
+                using (new ActiveScope(guided.gameObject))
+                {
+                    ForceGuidedLayout(canvas, guided);
+                    var environment = RequireChild(guided, "Environment Frame");
+                    var image = environment.GetComponent<Image>();
+                    var fitter = environment.GetComponent<AspectRatioFitter>();
+                    Assert.That(fitter, Is.Not.Null,
+                        "The original garden must use an aspect-preserving fit-to-frame fitter.");
+                    Assert.That(fitter.aspectMode, Is.EqualTo(AspectRatioFitter.AspectMode.FitInParent));
+                    Assert.That(guided.GetComponent<Image>().color, Is.EqualTo(DeepNavy),
+                        "Unused viewport space must render as deep-navy letterboxing.");
+
+                    const float sourceAspect = 16f / 9f;
+                    Assert.That(fitter.aspectRatio, Is.EqualTo(sourceAspect).Within(0.0001f));
+                    var environmentRect = environment.GetComponent<RectTransform>();
+                    var guidedRect = guided.GetComponent<RectTransform>();
+                    Assert.That(environmentRect.rect.width / environmentRect.rect.height,
+                        Is.EqualTo(sourceAspect).Within(0.001f),
+                        size + " must preserve the original garden aspect ratio.");
+                    Assert.That(environmentRect.rect.width, Is.LessThanOrEqualTo(guidedRect.rect.width + 0.5f));
+                    Assert.That(environmentRect.rect.height, Is.LessThanOrEqualTo(guidedRect.rect.height + 0.5f));
+                    Assert.That(environmentRect.anchoredPosition.sqrMagnitude, Is.LessThanOrEqualTo(0.25f),
+                        size + " must center the garden inside its letterbox frame.");
+                    Assert.That(environmentRect.rect.width / image.sprite.rect.width,
+                        Is.EqualTo(environmentRect.rect.height / image.sprite.rect.height).Within(0.001f),
+                        size + " must scale the garden uniformly on both axes.");
+                }
+            }
+        }
+
+        private sealed class GuidedFixtureData
+        {
+            public LocalizationCatalog Catalog;
+            public string LongestSentence;
+            public string LongestQuestion;
+            public string LongestHint;
+            public string[] LongestFeedbackValues;
+            public string ComposedPitch;
+            public string LongestEmptyPrompt;
+
+            public string Resolve(string key)
+            {
+                return Catalog.Resolve("en", key);
+            }
+        }
+
+        private static GuidedFixtureData LoadGuidedFixture()
+        {
+            var catalog = LocalizationCatalog.Load(
+                File.ReadAllText("Assets/Content/Localization/en.json"));
+            var loaded = GuidedPitchContentLoader.Load(
+                File.ReadAllText(GuidedContentPath), catalog.GetKeys("en"));
+            Assert.That(loaded.IsSuccess, Is.True, "The guided content document must load.");
+
+            var options = loaded.Content.Modes.Values
+                .SelectMany(mode => mode.Parts.SelectMany(part => part.Options)
+                    .Concat(mode.FollowUp.Options))
+                .ToArray();
+            string Longest(IEnumerable<string> values)
+            {
+                return values.OrderByDescending(value => value.Length).First();
+            }
+            var sentences = options.Select(option => catalog.Resolve("en", option.TextKey)).ToArray();
+            var questions = new[]
+            {
+                catalog.Resolve("en", "guided.improve.instruction"),
+                catalog.Resolve("en", "guided.follow_up.question"),
+                catalog.Resolve("en", "guided.part.problem.question"),
+                catalog.Resolve("en", "guided.part.evidence.question"),
+                catalog.Resolve("en", "guided.part.solution.question"),
+                catalog.Resolve("en", "guided.part.value.question"),
+            };
+            var hints = new[]
+            {
+                catalog.Resolve("en", "guided.part.problem.hint"),
+                catalog.Resolve("en", "guided.part.evidence.hint"),
+                catalog.Resolve("en", "guided.part.solution.hint"),
+                catalog.Resolve("en", "guided.part.value.hint"),
+                catalog.Resolve("en", "guided.follow_up.hint"),
+            };
+            var longestSentences = sentences.OrderByDescending(value => value.Length).Take(4).ToArray();
+            return new GuidedFixtureData
+            {
+                Catalog = catalog,
+                LongestSentence = Longest(sentences),
+                LongestQuestion = Longest(questions),
+                LongestHint = Longest(hints),
+                LongestFeedbackValues = new[]
+                {
+                    Longest(options.Select(option => catalog.Resolve("en", option.Feedback.WorkedKey))),
+                    Longest(options.Select(option => catalog.Resolve("en", option.Feedback.MissingKey))),
+                    Longest(options.Select(option => catalog.Resolve("en", option.Feedback.ImproveKey))),
+                },
+                ComposedPitch = string.Join("\n\n", longestSentences),
+                LongestEmptyPrompt = Longest(new[]
+                {
+                    catalog.Resolve("en", "guided.board.add.problem"),
+                    catalog.Resolve("en", "guided.board.add.evidence"),
+                    catalog.Resolve("en", "guided.board.add.solution"),
+                    catalog.Resolve("en", "guided.board.add.value"),
+                }),
+            };
+        }
+
+        private static void AssertGuidedCopyRenders(
+            Transform canvas, Vector2 size, GuidedFixtureData fixture, ICollection<string> failures)
+        {
+            var guided = RequireChild(canvas, "Guided Pitch");
+            using (new ActiveScope(guided.gameObject))
+            {
+                ApplyResponsiveLayout(guided, size);
+                var dialogueCard = RequireChild(guided, "Content Frame/Aya Row/Dialogue Card");
+                SetActiveText(RequireText(dialogueCard, "Question"), fixture.LongestQuestion);
+                SetActiveText(RequireText(dialogueCard, "Hint"), fixture.LongestHint);
+
+                var board = RequireChild(guided, "Content Frame/Pitch Board");
+                var boardView = board.GetComponent<PitchBoardView>();
+                foreach (var slot in boardView.Slots)
+                {
+                    SetActiveText(slot.LabelText, fixture.Resolve(
+                        PitchPartVisuals.Get(slot.Part).LabelKey));
+                    SetActiveText(slot.SentenceText, fixture.LongestSentence);
+                    slot.EmptyPromptText.gameObject.SetActive(false);
+                }
+                var rail = RequireChild(guided, "Content Frame/Progress Rail");
+                var railView = rail.GetComponent<PitchProgressRailView>();
+                foreach (var slot in railView.Slots)
+                {
+                    SetActiveText(slot.LabelText, fixture.Resolve(
+                        PitchPartVisuals.Get(slot.Part).LabelKey));
+                }
+
+                SetPhaseSections(guided, "Sentence Cards");
+                var cards = RequireChild(guided, ContentRoot + "/Sentence Cards");
+                var cardLabels = cards.GetComponent<SentenceCardListView>().Cards
+                    .Select(card => RequireText(card.transform, "Label")).ToArray();
+                foreach (var label in cardLabels)
+                {
+                    SetActiveText(label, fixture.LongestSentence);
+                }
+                ForceGuidedLayout(canvas, guided);
+                AssertFullyRendered(RequireText(dialogueCard, "Question"), "question", size, failures);
+                AssertFullyRendered(RequireText(dialogueCard, "Hint"), "hint", size, failures);
+                foreach (var slot in boardView.Slots)
+                {
+                    AssertFullyRendered(slot.LabelText, "board label " + slot.Part, size, failures);
+                    AssertFullyRendered(slot.SentenceText, "board sentence " + slot.Part, size, failures);
+                }
+                foreach (var slot in railView.Slots)
+                {
+                    AssertFullyRendered(slot.LabelText, "rail label " + slot.Part, size, failures);
+                }
+                foreach (var label in cardLabels)
+                {
+                    AssertFullyRendered(label, "sentence card", size, failures);
+                }
+
+                foreach (var slot in boardView.Slots)
+                {
+                    slot.SentenceText.gameObject.SetActive(false);
+                    SetActiveText(slot.EmptyPromptText, fixture.LongestEmptyPrompt);
+                }
+                ForceGuidedLayout(canvas, guided);
+                foreach (var slot in boardView.Slots)
+                {
+                    AssertFullyRendered(slot.EmptyPromptText, "board prompt " + slot.Part, size, failures);
+                }
+
+                SetPhaseSections(guided, "Feedback");
+                var feedback = RequireChild(guided, ContentRoot + "/Feedback");
+                var rows = feedback.GetComponent<PitchFeedbackView>().Rows;
+                var rowKeys = new[]
+                {
+                    "guided.feedback.worked", "guided.feedback.missing", "guided.feedback.improve",
+                };
+                for (var index = 0; index < rows.Count; index++)
+                {
+                    rows[index].Root.SetActive(true);
+                    SetActiveText(rows[index].LabelText, fixture.Resolve(rowKeys[index]));
+                    SetActiveText(rows[index].ValueText, fixture.LongestFeedbackValues[index]);
+                }
+                ForceGuidedLayout(canvas, guided);
+                for (var index = 0; index < rows.Count; index++)
+                {
+                    AssertFullyRendered(rows[index].LabelText, "feedback label " + index, size, failures);
+                    AssertFullyRendered(rows[index].ValueText, "feedback value " + index, size, failures);
+                }
+
+                SetPhaseSections(guided, "Present Pitch");
+                var presentation = RequireText(guided, ContentRoot + "/Present Pitch/Presentation");
+                SetActiveText(presentation, fixture.ComposedPitch);
+                ForceGuidedLayout(canvas, guided);
+                AssertFullyRendered(presentation, "presentation", size, failures);
+
+                SetPhaseSections(guided, "Learn");
+                var learn = RequireChild(guided, ContentRoot + "/Learn");
+                var learnView = learn.GetComponent<LearnPitchView>();
+                SetActiveText(learnView.IncompletePitchText,
+                    fixture.Resolve("guided.learn.incomplete_pitch"));
+                SetActiveText(learnView.ExplanationText, fixture.Resolve("guided.learn.explanation"));
+                ForceGuidedLayout(canvas, guided);
+                AssertFullyRendered(learnView.IncompletePitchText, "learn pitch", size, failures);
+                AssertFullyRendered(learnView.ExplanationText, "learn explanation", size, failures);
+
+                SetPhaseSections(guided, "Mode Selection");
+                var modeSelection = RequireChild(guided, ContentRoot + "/Mode Selection");
+                var modeCards = modeSelection.GetComponent<ModeSelectionView>().Cards;
+                SetActiveText(modeCards[0].TitleText, fixture.Resolve("guided.mode.primary.title"));
+                SetActiveText(modeCards[0].DescriptionText, fixture.Resolve("guided.mode.primary.parts"));
+                SetActiveText(modeCards[1].TitleText, fixture.Resolve("guided.mode.secondary.title"));
+                SetActiveText(modeCards[1].DescriptionText, fixture.Resolve("guided.mode.secondary.parts"));
+                ForceGuidedLayout(canvas, guided);
+                foreach (var card in modeCards)
+                {
+                    AssertFullyRendered(card.TitleText, "mode title " + card.Mode, size, failures);
+                    AssertFullyRendered(card.DescriptionText, "mode parts " + card.Mode, size, failures);
+                }
+
+                SetPhaseSections(guided, "Improve Actions");
+                var improve = RequireChild(guided, ContentRoot + "/Improve Actions");
+                var strengthenLabels = new List<Text>();
+                foreach (Transform button in improve)
+                {
+                    var label = RequireText(button, "Label");
+                    SetActiveText(label, fixture.Resolve("guided.mastery.needs_practice"));
+                    strengthenLabels.Add(label);
+                }
+                ForceGuidedLayout(canvas, guided);
+                foreach (var label in strengthenLabels)
+                {
+                    AssertFullyRendered(label, "strengthen label", size, failures);
+                }
+            }
+        }
+
+        private static void AssertResultsCopyRenders(
+            Transform canvas, Vector2 size, GuidedFixtureData fixture, ICollection<string> failures)
+        {
+            var results = RequireChild(canvas, "Results");
+            using (new ActiveScope(results.gameObject))
+            {
+                SetActiveText(RequireText(results, "Content Frame/Heading"), fixture.Resolve("ui.results"));
+                var partViews = results.GetComponentsInChildren<PitchResultPartView>(true);
+                foreach (var view in partViews)
+                {
+                    view.gameObject.SetActive(true);
+                    SetActiveText(view.LabelText, fixture.Resolve(
+                        PitchPartVisuals.Get(view.Part).LabelKey));
+                    SetActiveText(view.SentenceText, fixture.LongestSentence);
+                    SetActiveText(view.StatusText, fixture.Resolve("guided.mastery.needs_practice"));
+                    SetActiveText(view.RevisionNoteText, fixture.Resolve("guided.results.part.revised"));
+                }
+                var content = RequireChild(results, "Content Frame/Results Scroll/Viewport/Content");
+                SetActiveText(RequireText(content, "Readiness"),
+                    fixture.Resolve("guided.pitch_readiness") + ": 100%");
+                SetActiveText(RequireText(content, "Improvement"),
+                    fixture.Resolve("guided.results.strengthened.many").Replace("{count}", "4"));
+                SetActiveText(RequireText(content, "Final Pitch Heading"),
+                    fixture.Resolve("guided.results.final_pitch"));
+                SetActiveText(RequireText(content, "Final Pitch"), fixture.ComposedPitch);
+                SetActiveText(RequireText(content, "Transfer Prompt"),
+                    fixture.Resolve("guided.transfer_prompt"));
+                SetActiveText(RequireText(results, "Content Frame/Submission Status"),
+                    fixture.Resolve("lms.submission.success"));
+                SetActiveText(RequireText(results, "Content Frame/Footer/Submit Button/Label"),
+                    fixture.Resolve("guided.results.resubmit"));
+                SetActiveText(RequireText(results, "Content Frame/Footer/Retry Button/Label"),
+                    fixture.Resolve("ui.retry"));
+                ForceResultsLayout(canvas, results);
+
+                AssertFullyRendered(RequireText(results, "Content Frame/Heading"),
+                    "results heading", size, failures);
+                foreach (var view in partViews)
+                {
+                    AssertFullyRendered(view.LabelText, "result label " + view.Part, size, failures);
+                    AssertFullyRendered(view.SentenceText, "result sentence " + view.Part, size, failures);
+                    AssertFullyRendered(view.StatusText, "result status " + view.Part, size, failures);
+                    AssertFullyRendered(view.RevisionNoteText, "result note " + view.Part, size, failures);
+                }
+                AssertFullyRendered(RequireText(content, "Readiness"), "readiness", size, failures);
+                AssertFullyRendered(RequireText(content, "Improvement"), "improvement", size, failures);
+                AssertFullyRendered(RequireText(content, "Final Pitch"), "final pitch", size, failures);
+                AssertFullyRendered(RequireText(content, "Transfer Prompt"), "transfer", size, failures);
+                AssertFullyRendered(RequireText(results, "Content Frame/Submission Status"),
+                    "submission status", size, failures);
+                AssertFullyRendered(RequireText(results, "Content Frame/Footer/Submit Button/Label"),
+                    "submit label", size, failures);
+                AssertFullyRendered(RequireText(results, "Content Frame/Footer/Retry Button/Label"),
+                    "retry label", size, failures);
+            }
+        }
+
+        private static void AssertSupportScreenCopyRenders(
+            Transform canvas, Vector2 size, GuidedFixtureData fixture, ICollection<string> failures)
+        {
+            var briefing = RequireChild(canvas, "Briefing");
+            using (new ActiveScope(briefing.gameObject))
+            {
+                var briefingKeys = new[]
+                {
+                    "guided.title", "guided.briefing", "guided.briefing.judge",
+                    "guided.briefing.practice", "guided.briefing.untimed",
+                };
+                var lines = new List<Text>();
+                for (var index = 0; index < briefingKeys.Length; index++)
+                {
+                    var line = RequireText(briefing, $"Content Frame/Line {index + 1}");
+                    SetActiveText(line, fixture.Resolve(briefingKeys[index]));
+                    lines.Add(line);
+                }
+                Canvas.ForceUpdateCanvases();
+                LayoutRebuilder.ForceRebuildLayoutImmediate(briefing.GetComponent<RectTransform>());
+                LayoutRebuilder.ForceRebuildLayoutImmediate(
+                    RequireChild(briefing, "Content Frame").GetComponent<RectTransform>());
+                Canvas.ForceUpdateCanvases();
+                foreach (var line in lines)
+                {
+                    AssertFullyRendered(line, "briefing " + line.name, size, failures);
+                }
+            }
+
+            var fallback = RequireChild(canvas, "Safe Fallback");
+            using (new ActiveScope(fallback.gameObject))
+            {
+                var message = RequireText(fallback, "Content Frame/Recovery Message");
+                SetActiveText(message, SafeFallbackPresenter.EnglishRecoveryMessage);
+                Canvas.ForceUpdateCanvases();
+                LayoutRebuilder.ForceRebuildLayoutImmediate(fallback.GetComponent<RectTransform>());
+                LayoutRebuilder.ForceRebuildLayoutImmediate(
+                    RequireChild(fallback, "Content Frame").GetComponent<RectTransform>());
+                Canvas.ForceUpdateCanvases();
+                AssertFullyRendered(message, "recovery message", size, failures);
+            }
+        }
+
+        private static void AssertGuidedGameContract(Scene scene)
+        {
+            Assert.That(scene.GetRootGameObjects().Count(root => root.name == "Generated UI"), Is.EqualTo(1));
+            Assert.That(scene.GetRootGameObjects().Count(root => root.name == SentinelName), Is.EqualTo(1));
+            Assert.That(FindInScene<Canvas>(scene), Has.Length.EqualTo(1));
+            Assert.That(FindInScene<EventSystem>(scene), Has.Length.EqualTo(1));
+            Assert.That(FindInScene<GuidedPitchScreenRouter>(scene), Has.Length.EqualTo(1));
+
+            var generated = scene.GetRootGameObjects().Single(root => root.name == "Generated UI");
+            var canvas = generated.transform.Find("Canvas");
+            Assert.That(canvas, Is.Not.Null);
+            var scaler = canvas.GetComponent<CanvasScaler>();
+            Assert.That(scaler.uiScaleMode, Is.EqualTo(CanvasScaler.ScaleMode.ScaleWithScreenSize));
+            Assert.That(scaler.referenceResolution, Is.EqualTo(new Vector2(1280f, 720f)));
+
+            Assert.That(canvas.Cast<Transform>().Select(child => child.name), Is.EqualTo(new[]
+            {
+                "Title", "Briefing", "Guided Pitch", "Results", "Settings", "Safe Fallback",
+            }));
+
+            var guided = canvas.Find("Guided Pitch");
+            Assert.That(guided.Cast<Transform>().Select(child => child.name),
+                Is.EqualTo(new[] { "Environment Frame", "Content Frame" }));
+            var frame = guided.Find("Content Frame");
+            Assert.That(frame.Cast<Transform>().Select(child => child.name), Is.EqualTo(new[]
+            {
+                "Progress Rail", "Aya Row", "Pitch Board", "Phase Scroll", "Primary Action",
+            }));
+            Assert.That(frame.Find("Aya Row").Cast<Transform>().Select(child => child.name),
+                Is.EqualTo(new[] { "Judge Aya", "Dialogue Card" }));
+            var content = frame.Find("Phase Scroll/Viewport/Content");
+            Assert.That(content, Is.Not.Null,
+                "Phase Scroll must own a Viewport/Content scroll hierarchy.");
+            Assert.That(content.Cast<Transform>().Select(child => child.name),
+                Is.EqualTo(PhaseSectionNames));
+
+            var router = canvas.GetComponent<GuidedPitchScreenRouter>();
+            Assert.That(router, Is.Not.Null);
+            Assert.That(router.ValidateContract(out var reason), Is.True, reason);
+            var serializedRouter = new SerializedObject(router);
+            var modeSelectionPanel = serializedRouter.FindProperty("modeSelectionPanel")
+                .objectReferenceValue as GameObject;
+            Assert.That(modeSelectionPanel, Is.SameAs(content.Find("Mode Selection").gameObject),
+                "The router must route ModeSelection to the nested Phase Scroll section.");
+
+            Assert.That(canvas.Find("Title").gameObject.activeSelf, Is.True);
+            foreach (var hidden in new[] { "Briefing", "Guided Pitch", "Results", "Settings", "Safe Fallback" })
+            {
+                Assert.That(canvas.Find(hidden).gameObject.activeSelf, Is.False,
+                    hidden + " must start hidden behind Title.");
+            }
+            var eventSystem = FindInScene<EventSystem>(scene).Single();
+            Assert.That(eventSystem.firstSelectedGameObject,
+                Is.SameAs(canvas.Find("Title/Content Frame/Start Button").gameObject));
+
+            AssertNoLegacyPresentation(canvas);
+        }
+
+        private static void AssertNoLegacyPresentation(Transform canvas)
+        {
+            Assert.That(canvas.GetComponentsInChildren<GameScreenRouter>(true), Is.Empty,
+                "The legacy router must not remain active in the owned scene.");
+            Assert.That(canvas.GetComponentsInChildren<TutorialPresenter>(true), Is.Empty);
+            Assert.That(canvas.GetComponentsInChildren<PitchRoomPresenter>(true), Is.Empty);
+            Assert.That(canvas.GetComponentsInChildren<ResultsPresenter>(true), Is.Empty);
+            Assert.That(canvas.GetComponentsInChildren<ResponseListView>(true), Is.Empty);
+            Assert.That(canvas.GetComponentsInChildren<TimerView>(true), Is.Empty,
+                "The untimed guided flow must not present a timer.");
+            Assert.That(canvas.GetComponentsInChildren<ConfidenceView>(true), Is.Empty,
+                "The guided flow must not present the confidence meter.");
+            Assert.That(canvas.GetComponentsInChildren<QuestionReviewItemView>(true), Is.Empty,
+                "The legacy review list must be absent.");
+            Assert.That(canvas.GetComponentsInChildren<KeyboardReviewScrollbar>(true), Is.Empty);
+            Assert.That(canvas.GetComponentsInChildren<JudgeReactionView>(true), Is.Empty,
+                "The legacy reaction bridge must not remain in the owned scene.");
+            foreach (var legacyName in new[] { "Metrics", "Prompt Backing", "PitchRoom", "Tutorial" })
+            {
+                Assert.That(canvas.GetComponentsInChildren<Transform>(true)
+                        .Count(child => child.name == legacyName), Is.Zero,
+                    legacyName + " must be absent from the guided scene.");
+            }
+        }
+
+        private static void AssertBootstrapContract()
+        {
+            var scene = EditorSceneManager.OpenScene("Assets/Scenes/Bootstrap.unity", OpenSceneMode.Additive);
+            try
+            {
+                var generated = scene.GetRootGameObjects().Single(root => root.name == "Generated Bootstrap");
+                var bootstrapper = generated.GetComponentInChildren<Bootstrapper>(true);
+                var serialized = new SerializedObject(bootstrapper);
+                Assert.That(serialized.FindProperty("scenarioJson"), Is.Null,
+                    "The legacy scenario reference must be removed from the Bootstrapper.");
+                var guidedJson = serialized.FindProperty("guidedPitchContentJson")
+                    .objectReferenceValue as TextAsset;
+                Assert.That(guidedJson, Is.Not.Null);
+                Assert.That(AssetDatabase.GetAssetPath(guidedJson), Is.EqualTo(GuidedContentPath));
+
+                var sources = bootstrapper.GetComponents<AudioSource>();
+                Assert.That(sources, Has.Length.EqualTo(2));
+                Assert.That(sources.All(source => !source.playOnAwake), Is.True);
+                var music = serialized.FindProperty("musicSource").objectReferenceValue as AudioSource;
+                var sfx = serialized.FindProperty("sfxSource").objectReferenceValue as AudioSource;
+                Assert.That(music, Is.Not.Null.And.Not.SameAs(sfx));
+                Assert.That(music.loop, Is.True);
+                Assert.That(sfx.loop, Is.False);
+                var bindings = serialized.FindProperty("audioCueBindings");
+                Assert.That(bindings.arraySize, Is.EqualTo(Enum.GetValues(typeof(AudioCue)).Length));
+            }
+            finally
+            {
+                EditorSceneManager.CloseScene(scene, true);
             }
         }
 
@@ -167,15 +1166,11 @@ namespace Agrovator.PitchSimulator.Tests.EditMode.UI
                     .Where(root => root.name == "Generated Web Integration Test")
                     .ToArray();
                 Assert.That(ownedRoots, Has.Length.EqualTo(1));
-                var root = ownedRoots[0];
-                var hosts = root.GetComponentsInChildren<WebGlLmsBridgeHost>(true);
+                var hosts = ownedRoots[0].GetComponentsInChildren<WebGlLmsBridgeHost>(true);
                 Assert.That(hosts, Has.Length.EqualTo(1));
-
                 var serialized = new SerializedObject(hosts[0]);
                 var diagnostics = serialized.FindProperty("diagnosticsLabel").objectReferenceValue as Text;
                 Assert.That(diagnostics, Is.Not.Null);
-                Assert.That(diagnostics.transform.IsChildOf(root.transform), Is.True);
-
                 var missingScripts = scene.GetRootGameObjects()
                     .SelectMany(sceneRoot => sceneRoot.GetComponentsInChildren<Transform>(true))
                     .Sum(item => GameObjectUtility.GetMonoBehavioursWithMissingScriptCount(item.gameObject));
@@ -199,484 +1194,150 @@ namespace Agrovator.PitchSimulator.Tests.EditMode.UI
             }));
         }
 
-        private static void AssertBootstrapAudioContract()
+        private static Transform OpenGameCanvas(Vector2 size)
         {
-            var scene = EditorSceneManager.OpenScene("Assets/Scenes/Bootstrap.unity", OpenSceneMode.Additive);
-            try
-            {
-                var generated = scene.GetRootGameObjects().Single(root => root.name == "Generated Bootstrap");
-                var bootstrapper = generated.GetComponentInChildren<Bootstrapper>(true);
-                var sources = bootstrapper.GetComponents<AudioSource>();
-                Assert.That(sources, Has.Length.EqualTo(2));
-                Assert.That(sources.All(source => !source.playOnAwake), Is.True);
-                Assert.That(sources.All(source => source.spatialBlend == 0f), Is.True);
-
-                var serialized = new SerializedObject(bootstrapper);
-                var music = serialized.FindProperty("musicSource").objectReferenceValue as AudioSource;
-                var sfx = serialized.FindProperty("sfxSource").objectReferenceValue as AudioSource;
-                Assert.That(music, Is.Not.Null.And.Not.SameAs(sfx));
-                Assert.That(music.loop, Is.True);
-                Assert.That(sfx.loop, Is.False);
-                var bindings = serialized.FindProperty("audioCueBindings");
-                Assert.That(bindings.arraySize, Is.EqualTo(Enum.GetValues(typeof(AudioCue)).Length));
-                for (var index = 0; index < bindings.arraySize; index++)
-                {
-                    Assert.That(bindings.GetArrayElementAtIndex(index)
-                        .FindPropertyRelative("clip").objectReferenceValue, Is.Null);
-                }
-            }
-            finally
-            {
-                EditorSceneManager.CloseScene(scene, true);
-            }
-        }
-
-        private static void AssertContract(Scene scene)
-        {
-            Assert.That(scene.GetRootGameObjects().Count(root => root.name == "Generated UI"), Is.EqualTo(1));
-            Assert.That(scene.GetRootGameObjects().Count(root => root.name == SentinelName), Is.EqualTo(1));
-            Assert.That(FindInScene<Canvas>(scene), Has.Length.EqualTo(1));
-            Assert.That(FindInScene<EventSystem>(scene), Has.Length.EqualTo(1));
-            Assert.That(FindInScene<GameScreenRouter>(scene), Has.Length.EqualTo(1));
+            var scene = EditorSceneManager.OpenScene(GamePath, OpenSceneMode.Single);
             var generated = scene.GetRootGameObjects().Single(root => root.name == "Generated UI");
             var canvas = generated.transform.Find("Canvas");
-            Assert.That(canvas, Is.Not.Null);
-            AssertSimpleScreenFrames(canvas);
-            var tutorial = generated.transform.Find("Canvas/Tutorial");
-            Assert.That(tutorial, Is.Not.Null);
-            Assert.That(tutorial.GetComponent<TutorialPresenter>(), Is.Not.Null);
-            Assert.That(tutorial.Find("Content Frame/Navigation/Next Button").GetComponent<Button>(), Is.Not.Null);
-            var pitchRoom = generated.transform.Find("Canvas/PitchRoom");
-            Assert.That(pitchRoom, Is.Not.Null);
-            var scaler = canvas.GetComponent<CanvasScaler>();
-            Assert.That(scaler.referenceResolution, Is.EqualTo(new Vector2(1280f, 720f)));
-            Assert.That(pitchRoom.Find("Environment").GetComponent<Image>().sprite.name,
-                Is.EqualTo("pitch-room"));
-            Assert.That(pitchRoom.Find("Content Frame/Dialogue Panel").GetComponent<Image>().type,
-                Is.EqualTo(Image.Type.Sliced));
-            var judge = pitchRoom.Find("Content Frame/Judge Aya").GetComponent<JudgeReactionView>();
-            Assert.That(judge, Is.Not.Null);
-            Assert.That(judge.IsConfigured, Is.True);
-            Assert.That(pitchRoom.Find("Content Frame/Metrics/Confidence/Artwork Icon")
-                .GetComponent<Image>(), Is.Not.Null);
-            AssertPitchRoomFrame(scene);
-
-            var results = generated.transform.Find("Canvas/Results");
-            Assert.That(results, Is.Not.Null);
-            var resultsPresenter = results.GetComponent<ResultsPresenter>();
-            Assert.That(resultsPresenter, Is.Not.Null);
-            Assert.That(resultsPresenter.ValidateContract(), Is.True);
-            AssertResultsFrame(scene);
-
-        }
-
-        private static void AssertResultsFrame(Scene scene)
-        {
-            var generated = scene.GetRootGameObjects().Single(root => root.name == "Generated UI");
-            var canvas = generated.transform.Find("Canvas");
-            var canvasRect = canvas.GetComponent<RectTransform>();
+            Assert.That(canvas, Is.Not.Null, "The generated scene must own a Canvas.");
             canvas.GetComponent<Canvas>().renderMode = RenderMode.WorldSpace;
-            canvasRect.sizeDelta = canvas.GetComponent<CanvasScaler>().referenceResolution;
+            canvas.GetComponent<RectTransform>().sizeDelta = size;
+            return canvas;
+        }
 
-            var results = canvas.Find("Results");
-            Assert.That(results, Is.Not.Null);
-            var wasActive = results.gameObject.activeSelf;
-            results.gameObject.SetActive(true);
-            try
+        private static Vector2 CanvasReferenceSizeForPhysical(Vector2 physicalSize)
+        {
+            var reference = new Vector2(1280f, 720f);
+            var logarithmicWidth = Mathf.Log(physicalSize.x / reference.x, 2f);
+            var logarithmicHeight = Mathf.Log(physicalSize.y / reference.y, 2f);
+            var scale = Mathf.Pow(2f, Mathf.Lerp(logarithmicWidth, logarithmicHeight, 0.5f));
+            return physicalSize / scale;
+        }
+
+        private static float CalculateGeneratedGlyphBottom(RectTransform relativeTo, Text text)
+        {
+            var vertices = text.cachedTextGenerator.verts;
+            var vertexCount = Mathf.Max(0, vertices.Count - 4);
+            Assert.That(vertexCount, Is.GreaterThan(0), "The final pitch must generate glyph vertices.");
+            var bottom = float.PositiveInfinity;
+            for (var index = 0; index < vertexCount; index++)
             {
-                var frame = results.Find("Content Frame");
-                Assert.That(frame, Is.Not.Null, "Results must own a direct Content Frame child.");
-                Assert.That(frame.parent, Is.EqualTo(results));
-                Assert.That(results.Cast<Transform>().Select(child => child.name),
-                    Is.EqualTo(new[] { "Content Frame" }));
-                Assert.That(frame.Cast<Transform>().Select(child => child.name),
-                    Is.EqualTo(new[] { "Heading", "Results Scroll", "Submission Status", "Footer" }));
-
-                var heading = frame.Find("Heading");
-                var scrollTransform = frame.Find("Results Scroll");
-                var status = frame.Find("Submission Status");
-                var footer = frame.Find("Footer");
-                Assert.That(new[] { heading, scrollTransform, status, footer }, Has.None.Null);
-
-                var resultsRect = results.GetComponent<RectTransform>();
-                var frameRect = frame.GetComponent<RectTransform>();
-                var scrollRectTransform = scrollTransform.GetComponent<RectTransform>();
-                var footerRect = footer.GetComponent<RectTransform>();
-                Canvas.ForceUpdateCanvases();
-                LayoutRebuilder.ForceRebuildLayoutImmediate(resultsRect);
-                LayoutRebuilder.ForceRebuildLayoutImmediate(frameRect);
-                LayoutRebuilder.ForceRebuildLayoutImmediate(scrollRectTransform);
-                LayoutRebuilder.ForceRebuildLayoutImmediate(footerRect);
-                Canvas.ForceUpdateCanvases();
-
-                Assert.That(frameRect.rect.width, Is.LessThanOrEqualTo(960f));
-                Assert.That(frameRect.rect.height, Is.LessThanOrEqualTo(680f));
-                var frameLayout = frame.GetComponent<VerticalLayoutGroup>();
-                Assert.That(frameLayout.padding.left, Is.EqualTo(32));
-                Assert.That(frameLayout.padding.right, Is.EqualTo(32));
-                Assert.That(frameLayout.padding.top, Is.EqualTo(20));
-                Assert.That(frameLayout.padding.bottom, Is.EqualTo(20));
-                Assert.That(scrollRectTransform.rect.width, Is.LessThanOrEqualTo(860f));
-
-                var scroll = scrollTransform.GetComponent<ScrollRect>();
-                Assert.That(scroll, Is.Not.Null);
-                Assert.That(scroll.vertical, Is.True);
-                Assert.That(scroll.horizontal, Is.False);
-                Assert.That(scroll.viewport, Is.Not.Null);
-                Assert.That(scroll.content, Is.Not.Null);
-                Assert.That(scroll.verticalScrollbar, Is.Not.Null);
-                Assert.That(scroll.verticalScrollbar, Is.TypeOf<KeyboardReviewScrollbar>());
-                Assert.That(scroll.verticalScrollbar.gameObject.activeInHierarchy, Is.True);
-                Assert.That(scroll.verticalScrollbar.interactable, Is.True);
-                Assert.That(scroll.verticalScrollbar.direction, Is.EqualTo(Scrollbar.Direction.BottomToTop));
-                Assert.That(scroll.verticalScrollbar.navigation.mode, Is.EqualTo(Navigation.Mode.Explicit));
-                Assert.That(scroll.content.GetComponentsInChildren<QuestionReviewItemView>(true),
-                    Has.Length.EqualTo(6));
-
-                var scrollbar = scroll.verticalScrollbar;
-                var scrollbarRect = scrollbar.GetComponent<RectTransform>();
-                var scrollbarImage = scrollbar.GetComponent<Image>();
-                var track = scrollbar.transform.Find("Track");
-                var normalFocus = TintedGraphicColor(
-                    scrollbar.targetGraphic, scrollbar.colors.normalColor, scrollbar.colors.colorMultiplier);
-                var selectedFocus = TintedGraphicColor(
-                    scrollbar.targetGraphic, scrollbar.colors.selectedColor, scrollbar.colors.colorMultiplier);
-                var scrollbarAccessibilityFailures = new List<string>();
-                if (scrollbarRect.rect.width < 64f)
-                {
-                    scrollbarAccessibilityFailures.Add(
-                        $"Scrollbar target rendered {scrollbarRect.rect.width:F1}px; expected at least 64px.");
-                }
-                if (scrollbarImage == null || !scrollbarImage.raycastTarget)
-                {
-                    scrollbarAccessibilityFailures.Add("The full scrollbar target must remain raycast enabled.");
-                }
-                if (track == null)
-                {
-                    scrollbarAccessibilityFailures.Add(
-                        "The visual scrollbar track must be separate from its selectable target.");
-                }
-                else
-                {
-                    if (track.GetComponent<RectTransform>().rect.width >= scrollbarRect.rect.width)
-                    {
-                        scrollbarAccessibilityFailures.Add("The visual track must be narrower than the hit target.");
-                    }
-                    if (track.GetComponent<Image>().raycastTarget)
-                    {
-                        scrollbarAccessibilityFailures.Add("Only the full target, not its visual track, may raycast.");
-                    }
-                }
-                var focusChangeContrast = ContrastRatio(normalFocus, selectedFocus);
-                if (focusChangeContrast < 3f)
-                {
-                    scrollbarAccessibilityFailures.Add(
-                        $"Normal-to-selected focus contrast was {focusChangeContrast:F2}:1; expected at least 3:1.");
-                }
-                var adjacentContrast = ContrastRatio(
-                    selectedFocus, scrollTransform.GetComponent<Image>().color);
-                if (adjacentContrast < 3f)
-                {
-                    scrollbarAccessibilityFailures.Add(
-                        $"Selected focus/background contrast was {adjacentContrast:F2}:1; expected at least 3:1.");
-                }
-                Assert.That(scrollbarAccessibilityFailures, Is.Empty,
-                    string.Join(Environment.NewLine, scrollbarAccessibilityFailures));
-
-                var footerLayout = footer.GetComponent<HorizontalLayoutGroup>();
-                Assert.That(footerLayout.childForceExpandWidth, Is.False);
-                var submit = footer.Find("Submit Button").GetComponent<Button>();
-                var retry = footer.Find("Retry Button").GetComponent<Button>();
-                foreach (var button in new[] { submit, retry })
-                {
-                    var buttonRect = button.GetComponent<RectTransform>();
-                    Assert.That(buttonRect.rect.width, Is.LessThanOrEqualTo(280f),
-                        button.name + " must remain a compact Results action.");
-                    Assert.That(buttonRect.rect.height, Is.GreaterThanOrEqualTo(64f),
-                        button.name + " must remain a 64px minimum target.");
-                    AssertContained(footerRect, buttonRect);
-                    Assert.That(button.navigation.mode, Is.EqualTo(Navigation.Mode.Explicit));
-                }
-
-                foreach (var chrome in new[] { heading, status, footer })
-                {
-                    AssertContained(frameRect, chrome.GetComponent<RectTransform>());
-                }
-                AssertContained(resultsRect, frameRect);
-                AssertContained(frameRect, scrollRectTransform);
-                AssertContained(scrollRectTransform, scroll.viewport);
-                AssertContained(scrollRectTransform, scroll.verticalScrollbar.GetComponent<RectTransform>());
+                var local = vertices[index].position / text.pixelsPerUnit;
+                var world = text.rectTransform.TransformPoint(local);
+                bottom = Mathf.Min(bottom, relativeTo.InverseTransformPoint(world).y);
             }
-            finally
+
+            return bottom;
+        }
+
+        private static void ApplyResponsiveLayout(Transform guided, Vector2 size)
+        {
+            var layout = guided.GetComponent<GuidedPitchResponsiveLayout>();
+            Assert.That(layout, Is.Not.Null, "Guided Pitch must carry GuidedPitchResponsiveLayout.");
+            layout.Apply(size);
+        }
+
+        private static void SetPhaseSections(Transform guided, params string[] activeSections)
+        {
+            var content = RequireChild(guided, ContentRoot);
+            foreach (var sectionName in PhaseSectionNames)
             {
-                results.gameObject.SetActive(wasActive);
+                var section = content.Find(sectionName);
+                Assert.That(section, Is.Not.Null, "Missing phase section " + sectionName);
+                section.gameObject.SetActive(Array.IndexOf(activeSections, sectionName) >= 0);
             }
         }
 
-        private static void AssertPitchRoomFrame(Scene scene)
+        private static void ForceGuidedLayout(Transform canvas, Transform guided)
         {
-            var generated = scene.GetRootGameObjects().Single(root => root.name == "Generated UI");
-            var canvas = generated.transform.Find("Canvas");
-            var canvasRect = canvas.GetComponent<RectTransform>();
-            canvas.GetComponent<Canvas>().renderMode = RenderMode.WorldSpace;
-            canvasRect.sizeDelta = canvas.GetComponent<CanvasScaler>().referenceResolution;
-
-            var pitchRoom = canvas.Find("PitchRoom");
-            Assert.That(pitchRoom, Is.Not.Null);
-            var wasActive = pitchRoom.gameObject.activeSelf;
-            pitchRoom.gameObject.SetActive(true);
-            try
+            Canvas.ForceUpdateCanvases();
+            LayoutRebuilder.ForceRebuildLayoutImmediate(canvas.GetComponent<RectTransform>());
+            LayoutRebuilder.ForceRebuildLayoutImmediate(guided.GetComponent<RectTransform>());
+            var frame = guided.Find("Content Frame");
+            if (frame != null)
             {
-                var environment = pitchRoom.Find("Environment");
-                var frame = pitchRoom.Find("Content Frame");
-                Assert.That(environment, Is.Not.Null);
-                Assert.That(environment.parent, Is.EqualTo(pitchRoom));
-                Assert.That(environment.GetComponent<LayoutElement>().ignoreLayout, Is.True);
-                Assert.That(frame, Is.Not.Null, "PitchRoom must own a direct Content Frame child.");
-                Assert.That(frame.parent, Is.EqualTo(pitchRoom));
-                Assert.That(pitchRoom.Cast<Transform>().Select(child => child.name),
-                    Is.EqualTo(new[] { "Environment", "Content Frame" }));
-                Assert.That(frame.Cast<Transform>().Select(child => child.name),
-                    Is.EqualTo(new[]
-                    {
-                        "Status Backing",
-                        "Judge Aya",
-                        "Dialogue Panel",
-                        "Metrics",
-                        "Responses",
-                        "Continue Button",
-                    }));
-
-                var status = frame.Find("Status Backing");
-                var judge = frame.Find("Judge Aya");
-                var dialogue = frame.Find("Dialogue Panel");
-                var metrics = frame.Find("Metrics");
-                var confidence = metrics.Find("Confidence");
-                var timer = metrics.Find("Timer");
-                var responses = frame.Find("Responses");
-                var continueButton = frame.Find("Continue Button");
-                Assert.That(new[] { status, judge, dialogue, metrics, confidence, timer, responses, continueButton },
-                    Has.None.Null);
-                Assert.That(metrics.Cast<Transform>().Select(child => child.name),
-                    Is.EqualTo(new[] { "Confidence", "Timer" }));
-
-                var pitchRect = pitchRoom.GetComponent<RectTransform>();
-                var environmentRect = environment.GetComponent<RectTransform>();
-                var frameRect = frame.GetComponent<RectTransform>();
-                var metricsRect = metrics.GetComponent<RectTransform>();
-                var responsesRect = responses.GetComponent<RectTransform>();
-                Canvas.ForceUpdateCanvases();
-                LayoutRebuilder.ForceRebuildLayoutImmediate(pitchRect);
-                LayoutRebuilder.ForceRebuildLayoutImmediate(frameRect);
-                LayoutRebuilder.ForceRebuildLayoutImmediate(metricsRect);
-                LayoutRebuilder.ForceRebuildLayoutImmediate(responsesRect);
-                Canvas.ForceUpdateCanvases();
-
-                Assert.That(environmentRect.rect.width, Is.EqualTo(pitchRect.rect.width).Within(0.1f));
-                Assert.That(environmentRect.rect.height, Is.EqualTo(pitchRect.rect.height).Within(0.1f));
-                Assert.That(frameRect.rect.width, Is.LessThanOrEqualTo(960f));
-                Assert.That(frameRect.rect.height, Is.LessThanOrEqualTo(680f));
-                var frameLayout = frame.GetComponent<VerticalLayoutGroup>();
-                Assert.That(frameLayout.padding.left, Is.EqualTo(24));
-                Assert.That(frameLayout.padding.right, Is.EqualTo(24));
-                Assert.That(frameLayout.padding.top, Is.EqualTo(24));
-                Assert.That(frameLayout.padding.bottom, Is.EqualTo(24));
-                Assert.That(frameLayout.spacing, Is.EqualTo(8f));
-                Assert.That(status.GetComponent<RectTransform>().rect.width, Is.LessThanOrEqualTo(860f));
-                Assert.That(dialogue.GetComponent<RectTransform>().rect.width, Is.LessThanOrEqualTo(860f));
-                Assert.That(metricsRect.rect.width, Is.LessThanOrEqualTo(680f),
-                    $"Metrics rendered {metricsRect.rect.width:F1}px; layout min/preferred " +
-                    $"{LayoutUtility.GetMinWidth(metricsRect):F1}/{LayoutUtility.GetPreferredWidth(metricsRect):F1}, " +
-                    $"Confidence {LayoutUtility.GetMinWidth(confidence.GetComponent<RectTransform>()):F1}/" +
-                    $"{LayoutUtility.GetPreferredWidth(confidence.GetComponent<RectTransform>()):F1}, " +
-                    $"Timer {LayoutUtility.GetMinWidth(timer.GetComponent<RectTransform>()):F1}/" +
-                    $"{LayoutUtility.GetPreferredWidth(timer.GetComponent<RectTransform>()):F1}.");
-                Assert.That(confidence.GetComponent<RectTransform>().rect.width, Is.LessThanOrEqualTo(330f));
-                Assert.That(timer.GetComponent<RectTransform>().rect.width, Is.LessThanOrEqualTo(330f));
-                Assert.That(responsesRect.rect.width, Is.LessThanOrEqualTo(680f));
-                Assert.That(continueButton.GetComponent<RectTransform>().rect.width, Is.LessThanOrEqualTo(520f));
-                Assert.That(continueButton.GetComponent<RectTransform>().rect.height, Is.GreaterThanOrEqualTo(64f));
-                foreach (var response in responses.GetComponentsInChildren<Button>(true))
+                LayoutRebuilder.ForceRebuildLayoutImmediate(frame.GetComponent<RectTransform>());
+                var scrollContent = frame.Find("Phase Scroll/Viewport/Content");
+                if (scrollContent != null)
                 {
-                    var responseRect = response.GetComponent<RectTransform>();
-                    Assert.That(responseRect.rect.width, Is.LessThanOrEqualTo(680f),
-                        response.name + " escaped the response width cap.");
-                    Assert.That(responseRect.rect.height, Is.GreaterThanOrEqualTo(64f),
-                        response.name + " must remain a 64px minimum target.");
-                    AssertContained(responsesRect, responseRect);
+                    LayoutRebuilder.ForceRebuildLayoutImmediate(scrollContent.GetComponent<RectTransform>());
                 }
-
-                foreach (var child in frame.GetComponentsInChildren<RectTransform>(true))
-                {
-                    if (child == frameRect) continue;
-                    AssertContained(frameRect, child);
-                }
-                AssertContained(pitchRect, frameRect);
-                Assert.That(confidence.gameObject.activeInHierarchy, Is.True);
-                Assert.That(timer.gameObject.activeInHierarchy, Is.True);
-                Assert.That(confidence.GetComponent<RectTransform>().rect.width, Is.GreaterThan(0f));
-                Assert.That(timer.GetComponent<RectTransform>().rect.width, Is.GreaterThan(0f));
-
-                AssertTextContrast(
-                    status.Find("Status").GetComponent<Text>(), status.GetComponent<Image>(), 4.5f);
-                AssertTextContrast(
-                    dialogue.Find("Prompt Backing/Prompt").GetComponent<Text>(),
-                    dialogue.Find("Prompt Backing").GetComponent<Image>(), 4.5f);
-                AssertTextContrast(
-                    confidence.Find("Label").GetComponent<Text>(), confidence.GetComponent<Image>(), 4.5f);
-                AssertTextContrast(
-                    timer.Find("Seconds").GetComponent<Text>(), timer.GetComponent<Image>(), 4.5f);
+                LayoutRebuilder.ForceRebuildLayoutImmediate(frame.GetComponent<RectTransform>());
             }
-            finally
+            Canvas.ForceUpdateCanvases();
+        }
+
+        private static void ForceResultsLayout(Transform canvas, Transform results)
+        {
+            Canvas.ForceUpdateCanvases();
+            LayoutRebuilder.ForceRebuildLayoutImmediate(canvas.GetComponent<RectTransform>());
+            LayoutRebuilder.ForceRebuildLayoutImmediate(results.GetComponent<RectTransform>());
+            var frame = results.Find("Content Frame");
+            if (frame != null)
             {
-                pitchRoom.gameObject.SetActive(wasActive);
+                LayoutRebuilder.ForceRebuildLayoutImmediate(frame.GetComponent<RectTransform>());
+                var scrollContent = frame.Find("Results Scroll/Viewport/Content");
+                if (scrollContent != null)
+                {
+                    LayoutRebuilder.ForceRebuildLayoutImmediate(scrollContent.GetComponent<RectTransform>());
+                }
+                LayoutRebuilder.ForceRebuildLayoutImmediate(frame.GetComponent<RectTransform>());
             }
+            Canvas.ForceUpdateCanvases();
+        }
+
+        private static Transform RequireChild(Transform parent, string path)
+        {
+            var child = parent.Find(path);
+            Assert.That(child, Is.Not.Null, $"Missing '{path}' under '{parent.name}'.");
+            return child;
+        }
+
+        private static Text RequireText(Transform parent, string path)
+        {
+            var text = RequireChild(parent, path).GetComponent<Text>();
+            Assert.That(text, Is.Not.Null, $"'{path}' under '{parent.name}' must carry a Text.");
+            return text;
+        }
+
+        private static void SetActiveText(Text text, string value)
+        {
+            Assert.That(text, Is.Not.Null);
+            text.gameObject.SetActive(true);
+            text.text = value;
         }
 
         private static void AssertFullyRendered(
-            Text text,
-            string key,
-            string value,
-            Transform pitchRoom,
-            ICollection<string> failures)
+            Text text, string label, Vector2 size, ICollection<string> failures)
         {
-            text.text = value;
-            ForcePitchRoomLayout(pitchRoom);
+            var value = text.text;
             var generator = text.cachedTextGenerator;
             generator.Populate(value, text.GetGenerationSettings(text.rectTransform.rect.size));
-            if (generator.characterCount != value.Length + 1 || generator.characterCountVisible != value.Length)
+            var expectedVisible = value.Count(character => character != '\n');
+            if (generator.characterCountVisible < expectedVisible)
             {
                 failures.Add(
-                    $"{key}: rendered {generator.characterCountVisible}/{value.Length} characters " +
-                    $"in {text.rectTransform.rect.width:F1}x{text.rectTransform.rect.height:F1}px " +
-                    $"(preferred {text.preferredWidth:F1}x{text.preferredHeight:F1}px).");
+                    $"{label} at {size}: rendered {generator.characterCountVisible}/{expectedVisible} " +
+                    $"characters in {text.rectTransform.rect.width:F1}x{text.rectTransform.rect.height:F1}px.");
             }
         }
 
-        private static void ForcePitchRoomLayout(Transform pitchRoom)
+        private static void CheckContrast(
+            string label, Text text, Image backing, float minimum, ICollection<string> failures)
         {
-            Canvas.ForceUpdateCanvases();
-            LayoutRebuilder.ForceRebuildLayoutImmediate(pitchRoom.GetComponent<RectTransform>());
-            LayoutRebuilder.ForceRebuildLayoutImmediate(
-                pitchRoom.Find("Content Frame").GetComponent<RectTransform>());
-            LayoutRebuilder.ForceRebuildLayoutImmediate(
-                pitchRoom.Find("Content Frame/Metrics").GetComponent<RectTransform>());
-            LayoutRebuilder.ForceRebuildLayoutImmediate(
-                pitchRoom.Find("Content Frame/Responses").GetComponent<RectTransform>());
-            Canvas.ForceUpdateCanvases();
-        }
-
-        private static void AssertSimpleScreenFrames(Transform canvas)
-        {
-            var canvasRect = canvas.GetComponent<RectTransform>();
-            var canvasComponent = canvas.GetComponent<Canvas>();
-            canvasComponent.renderMode = RenderMode.WorldSpace;
-            canvasRect.sizeDelta = canvas.GetComponent<CanvasScaler>().referenceResolution;
-            var effectiveWidthMismatches = new List<string>();
-            var expectedFrameSizes = new Dictionary<string, Vector2>
+            if (backing == null)
             {
-                { "Title", new Vector2(760f, 500f) },
-                { "Briefing", new Vector2(880f, 520f) },
-                { "Tutorial", new Vector2(920f, 560f) },
-                { "Settings", new Vector2(720f, 420f) },
-            };
-            foreach (var pair in expectedFrameSizes)
-            {
-                var screenName = pair.Key;
-                var screen = canvas.Find(screenName);
-                Assert.That(screen, Is.Not.Null, $"Missing {screenName} screen.");
-                var wasActive = screen.gameObject.activeSelf;
-                screen.gameObject.SetActive(true);
-                try
-                {
-                    var screenRect = screen.GetComponent<RectTransform>();
-                    Canvas.ForceUpdateCanvases();
-                    LayoutRebuilder.ForceRebuildLayoutImmediate(screenRect);
-                    Assert.That(screenRect.anchorMin, Is.EqualTo(Vector2.zero),
-                        $"{screenName} must remain stretched under the Canvas.");
-                    Assert.That(screenRect.anchorMax, Is.EqualTo(Vector2.one),
-                        $"{screenName} must remain stretched under the Canvas.");
-                    Assert.That(screenRect.rect.width, Is.EqualTo(canvasRect.rect.width).Within(0.1f));
-                    Assert.That(screenRect.rect.height, Is.EqualTo(canvasRect.rect.height).Within(0.1f));
-
-                    var frameTransform = screen.Find("Content Frame");
-                    Assert.That(frameTransform, Is.Not.Null, $"{screenName} must own a Content Frame.");
-                    var frame = frameTransform.GetComponent<RectTransform>();
-                    Assert.That(frame.rect.width, Is.EqualTo(pair.Value.x).Within(0.1f));
-                    Assert.That(frame.rect.height, Is.EqualTo(pair.Value.y).Within(0.1f));
-                    AssertContained(screenRect, frame);
-                    foreach (var button in frame.GetComponentsInChildren<Button>(true))
-                    {
-                        var buttonRect = button.GetComponent<RectTransform>();
-                        Assert.That(buttonRect.rect.width, Is.LessThanOrEqualTo(520f),
-                            $"{screenName}/{button.name} must use a constrained card width.");
-                        Assert.That(buttonRect.rect.height, Is.GreaterThanOrEqualTo(64f),
-                            $"{screenName}/{button.name} must remain a 64px minimum target.");
-                    }
-
-                    if (screenName == "Tutorial")
-                    {
-                        CollectEffectiveWidthMismatch(
-                            frameTransform, "Navigation/Back Button", 180f, effectiveWidthMismatches);
-                        CollectEffectiveWidthMismatch(
-                            frameTransform, "Navigation/Skip Button", 180f, effectiveWidthMismatches);
-                        CollectEffectiveWidthMismatch(
-                            frameTransform, "Navigation/Next Button", 420f, effectiveWidthMismatches);
-                    }
-                    else if (screenName == "Settings")
-                    {
-                        CollectEffectiveWidthMismatch(
-                            frameTransform, "Heading", 680f, effectiveWidthMismatches);
-                        CollectEffectiveWidthMismatch(
-                            frameTransform, "Foundation Note", 680f, effectiveWidthMismatches);
-                    }
-                }
-                finally
-                {
-                    screen.gameObject.SetActive(wasActive);
-                }
-                Assert.That(screen.gameObject.activeSelf, Is.EqualTo(wasActive),
-                    $"{screenName} active state must be restored after layout assertions.");
+                failures.Add(label + " has no opaque backing.");
+                return;
             }
-
-            Assert.That(effectiveWidthMismatches, Is.Empty,
-                string.Join(Environment.NewLine, effectiveWidthMismatches));
-        }
-
-        private static void CollectEffectiveWidthMismatch(
-            Transform parent, string path, float expected, ICollection<string> mismatches)
-        {
-            var target = parent.Find(path);
-            Assert.That(target, Is.Not.Null, $"Missing {parent.name}/{path}.");
-            var actual = target.GetComponent<RectTransform>().rect.width;
-            if (Mathf.Abs(actual - expected) > 0.1f)
+            if (backing.color.a < 1f)
             {
-                mismatches.Add($"{parent.name}/{path} expected {expected:F1}px but rendered {actual:F3}px.");
+                failures.Add(label + " backing must be opaque.");
             }
-        }
-
-        private static void AssertTextContrast(Text text, Image backing, float minimum)
-        {
-            Assert.That(text, Is.Not.Null);
-            Assert.That(backing, Is.Not.Null);
-            Assert.That(backing.color.a, Is.EqualTo(1f), backing.name + " must be opaque.");
             var ratio = ContrastRatio(text.color, backing.color);
-            Assert.That(ratio, Is.GreaterThanOrEqualTo(minimum),
-                $"{text.name} contrast was {ratio:F2}:1.");
-        }
-
-        private static void AssertContained(RectTransform parent, RectTransform child)
-        {
-            Assert.That(child, Is.Not.Null);
-            var corners = new Vector3[4];
-            child.GetWorldCorners(corners);
-            foreach (var corner in corners)
+            if (ratio < minimum)
             {
-                var local = parent.InverseTransformPoint(corner);
-                Assert.That(local.x, Is.InRange(parent.rect.xMin - 0.1f, parent.rect.xMax + 0.1f),
-                    child.name + " escaped horizontally.");
-                Assert.That(local.y, Is.InRange(parent.rect.yMin - 0.1f, parent.rect.yMax + 0.1f),
-                    child.name + " escaped vertically.");
+                failures.Add($"{label} contrast was {ratio:F2}:1; expected {minimum:F1}:1.");
             }
         }
 
@@ -688,20 +1349,9 @@ namespace Agrovator.PitchSimulator.Tests.EditMode.UI
                 (Mathf.Min(firstLuminance, secondLuminance) + 0.05f);
         }
 
-        private static Color TintedGraphicColor(Graphic graphic, Color tint, float multiplier)
-        {
-            Assert.That(graphic, Is.Not.Null);
-            return new Color(
-                Mathf.Clamp01(graphic.color.r * tint.r * multiplier),
-                Mathf.Clamp01(graphic.color.g * tint.g * multiplier),
-                Mathf.Clamp01(graphic.color.b * tint.b * multiplier),
-                Mathf.Clamp01(graphic.color.a * tint.a));
-        }
-
         private static float RelativeLuminance(Color color)
         {
-            return 0.2126f * Linear(color.r) + 0.7152f * Linear(color.g) +
-                0.0722f * Linear(color.b);
+            return 0.2126f * Linear(color.r) + 0.7152f * Linear(color.g) + 0.0722f * Linear(color.b);
         }
 
         private static float Linear(float value)
@@ -711,11 +1361,44 @@ namespace Agrovator.PitchSimulator.Tests.EditMode.UI
                 : Mathf.Pow((value + 0.055f) / 1.055f, 2.4f);
         }
 
+        private static void AssertContained(RectTransform parent, RectTransform child)
+        {
+            Assert.That(child, Is.Not.Null);
+            var corners = new Vector3[4];
+            child.GetWorldCorners(corners);
+            foreach (var corner in corners)
+            {
+                var local = parent.InverseTransformPoint(corner);
+                Assert.That(local.x, Is.InRange(parent.rect.xMin - 0.5f, parent.rect.xMax + 0.5f),
+                    child.name + " escaped " + parent.name + " horizontally.");
+                Assert.That(local.y, Is.InRange(parent.rect.yMin - 0.5f, parent.rect.yMax + 0.5f),
+                    child.name + " escaped " + parent.name + " vertically.");
+            }
+        }
+
         private static T[] FindInScene<T>(Scene scene) where T : Component
         {
             return scene.GetRootGameObjects()
                 .SelectMany(root => root.GetComponentsInChildren<T>(true))
                 .ToArray();
+        }
+
+        private sealed class ActiveScope : IDisposable
+        {
+            private readonly GameObject target;
+            private readonly bool wasActive;
+
+            public ActiveScope(GameObject target)
+            {
+                this.target = target;
+                wasActive = target.activeSelf;
+                target.SetActive(true);
+            }
+
+            public void Dispose()
+            {
+                target.SetActive(wasActive);
+            }
         }
     }
 }

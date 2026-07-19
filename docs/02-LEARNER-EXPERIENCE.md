@@ -1,26 +1,45 @@
-# Play and Review a Pitch Attempt
+# Build and Review a Guided Pitch
 
 ## Before you start
 
-Use a keyboard or pointer for the locally verified Chrome/Edge development flow. Task 19 and Task 20 recorded local Chrome/Edge smoke evidence, but this is not a production browser-support promise; Firefox and Safari remain unverified. Audio is silent because all nine clip slots are placeholders.
+Use a keyboard or pointer in the locally verified Chrome/Edge development build. The activity has no countdown; take the time you need. Audio remains silent because all nine clip slots are placeholders.
 
 ## Complete an attempt
 
-1. Select Start on the Title screen. This user gesture unlocks browser-safe audio hooks.
-2. Read the briefing, then complete the dedicated three-page Tutorial: **Build your pitch**, **Choose your response**, and **Learn from feedback**. Back changes only the tutorial page, Next advances locally, and the final action becomes Start Practice. Skip is available on every page. The Tutorial appears again from page one on every new attempt, including Retry.
-3. At each question, choose one of the visible numbered responses. The response pool has at most three slots.
-4. Read Judge Aya's reaction, feedback, and explanation, then continue.
-5. On Results, review overall score, final confidence, competency rollups, strengths, improvements, and ordered answer history.
-6. Submit completion. If submission fails or expires, retain the result and retry submission. Use Retry to clear attempt state and begin again at Briefing; the Tutorial is deliberately shown again and may be completed or skipped.
+1. Select **Start** and read the Smart School Garden Briefing.
+2. Choose **Primary** or **Secondary**. Primary says “Spot it, Prove it, Solve it, Show why it matters.” Secondary says “Problem, Evidence, Solution, Value.” The mechanics are the same.
+3. Read **Learn**. Aya explains that a complete pitch names the problem, proves it with honest evidence, explains the solution, and shows why it matters.
+4. Complete four Build rounds. Each round offers three respectful sentence cards and uses one question:
+   - Problem: “What happens in the garden, and why does it matter?”
+   - Evidence: “What did your team see, count, or measure?”
+   - Solution: “How does the sensor system work in a school day?”
+   - Value: “Who benefits from the garden, and how?”
+5. After each choice, read what worked, what is missing, and how to improve. The chosen sentence appears on the four-slot Pitch Board.
+6. In **Improve**, strengthen a Developing or Needs Practice part, or present when ready. A replacement changes the current final choice but keeps the earlier diagnostic choice in selection history.
+7. In **Present**, read the four combined sentences. Then answer: “What will it cost, and what will you do if you do not know the final amount yet?”
+8. On **Results**, review each current part, any strengthened marker, Pitch Readiness, the final pitch, and the transfer prompt for your team's real pitch.
+9. Submit the result. A failed submission preserves the completed result and exposes resubmission. **Retry** clears the mode, draft, history, assessment, follow-up, and submission state, then returns to Briefing for a fresh mode choice.
 
-## Launch-configured preferences
+## How the modes differ
 
-Normal uses authored time. Extended multiplies positive authored time safely. Off disables expiration. Reduced motion preserves semantic reactions without talk/blink animation. English (`en`) and Malay (`ms`) are supported, but Malay copy requires human review and currently uses English fallback text.
-
-Learners cannot currently change timer mode, reduced motion, language, music volume, or SFX volume in the game UI. The current Settings screen provides only Back. These values come from the LMS launch configuration in WebGL or the default local mock configuration in Editor and non-WebGL players.
+Primary cards use one concrete idea and familiar school language in 12-16 words. Coaching is direct. Secondary cards may be longer and distinguish observations, assumptions, measurements, scope, qualified claims, audience relevance, and uncertainty. Neither mode changes the garden theme, number of choices, visual structure, scoring scale, or completion rule.
 
 ## Troubleshooting
 
-If launch configuration is missing, an operator should select Success and Resend Launch in the local harness. If focus is lost, use Tab or Shift+Tab; response and Continue focus are restored when screens change. If submission fails, do not restart the page before trying Submit again, because the current review is intentionally preserved.
+### The mode selector appears again
+
+This is expected after Retry or whenever no current mode exists. The LMS launch object does not choose a learner mode.
+
+### The activity shows a recovery message
+
+The guided attempt blocks safely when content, localization, scene wiring, or launch configuration is missing or invalid. Correct the local harness configuration and resend the launch. Recovery messages use stable, non-sensitive copy; they do not show learner or launch values.
+
+### Submission failed
+
+Keep the Results screen open, correct the harness or integration state, and select **Resubmit results**. The finished pitch and assessment are preserved.
+
+### Focus is not where expected
+
+Use Tab or Shift+Tab. Arrow keys and Enter operate the sentence cards, and focus returns to the next active control after a phase change.
 
 See [gameplay and content](03-GAMEPLAY-CONTENT.md), [accessibility/localization](08-ACCESSIBILITY-LOCALIZATION.md), and [operator runbook](14-OPERATIONS-TROUBLESHOOTING.md).

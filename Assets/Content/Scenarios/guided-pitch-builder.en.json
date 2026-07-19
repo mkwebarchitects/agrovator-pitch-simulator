@@ -1,0 +1,141 @@
+{
+  "Id": "smart-school-garden",
+  "Version": 2,
+  "EstimatedDurationMinutes": 10,
+  "TitleKey": "guided.title",
+  "BriefingKey": "guided.briefing",
+  "LearnIncompletePitchKey": "guided.learn.incomplete_pitch",
+  "LearnExplanationKey": "guided.learn.explanation",
+  "Modes": [
+    {
+      "Mode": "Primary",
+      "PromptStyleKey": "guided.mode.primary.prompt_style",
+      "Parts": [
+        {
+          "Part": "Problem",
+          "LabelKey": "guided.part.problem.label",
+          "PlainPromptKey": "guided.part.problem.plain_prompt",
+          "QuestionKey": "guided.part.problem.question",
+          "HintKey": "guided.part.problem.hint",
+          "Options": [
+            { "Id": "primary-problem-clear", "TextKey": "guided.option.primary-problem-clear", "Mastery": "Clear", "LegacyConfidenceDelta": 4, "ReactionCue": "Impressed", "Feedback": { "WorkedKey": "guided.feedback.primary-problem-clear.worked", "MissingKey": "guided.feedback.primary-problem-clear.missing", "ImproveKey": "guided.feedback.primary-problem-clear.improve" } },
+            { "Id": "primary-problem-developing", "TextKey": "guided.option.primary-problem-developing", "Mastery": "Developing", "LegacyConfidenceDelta": 1, "ReactionCue": "Curious", "Feedback": { "WorkedKey": "guided.feedback.primary-problem-developing.worked", "MissingKey": "guided.feedback.primary-problem-developing.missing", "ImproveKey": "guided.feedback.primary-problem-developing.improve" } },
+            { "Id": "primary-problem-needs-practice", "TextKey": "guided.option.primary-problem-needs-practice", "Mastery": "NeedsPractice", "LegacyConfidenceDelta": -4, "ReactionCue": "Concerned", "Feedback": { "WorkedKey": "guided.feedback.primary-problem-needs-practice.worked", "MissingKey": "guided.feedback.primary-problem-needs-practice.missing", "ImproveKey": "guided.feedback.primary-problem-needs-practice.improve" } }
+          ]
+        },
+        {
+          "Part": "Evidence",
+          "LabelKey": "guided.part.evidence.label",
+          "PlainPromptKey": "guided.part.evidence.plain_prompt",
+          "QuestionKey": "guided.part.evidence.question",
+          "HintKey": "guided.part.evidence.hint",
+          "Options": [
+            { "Id": "primary-evidence-clear", "TextKey": "guided.option.primary-evidence-clear", "Mastery": "Clear", "LegacyConfidenceDelta": 4, "ReactionCue": "Impressed", "Feedback": { "WorkedKey": "guided.feedback.primary-evidence-clear.worked", "MissingKey": "guided.feedback.primary-evidence-clear.missing", "ImproveKey": "guided.feedback.primary-evidence-clear.improve" } },
+            { "Id": "primary-evidence-developing", "TextKey": "guided.option.primary-evidence-developing", "Mastery": "Developing", "LegacyConfidenceDelta": 1, "ReactionCue": "Curious", "Feedback": { "WorkedKey": "guided.feedback.primary-evidence-developing.worked", "MissingKey": "guided.feedback.primary-evidence-developing.missing", "ImproveKey": "guided.feedback.primary-evidence-developing.improve" } },
+            { "Id": "primary-evidence-needs-practice", "TextKey": "guided.option.primary-evidence-needs-practice", "Mastery": "NeedsPractice", "LegacyConfidenceDelta": -4, "ReactionCue": "Concerned", "Feedback": { "WorkedKey": "guided.feedback.primary-evidence-needs-practice.worked", "MissingKey": "guided.feedback.primary-evidence-needs-practice.missing", "ImproveKey": "guided.feedback.primary-evidence-needs-practice.improve" } }
+          ]
+        },
+        {
+          "Part": "Solution",
+          "LabelKey": "guided.part.solution.label",
+          "PlainPromptKey": "guided.part.solution.plain_prompt",
+          "QuestionKey": "guided.part.solution.question",
+          "HintKey": "guided.part.solution.hint",
+          "Options": [
+            { "Id": "primary-solution-clear", "TextKey": "guided.option.primary-solution-clear", "Mastery": "Clear", "LegacyConfidenceDelta": 4, "ReactionCue": "Impressed", "Feedback": { "WorkedKey": "guided.feedback.primary-solution-clear.worked", "MissingKey": "guided.feedback.primary-solution-clear.missing", "ImproveKey": "guided.feedback.primary-solution-clear.improve" } },
+            { "Id": "primary-solution-developing", "TextKey": "guided.option.primary-solution-developing", "Mastery": "Developing", "LegacyConfidenceDelta": 1, "ReactionCue": "Curious", "Feedback": { "WorkedKey": "guided.feedback.primary-solution-developing.worked", "MissingKey": "guided.feedback.primary-solution-developing.missing", "ImproveKey": "guided.feedback.primary-solution-developing.improve" } },
+            { "Id": "primary-solution-needs-practice", "TextKey": "guided.option.primary-solution-needs-practice", "Mastery": "NeedsPractice", "LegacyConfidenceDelta": -4, "ReactionCue": "Concerned", "Feedback": { "WorkedKey": "guided.feedback.primary-solution-needs-practice.worked", "MissingKey": "guided.feedback.primary-solution-needs-practice.missing", "ImproveKey": "guided.feedback.primary-solution-needs-practice.improve" } }
+          ]
+        },
+        {
+          "Part": "Value",
+          "LabelKey": "guided.part.value.label",
+          "PlainPromptKey": "guided.part.value.plain_prompt",
+          "QuestionKey": "guided.part.value.question",
+          "HintKey": "guided.part.value.hint",
+          "Options": [
+            { "Id": "primary-value-clear", "TextKey": "guided.option.primary-value-clear", "Mastery": "Clear", "LegacyConfidenceDelta": 4, "ReactionCue": "Impressed", "Feedback": { "WorkedKey": "guided.feedback.primary-value-clear.worked", "MissingKey": "guided.feedback.primary-value-clear.missing", "ImproveKey": "guided.feedback.primary-value-clear.improve" } },
+            { "Id": "primary-value-developing", "TextKey": "guided.option.primary-value-developing", "Mastery": "Developing", "LegacyConfidenceDelta": 1, "ReactionCue": "Curious", "Feedback": { "WorkedKey": "guided.feedback.primary-value-developing.worked", "MissingKey": "guided.feedback.primary-value-developing.missing", "ImproveKey": "guided.feedback.primary-value-developing.improve" } },
+            { "Id": "primary-value-needs-practice", "TextKey": "guided.option.primary-value-needs-practice", "Mastery": "NeedsPractice", "LegacyConfidenceDelta": -4, "ReactionCue": "Concerned", "Feedback": { "WorkedKey": "guided.feedback.primary-value-needs-practice.worked", "MissingKey": "guided.feedback.primary-value-needs-practice.missing", "ImproveKey": "guided.feedback.primary-value-needs-practice.improve" } }
+          ]
+        }
+      ],
+      "FollowUp": {
+        "LabelKey": "guided.follow_up.label",
+        "QuestionKey": "guided.follow_up.question",
+        "HintKey": "guided.follow_up.hint",
+        "Options": [
+          { "Id": "primary-cost-clear", "TextKey": "guided.option.primary-cost-clear", "Mastery": "Clear", "LegacyConfidenceDelta": 4, "ReactionCue": "Impressed", "Feedback": { "WorkedKey": "guided.feedback.primary-cost-clear.worked", "MissingKey": "guided.feedback.primary-cost-clear.missing", "ImproveKey": "guided.feedback.primary-cost-clear.improve" } },
+          { "Id": "primary-cost-developing", "TextKey": "guided.option.primary-cost-developing", "Mastery": "Developing", "LegacyConfidenceDelta": 1, "ReactionCue": "Curious", "Feedback": { "WorkedKey": "guided.feedback.primary-cost-developing.worked", "MissingKey": "guided.feedback.primary-cost-developing.missing", "ImproveKey": "guided.feedback.primary-cost-developing.improve" } },
+          { "Id": "primary-cost-needs-practice", "TextKey": "guided.option.primary-cost-needs-practice", "Mastery": "NeedsPractice", "LegacyConfidenceDelta": -4, "ReactionCue": "Concerned", "Feedback": { "WorkedKey": "guided.feedback.primary-cost-needs-practice.worked", "MissingKey": "guided.feedback.primary-cost-needs-practice.missing", "ImproveKey": "guided.feedback.primary-cost-needs-practice.improve" } }
+        ]
+      }
+    },
+    {
+      "Mode": "Secondary",
+      "PromptStyleKey": "guided.mode.secondary.prompt_style",
+      "Parts": [
+        {
+          "Part": "Problem",
+          "LabelKey": "guided.part.problem.label",
+          "PlainPromptKey": "guided.part.problem.plain_prompt",
+          "QuestionKey": "guided.part.problem.question",
+          "HintKey": "guided.part.problem.hint",
+          "Options": [
+            { "Id": "intro-clear-problem", "TextKey": "guided.option.intro-clear-problem", "Mastery": "Clear", "LegacyConfidenceDelta": 4, "ReactionCue": "Impressed", "Feedback": { "WorkedKey": "guided.feedback.intro-clear-problem.worked", "MissingKey": "guided.feedback.intro-clear-problem.missing", "ImproveKey": "guided.feedback.intro-clear-problem.improve" } },
+            { "Id": "intro-useful-dense", "TextKey": "guided.option.intro-useful-dense", "Mastery": "Developing", "LegacyConfidenceDelta": 1, "ReactionCue": "Curious", "Feedback": { "WorkedKey": "guided.feedback.intro-useful-dense.worked", "MissingKey": "guided.feedback.intro-useful-dense.missing", "ImproveKey": "guided.feedback.intro-useful-dense.improve" } },
+            { "Id": "intro-unsupported-claim", "TextKey": "guided.option.intro-unsupported-claim", "Mastery": "NeedsPractice", "LegacyConfidenceDelta": -4, "ReactionCue": "Concerned", "Feedback": { "WorkedKey": "guided.feedback.intro-unsupported-claim.worked", "MissingKey": "guided.feedback.intro-unsupported-claim.missing", "ImproveKey": "guided.feedback.intro-unsupported-claim.improve" } }
+          ]
+        },
+        {
+          "Part": "Evidence",
+          "LabelKey": "guided.part.evidence.label",
+          "PlainPromptKey": "guided.part.evidence.plain_prompt",
+          "QuestionKey": "guided.part.evidence.question",
+          "HintKey": "guided.part.evidence.hint",
+          "Options": [
+            { "Id": "evidence-standard-measured", "TextKey": "guided.option.evidence-standard-measured", "Mastery": "Clear", "LegacyConfidenceDelta": 4, "ReactionCue": "Impressed", "Feedback": { "WorkedKey": "guided.feedback.evidence-standard-measured.worked", "MissingKey": "guided.feedback.evidence-standard-measured.missing", "ImproveKey": "guided.feedback.evidence-standard-measured.improve" } },
+            { "Id": "evidence-standard-observation", "TextKey": "guided.option.evidence-standard-observation", "Mastery": "Developing", "LegacyConfidenceDelta": 1, "ReactionCue": "Curious", "Feedback": { "WorkedKey": "guided.feedback.evidence-standard-observation.worked", "MissingKey": "guided.feedback.evidence-standard-observation.missing", "ImproveKey": "guided.feedback.evidence-standard-observation.improve" } },
+            { "Id": "evidence-standard-assumption", "TextKey": "guided.option.evidence-standard-assumption", "Mastery": "NeedsPractice", "LegacyConfidenceDelta": -4, "ReactionCue": "Concerned", "Feedback": { "WorkedKey": "guided.feedback.evidence-standard-assumption.worked", "MissingKey": "guided.feedback.evidence-standard-assumption.missing", "ImproveKey": "guided.feedback.evidence-standard-assumption.improve" } }
+          ]
+        },
+        {
+          "Part": "Solution",
+          "LabelKey": "guided.part.solution.label",
+          "PlainPromptKey": "guided.part.solution.plain_prompt",
+          "QuestionKey": "guided.part.solution.question",
+          "HintKey": "guided.part.solution.hint",
+          "Options": [
+            { "Id": "solution-practical-loop", "TextKey": "guided.option.solution-practical-loop", "Mastery": "Clear", "LegacyConfidenceDelta": 4, "ReactionCue": "Impressed", "Feedback": { "WorkedKey": "guided.feedback.solution-practical-loop.worked", "MissingKey": "guided.feedback.solution-practical-loop.missing", "ImproveKey": "guided.feedback.solution-practical-loop.improve" } },
+            { "Id": "solution-components", "TextKey": "guided.option.solution-components", "Mastery": "Developing", "LegacyConfidenceDelta": 1, "ReactionCue": "Curious", "Feedback": { "WorkedKey": "guided.feedback.solution-components.worked", "MissingKey": "guided.feedback.solution-components.missing", "ImproveKey": "guided.feedback.solution-components.improve" } },
+            { "Id": "solution-automation-only", "TextKey": "guided.option.solution-automation-only", "Mastery": "NeedsPractice", "LegacyConfidenceDelta": -4, "ReactionCue": "Concerned", "Feedback": { "WorkedKey": "guided.feedback.solution-automation-only.worked", "MissingKey": "guided.feedback.solution-automation-only.missing", "ImproveKey": "guided.feedback.solution-automation-only.improve" } }
+          ]
+        },
+        {
+          "Part": "Value",
+          "LabelKey": "guided.part.value.label",
+          "PlainPromptKey": "guided.part.value.plain_prompt",
+          "QuestionKey": "guided.part.value.question",
+          "HintKey": "guided.part.value.hint",
+          "Options": [
+            { "Id": "final-balanced-value", "TextKey": "guided.option.final-balanced-value", "Mastery": "Clear", "LegacyConfidenceDelta": 4, "ReactionCue": "Impressed", "Feedback": { "WorkedKey": "guided.feedback.final-balanced-value.worked", "MissingKey": "guided.feedback.final-balanced-value.missing", "ImproveKey": "guided.feedback.final-balanced-value.improve" } },
+            { "Id": "final-vegetables-only", "TextKey": "guided.option.final-vegetables-only", "Mastery": "Developing", "LegacyConfidenceDelta": 1, "ReactionCue": "Curious", "Feedback": { "WorkedKey": "guided.feedback.final-vegetables-only.worked", "MissingKey": "guided.feedback.final-vegetables-only.missing", "ImproveKey": "guided.feedback.final-vegetables-only.improve" } },
+            { "Id": "final-tech-only", "TextKey": "guided.option.final-tech-only", "Mastery": "NeedsPractice", "LegacyConfidenceDelta": -4, "ReactionCue": "Concerned", "Feedback": { "WorkedKey": "guided.feedback.final-tech-only.worked", "MissingKey": "guided.feedback.final-tech-only.missing", "ImproveKey": "guided.feedback.final-tech-only.improve" } }
+          ]
+        }
+      ],
+      "FollowUp": {
+        "LabelKey": "guided.follow_up.label",
+        "QuestionKey": "guided.follow_up.question",
+        "HintKey": "guided.follow_up.hint",
+        "Options": [
+          { "Id": "cost-honest-next-step", "TextKey": "guided.option.cost-honest-next-step", "Mastery": "Clear", "LegacyConfidenceDelta": 4, "ReactionCue": "Impressed", "Feedback": { "WorkedKey": "guided.feedback.cost-honest-next-step.worked", "MissingKey": "guided.feedback.cost-honest-next-step.missing", "ImproveKey": "guided.feedback.cost-honest-next-step.improve" } },
+          { "Id": "cost-rough-estimate", "TextKey": "guided.option.cost-rough-estimate", "Mastery": "Developing", "LegacyConfidenceDelta": 1, "ReactionCue": "Curious", "Feedback": { "WorkedKey": "guided.feedback.cost-rough-estimate.worked", "MissingKey": "guided.feedback.cost-rough-estimate.missing", "ImproveKey": "guided.feedback.cost-rough-estimate.improve" } },
+          { "Id": "cost-promise-free", "TextKey": "guided.option.cost-promise-free", "Mastery": "NeedsPractice", "LegacyConfidenceDelta": -4, "ReactionCue": "Concerned", "Feedback": { "WorkedKey": "guided.feedback.cost-promise-free.worked", "MissingKey": "guided.feedback.cost-promise-free.missing", "ImproveKey": "guided.feedback.cost-promise-free.improve" } }
+        ]
+      }
+    }
+  ],
+  "SupportedLocales": ["en", "ms"],
+  "ContentChecksum": "guided-pitch-builder-v2-authored"
+}

@@ -48,19 +48,26 @@
         const viewportHeight = window.visualViewport
           ? window.visualViewport.height
           : window.innerHeight;
-        const width = AgrovatorLayout.calculateStageWidth({
+        const bodyPaddingTop = readPixels(bodyStyle, "padding-top");
+        const bodyPaddingBottom = readPixels(bodyStyle, "padding-bottom");
+        const shellRowGap = readPixels(shellStyle, "row-gap");
+        const controlHeight = fullscreen.getBoundingClientRect().height;
+        const controlMarginTop = readPixels(controlStyle, "margin-top");
+        const controlMarginBottom = readPixels(controlStyle, "margin-bottom");
+        const verticalChrome = bodyPaddingTop + bodyPaddingBottom + shellRowGap + controlHeight +
+          controlMarginTop + controlMarginBottom;
+        const size = AgrovatorLayout.calculateStageSize({
           shellWidth: shell.clientWidth,
           viewportHeight,
-          bodyPaddingTop: readPixels(bodyStyle, "padding-top"),
-          bodyPaddingBottom: readPixels(bodyStyle, "padding-bottom"),
-          shellRowGap: readPixels(shellStyle, "row-gap"),
-          controlHeight: fullscreen.getBoundingClientRect().height,
-          controlMarginTop: readPixels(controlStyle, "margin-top"),
-          controlMarginBottom: readPixels(controlStyle, "margin-bottom"),
+          verticalChrome,
         });
-        const nextWidth = `${width}px`;
+        const nextWidth = `${size.width}px`;
+        const nextHeight = `${size.height}px`;
         if (stage.style.width !== nextWidth) {
           stage.style.width = nextWidth;
+        }
+        if (stage.style.height !== nextHeight) {
+          stage.style.height = nextHeight;
         }
       }
 
@@ -98,6 +105,7 @@
 
       const buildUrl = "Build";
       const loaderUrl = `${buildUrl}/{{{ LOADER_FILENAME }}}`;
+      const renderScale = AgrovatorLayout.renderScale(window.devicePixelRatio || 1);
       const config = {
         arguments: [],
         dataUrl: `${buildUrl}/{{{ DATA_FILENAME }}}`,
@@ -114,6 +122,7 @@
         productVersion: {{{ JSON.stringify(PRODUCT_VERSION) }}},
         showBanner,
       };
+      config.devicePixelRatio = renderScale;
 
 #if BACKGROUND_FILENAME
       canvas.style.background = "url('" + buildUrl + "/{{{ BACKGROUND_FILENAME.replace(/'/g, '%27') }}}') center / cover";

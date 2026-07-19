@@ -121,7 +121,17 @@ namespace Agrovator.PitchSimulator.Tests.EditMode.LMS
         [Test]
         public void ValidateCompletion_AcceptsValidPayload()
         {
+            Assert.That(ValidPayload().ContentVersion, Is.EqualTo(2));
             Assert.That(LmsPayloadValidator.ValidateCompletion(ValidPayload()), Is.Empty);
+        }
+
+        [Test]
+        public void ValidateCompletion_RejectsRetiredVersionOne()
+        {
+            var payload = ValidPayload();
+            payload.ContentVersion = 1;
+
+            AssertIssue(payload, "lms.content_version.unsupported", "ContentVersion");
         }
 
         [TestCase(null)]
@@ -386,6 +396,17 @@ namespace Agrovator.PitchSimulator.Tests.EditMode.LMS
             }));
         }
 
+        [Test]
+        public void ValidateLaunch_AcceptsVersionTwoAndRejectsRetiredVersionOne()
+        {
+            var config = ValidLaunchConfig();
+            Assert.That(config.ContentVersion, Is.EqualTo(2));
+            Assert.That(LmsPayloadValidator.ValidateLaunch(config), Is.Empty);
+
+            config.ContentVersion = 1;
+            AssertLaunchIssue(config, "lms.content_version.unsupported", "ContentVersion");
+        }
+
         [TestCase("{}")]
         [TestCase("{\"CompetencyScores\":null,\"SelectedResponseIds\":null}")]
         [TestCase("{\"CompetencyScores\":[],\"SelectedResponseIds\":[]}")]
@@ -501,7 +522,7 @@ namespace Agrovator.PitchSimulator.Tests.EditMode.LMS
                 ReducedMotion = false,
                 MusicVolume = 0.75f,
                 SfxVolume = 0.8f,
-                ContentVersion = LmsPayloadValidator.SupportedContentVersion,
+                ContentVersion = 2,
                 LaunchReference = "lref_opaque_ref_17",
             };
         }
@@ -517,7 +538,7 @@ namespace Agrovator.PitchSimulator.Tests.EditMode.LMS
                 LessonId = "lesson-smart-school-garden",
                 ScenarioId = "smart-school-garden",
                 GameVersion = "0.1.0",
-                ContentVersion = LmsPayloadValidator.SupportedContentVersion,
+                ContentVersion = 2,
                 CompletionStatus = "completed",
                 StartedAtUtc = "2026-07-14T02:00:00Z",
                 CompletedAtUtc = "2026-07-14T02:05:00Z",

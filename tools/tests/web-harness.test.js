@@ -12,3 +12,10 @@ test("harness suppresses origin-root favicon requests when hosted below a subpat
 
   assert.match(html, /<link\s+rel="icon"\s+href="data:,">/);
 });
+
+test("harness advertises guided content version two", () => {
+  const source = fs.readFileSync(path.join(projectRoot, "WebHarness", "harness.js"), "utf8");
+
+  assert.match(source, /ContentVersion:\s*2,/);
+  assert.doesNotMatch(source, /ContentVersion:\s*1,/);
+});

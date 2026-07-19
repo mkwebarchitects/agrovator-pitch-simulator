@@ -4,94 +4,58 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const test = require("node:test");
+const {
+  canonicalCode,
+  extractFunction,
+  findCalls,
+  lastQuotedValue,
+  maskNonCode,
+  quotedValues,
+} = require("./javascript-contract.js");
 
 const projectRoot = path.resolve(__dirname, "..", "..");
 const source = fs.readFileSync(path.join(projectRoot, "tools", "smoke-webgl.mjs"), "utf8");
 
-const lexicalToken = /"(?:\\[\s\S]|[^"\\])*"|'(?:\\[\s\S]|[^'\\])*'|`(?:\\[\s\S]|[^`\\])*`|\/\/[^\r\n]*|\/\*[\s\S]*?\*\//g;
-const blankToken = token => token.replace(/[^\r\n]/g, " ");
-const maskNonCode = value => value.replace(lexicalToken, blankToken);
-const stripComments = value => value.replace(lexicalToken,
-  token => token.startsWith("//") || token.startsWith("/*") ? blankToken(token) : token);
+const primaryLabels = [
+  "title start", "briefing continue", "learn", "build", "problem developing option",
+  "problem feedback", "evidence build", "evidence feedback", "solution build",
+  "solution feedback", "value build", "value feedback", "improve", "revision options",
+  "revision focus present", "revision focus clear option", "one revision", "present",
+  "cost follow-up", "cost feedback", "results", "submission failure", "submission success",
+  "retry", "fresh mode selection",
+];
+const secondaryLabels = [
+  "title start", "briefing continue", "learn", "build", "problem feedback", "evidence build",
+  "evidence feedback", "solution build", "solution feedback", "value build", "value feedback",
+  "improve", "revision options", "one revision", "present", "cost follow-up", "cost feedback",
+  "results", "submission failure", "submission success", "retry", "fresh mode selection",
+];
+const primaryGates = primaryLabels.map(label => [
+  "problem developing option", "revision focus present", "revision focus clear option",
+].includes(label) ? "focus" : label === "title start" || label.startsWith("submission ")
+  || label === "revision options" ? label.startsWith("submission ") ? "controls" : "content"
+    : "transition");
+const secondaryGates = secondaryLabels.map(label =>
+  label === "title start" || label.startsWith("submission ") || label === "revision options"
+    ? label.startsWith("submission ") ? "controls" : "content" : "transition");
+const secondaryCoordinates = [
+  ["0.50", "0.50"], ["0.50", "0.60"], ["0.70", "0.76"], ["0.50", "0.86"],
+  ["0.50", "0.70"], ["0.50", "0.86"], ["0.27", "0.70"], ["0.50", "0.86"],
+  ["0.27", "0.70"], ["0.50", "0.86"], ["0.27", "0.70"], ["0.50", "0.86"],
+  ["0.50", "0.70"], ["0.27", "0.60"], ["0.50", "0.86"], ["0.50", "0.86"],
+  ["0.27", "0.70"], ["0.50", "0.86"], ["0.36", "0.82"], ["0.36", "0.82"],
+  ["0.64", "0.82"], ["0.50", "0.60"],
+];
 
-function matchingDelimiter(masked, openIndex, open, close) {
-  let depth = 0;
-  for (let index = openIndex; index < masked.length; index += 1) {
-    if (masked[index] === open) depth += 1;
-    if (masked[index] === close) depth -= 1;
-    if (depth === 0) return index;
-  }
-  throw new Error(`Unmatched ${open} at ${openIndex}.`);
-}
-
-function escapeRegExp(value) {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
-
-function escapedCallee(callee) {
-  return callee.split(".")
-    .map(escapeRegExp)
-    .join("\\s*\\.\\s*");
-}
-
-function findCalls(value, callee, { awaited = true, constructed = false } = {}) {
-  const masked = maskNonCode(value);
-  const prefix = awaited ? "\\bawait\\s+" : "\\b";
-  const constructor = constructed ? "new\\s+" : "";
-  const pattern = new RegExp(`${prefix}${constructor}${escapedCallee(callee)}\\s*\\(`, "g");
-  const calls = [];
-  let match;
-
-  while ((match = pattern.exec(masked)) !== null) {
-    const openIndex = masked.indexOf("(", match.index);
-    const closeIndex = matchingDelimiter(masked, openIndex, "(", ")");
-    calls.push({
-      start: match.index,
-      end: closeIndex + 1,
-      text: stripComments(value.slice(match.index, closeIndex + 1)),
-    });
-    pattern.lastIndex = closeIndex + 1;
-  }
-
+function assertCallLabels(value, callee, expected) {
+  const calls = findCalls(value, callee);
+  assert.deepEqual(calls.map(lastQuotedValue), expected,
+    `${callee} must have the exact executable label sequence`);
   return calls;
 }
 
-function findIfBlocks(value) {
-  const masked = maskNonCode(value);
-  const pattern = /\bif\s*\(/g;
-  const blocks = [];
-  let match;
-
-  while ((match = pattern.exec(masked)) !== null) {
-    const conditionOpen = masked.indexOf("(", match.index);
-    const conditionClose = matchingDelimiter(masked, conditionOpen, "(", ")");
-    const blockOpen = masked.indexOf("{", conditionClose);
-    if (blockOpen < 0 || masked.slice(conditionClose + 1, blockOpen).trim() !== "") continue;
-    const blockClose = matchingDelimiter(masked, blockOpen, "{", "}");
-    blocks.push({
-      start: match.index,
-      end: blockClose + 1,
-      header: stripComments(value.slice(match.index, blockOpen)),
-    });
-    pattern.lastIndex = blockClose + 1;
-  }
-
-  return blocks;
-}
-
-function extractFunction(value, name, nextName) {
-  const start = value.indexOf(`async function ${name}(`);
-  const end = value.indexOf(`async function ${nextName}(`, start);
-  assert.notEqual(start, -1, `missing ${name}`);
-  assert.notEqual(end, -1, `missing boundary after ${name}`);
-  return value.slice(start, end);
-}
-
-function callWithLabel(calls, label) {
-  const quotedLabel = new RegExp(`["']${escapeRegExp(label)}["']`);
-  const matches = calls.filter(call => quotedLabel.test(call.text));
-  assert.equal(matches.length, 1, `expected one executable call labelled ${label}`);
-  return matches[0];
+function gateNames(calls) {
+  return calls.map(call => /GuidedGate\.(transition|focus|content|controls)/.exec(call.text)?.[1] || null);
 }
 
 function assertOrdered(...positions) {
@@ -100,183 +64,247 @@ function assertOrdered(...positions) {
   }
 }
 
-const playAttempt = extractFunction(source, "playAttempt", "verifyMissingConfigRecovery");
-const mouseResponse = extractFunction(source, "mouseResponse", "mouseContinue");
-const mouseContinue = extractFunction(source, "mouseContinue", "canvasMetrics");
-
-function assertMeasuredCanvasClick(value, normalizedY) {
-  const calls = findCalls(value, "canvas.click");
-  assert.equal(calls.length, 1, "expected exactly one executable canvas click");
-  assert.match(calls[0].text, new RegExp(
-    `^await\\s+canvas\\.click\\s*\\(\\s*\\{\\s*position\\s*:\\s*\\{` +
-    `\\s*x\\s*:\\s*bounds\\.width\\s*\\*\\s*0\\.5\\s*,` +
-    `\\s*y\\s*:\\s*bounds\\.height\\s*\\*\\s*${escapeRegExp(normalizedY)}\\s*\\}` +
-    `\\s*,\\s*delay\\s*:\\s*120\\s*\\}\\s*\\)$`, "s"));
+function assertReachableMissingConfigRecovery(value) {
+  const runBrowser = extractFunction(value, "runBrowser");
+  const calls = findCalls(runBrowser, "verifyMissingConfigRecovery");
+  assert.equal(calls.length, 1,
+    "each covered guided browser must execute missing-configuration recovery exactly once");
+  assert.match(canonicalCode(calls[0].text),
+    /^await verifyMissingConfigRecovery\(page, options\)$/);
+  assert.match(canonicalCode(runBrowser),
+    /result\.modes\.failure = true; result\.modes\.success = true; result\.modes\.missingConfig = await verifyMissingConfigRecovery\(page, options\); result\.screenshot =/,
+    "missing-configuration recovery must be a reachable recorded step in the covered path");
 }
 
-test("practice response click stays inside the measured centered control", () => {
-  assertMeasuredCanvasClick(mouseResponse, "0.73");
-});
-
-test("pitch-room Continue click stays inside the measured centered control", () => {
-  assertMeasuredCanvasClick(mouseContinue, "0.86");
-});
-
-test("measured click contract rejects comments and dead strings", () => {
-  const responseCall = "await canvas.click({ position: { x: bounds.width * 0.5, y: bounds.height * 0.73 }, delay: 120 });";
-  const continueCall = "await canvas.click({ position: { x: bounds.width * 0.5, y: bounds.height * 0.86 }, delay: 120 });";
-  assert.ok(mouseResponse.includes(responseCall));
-  assert.ok(mouseContinue.includes(continueCall));
-
-  assert.throws(() => assertMeasuredCanvasClick(mouseResponse.replace(responseCall, `// ${responseCall}`), "0.73"));
-  assert.throws(() => assertMeasuredCanvasClick(mouseContinue.replace(continueCall, `const dead = '${continueCall}'`), "0.86"));
-});
-
-test("measured click contract requires the 120ms pointer dwell", () => {
-  const mutated = mouseResponse.replace("delay: 120", "delay: 0");
-  assert.throws(() => assertMeasuredCanvasClick(mutated, "0.73"));
-});
-
-test("final browser screenshot waits for stable recovered Briefing content and controls", () => {
-  const recovery = extractFunction(source, "verifyMissingConfigRecovery", "runBrowser");
-  const runBrowser = extractFunction(source, "runBrowser", "main");
-  const stableCalls = findCalls(recovery, "waitForStableCanvasRegions");
-  assert.equal(stableCalls.length, 1, "missing recovered Briefing visual-ready gate");
-  assert.match(stableCalls[0].text,
-    /^await\s+waitForStableCanvasRegions\s*\(\s*page\s*,\s*canvas\s*,\s*recoveredRegionsBefore\s*,\s*options\.timeoutMs\s*,\s*["']recovered Briefing["']\s*\)$/s);
-
-  const stableGate = extractFunction(source, "waitForStableCanvasRegions", "canvasMetrics");
-  assert.equal(findCalls(stableGate, "contentRegionHash").length, 1);
-  assert.equal(findCalls(stableGate, "controlRegionHash").length, 1);
-  assert.match(stableGate,
-    /current\.content\s*!==\s*previous\.content\s*&&\s*current\.controls\s*!==\s*previous\.controls/s);
-  assert.match(stableGate, /stableSamples\s*>=\s*3/);
-  assert.match(stableGate, /const\s+deadline\s*=\s*Date\.now\(\)\s*\+\s*timeoutMs/);
-  assert.ok(findCalls(stableGate, "Promise", { constructed: true })
-    .some(call => /setTimeout\s*\([^,]+,\s*100\s*\)/s.test(call.text)));
-
-  const recoveryCall = findCalls(runBrowser, "verifyMissingConfigRecovery")[0];
-  const finalScreenshot = findCalls(runBrowser, "page.screenshot")
-    .find(call => /path\s*:\s*screenshotPath/.test(call.text));
-  assert.ok(recoveryCall && finalScreenshot, "missing recovery or final screenshot call");
-  assertOrdered(recoveryCall.end, finalScreenshot.start);
-});
-
-function assertTutorialContract(attempt) {
-  const screenshots = findCalls(attempt, "page.screenshot");
-  const tutorialScreenshot = callWithLabel(screenshots, "chrome-tutorial.png");
-  const judgeIntroduction = callWithLabel(findCalls(attempt, "mouseContinue"), "Judge introduction");
-  const insideTutorialWindow = call =>
-    call.start > tutorialScreenshot.end && call.end < judgeIntroduction.start;
-  const enterCalls = findCalls(attempt, "keyboardAction")
-    .filter(insideTutorialWindow)
-    .filter(call => /^await\s+keyboardAction\s*\(\s*page\s*,\s*canvas\s*,\s*["']Enter["']\s*,/s
-      .test(call.text));
-  const waits = findCalls(attempt, "Promise", { constructed: true })
-    .filter(insideTutorialWindow)
-    .filter(call => /^await\s+new\s+Promise\s*\(\s*\(?\s*([A-Za-z_$][\w$]*)\s*\)?\s*=>\s*setTimeout\s*\(\s*\1\s*,\s*250\s*\)\s*\)$/s
-      .test(call.text));
-
-  assert.equal(enterCalls.length, 3, "exactly three executable Tutorial Enter actions are required");
-  assert.equal(waits.length, 3, "exactly three awaited 250ms Tutorial settles are required");
-  for (const [index, label] of [
-    "Tutorial page 1 Next",
-    "Tutorial page 2 Next",
-    "Tutorial page 3 Start Practice",
-  ].entries()) {
-    assert.match(enterCalls[index].text,
-      new RegExp(`^await\\s+keyboardAction\\s*\\(\\s*page\\s*,\\s*canvas\\s*,\\s*["']Enter["']\\s*,\\s*options\\.timeoutMs\\s*,\\s*["']${label}["']\\s*\\)$`));
-  }
-  assert.match(tutorialScreenshot.text,
-    /path\s*:\s*join\s*\(\s*options\.outputDirectory\s*,\s*["']chrome-tutorial\.png["']\s*\)/s);
-  assertOrdered(
-    tutorialScreenshot.end,
-    enterCalls[0].start, waits[0].start,
-    enterCalls[1].start, waits[1].start,
-    enterCalls[2].start, waits[2].start,
-    judgeIntroduction.start,
-  );
-
-  const chromeGuards = findIfBlocks(attempt)
-    .filter(block => /^if\s*\(\s*browserName\s*===\s*["']chrome["']\s*\)\s*$/.test(block.header));
-  assert.ok(chromeGuards.some(block =>
-    tutorialScreenshot.start > block.start && tutorialScreenshot.end < block.end));
+function assertRetryingRecoveredStart(value) {
+  const recovery = extractFunction(value, "verifyMissingConfigRecovery");
+  assert.match(canonicalCode(recovery),
+    /await pressCanvasUntilContentChange\(page, canvas, 0\.5, 0\.61, recoveredRegionsBefore\.content, options\.timeoutMs, "recovered Title pointer Start"\)/,
+    "recovered Start must retry frame-polled presses until Briefing content replaces Title content");
+  assert.doesNotMatch(canonicalCode(recovery),
+    /await waitForCanvasChange\(canvas, recoveredBefore/,
+    "the whole-canvas change gate alone cannot prove the recovered Start was observed");
+  const press = extractFunction(value, "pressCanvasUntilContentChange");
+  const pressCode = canonicalCode(press);
+  assert.match(pressCode, /canvas\.click\(/, "the retry helper must press the canvas");
+  assert.match(pressCode, /delay: 120/, "each retried press must hold 120ms for frame-polled input");
+  assert.match(pressCode, /contentRegionHash\(/,
+    "the retry helper must gate on the content region, not the whole-canvas hash");
+  assert.match(pressCode, /while \(/, "the helper must retry presses until the deadline");
 }
 
-test("call extraction rejects comments and dead strings", () => {
+function assertHiddenHarnessRecovery(value) {
+  const recovery = extractFunction(value, "verifyMissingConfigRecovery");
+  assert.deepEqual(findCalls(recovery, "setHarnessMode").map(call => canonicalCode(call.text)), [
+    'await setHarnessMode(page, "missing-config")',
+    'await setHarnessMode(page, "success")',
+  ]);
+  assert.doesNotMatch(canonicalCode(recovery), /\.selectOption\(/);
+  assert.match(canonicalCode(recovery),
+    /await page\.locator\("#resend"\)\.dispatchEvent\("click"\)/,
+    "recovery must dispatch resend without requiring hidden harness controls to be visible");
+}
+
+test("call extraction ignores comments and dead strings while retaining executable duplicates", () => {
   const fixture = `
-    // await keyboardAction(page, canvas, "Enter", timeout, "comment");
-    const dead = 'await keyboardAction(page, canvas, "Enter", timeout, "dead")';
-    /* await keyboardAction(page, canvas, "Enter", timeout, "block"); */
-    await keyboardAction(page, canvas, "Enter", timeout, "executable");
+    // await keyboardStableStep(page, canvas, "Enter", options, "comment");
+    const dead = 'await keyboardStableStep(page, canvas, "Enter", options, "dead")';
+    /* await keyboardStableStep(page, canvas, "Enter", options, "block"); */
+    await keyboardStableStep(page, canvas, "Enter", options, "executable");
+    if (false) await keyboardStableStep(page, canvas, "Enter", options, "executable duplicate");
   `;
-
-  const calls = findCalls(fixture, "keyboardAction");
-  assert.equal(calls.length, 1);
-  assert.match(calls[0].text, /"executable"/);
+  assert.deepEqual(findCalls(fixture, "keyboardStableStep").map(lastQuotedValue),
+    ["executable", "executable duplicate"]);
 });
 
-test("main attempt captures Chrome tutorial before three ordered Enter advances with settles", () => {
-  assertTutorialContract(playAttempt);
+test("Chrome owns one exact Primary keyboard path with no pointer actions", () => {
+  const primary = extractFunction(source, "runPrimaryKeyboardPath");
+  assert.match(canonicalCode(primary), /if \(definition\.name !== "chrome"\) return null/);
+  assert.match(canonicalCode(primary), /interaction: "keyboard", mode: "Primary"/);
+  assert.equal(findCalls(primary, "pointerStableStep").length, 0);
+  assert.equal(findCalls(primary, "canvas.click").length, 0);
+  assert.equal(findCalls(primary, "canvas.hover").length, 0);
+  const calls = assertCallLabels(primary, "keyboardStableStep", primaryLabels);
+  assert.deepEqual(gateNames(calls), primaryGates);
+  const expectedKeys = primaryLabels.map(label => [
+    "problem developing option", "revision focus present", "revision focus clear option",
+  ].includes(label) ? "Tab" : "Enter");
+  assert.deepEqual(calls.map(call => quotedValues(call.text).at(-2)), expectedKeys);
+  assert.deepEqual(calls.map((call, index) => canonicalCode(call.text)),
+    primaryLabels.map((label, index) =>
+      `await keyboardStableStep(page, canvas, "${expectedKeys[index]}", ` +
+      `GuidedGate.${primaryGates[index]}, options, "${label}")`));
+  assert.match(canonicalCode(calls[4].text),
+    /^await keyboardStableStep\(page, canvas, "Tab", GuidedGate\.focus, options, "problem developing option"\)$/);
+  assert.equal(calls.some(call => /"ArrowDown"/.test(call.text)), false);
+  for (const call of calls.filter(call => ["revision focus present", "revision focus clear option"].includes(lastQuotedValue(call)))) {
+    assert.match(canonicalCode(call.text),
+      /^await keyboardStableStep\(page, canvas, "Tab", GuidedGate\.focus, options,/);
+  }
+  assert.deepEqual(findCalls(primary, "setHarnessMode").map(call => canonicalCode(call.text)), [
+    'await setHarnessMode(page, "failure")', 'await setHarnessMode(page, "success")',
+  ]);
 });
 
-test("tutorial contract rejects an extra executable Enter inside the tutorial window", () => {
-  const firstEnter = callWithLabel(findCalls(playAttempt, "keyboardAction"), "Tutorial page 1 Next");
-  const statementEnd = playAttempt.indexOf(";", firstEnter.end) + 1;
-  const mutated = `${playAttempt.slice(0, statementEnd)}
-  await keyboardAction(page, canvas, "Enter", options.timeoutMs, "Unexpected Enter");${playAttempt.slice(statementEnd)}`;
-
-  assert.throws(() => assertTutorialContract(mutated), /exactly three executable Tutorial Enter actions/);
+test("Edge owns one exact Secondary pointer path with no keyboard actions", () => {
+  const secondary = extractFunction(source, "runSecondaryPointerPath");
+  assert.match(canonicalCode(secondary), /if \(definition\.name !== "edge"\) return null/);
+  assert.match(canonicalCode(secondary), /interaction: "pointer", mode: "Secondary"/);
+  assert.equal(findCalls(secondary, "keyboardStableStep").length, 0);
+  assert.equal(findCalls(secondary, "canvas.press").length, 0);
+  const calls = assertCallLabels(secondary, "pointerStableStep", secondaryLabels);
+  assert.deepEqual(gateNames(calls), secondaryGates);
+  assert.deepEqual(calls.map((call, index) => canonicalCode(call.text)),
+    secondaryLabels.map((label, index) => {
+      const [x, y] = secondaryCoordinates[index];
+      return `await pointerStableStep(page, canvas, ${x}, ${y}, ` +
+        `GuidedGate.${secondaryGates[index]}, options, "${label}")`;
+    }));
+  assert.deepEqual(findCalls(secondary, "setHarnessMode").map(call => canonicalCode(call.text)), [
+    'await setHarnessMode(page, "failure")', 'await setHarnessMode(page, "success")',
+  ]);
 });
 
-test("tutorial contract rejects an unawaited 250ms settle", () => {
-  const awaitedSettle = "await new Promise(resolveWait => setTimeout(resolveWait, 250))";
-  assert.ok(playAttempt.includes(awaitedSettle), "missing mutation source settle");
-  const mutated = playAttempt.replace(awaitedSettle, "setTimeout(resolveWait, 250)");
+test("covered guided browsers execute and record reachable missing-configuration recovery", () => {
+  assertReachableMissingConfigRecovery(source);
 
-  assert.throws(() => assertTutorialContract(mutated), /exactly three awaited 250ms Tutorial settles/);
+  const assignment = "result.modes.missingConfig = await verifyMissingConfigRecovery(page, options);";
+  assert.throws(() => assertReachableMissingConfigRecovery(
+    source.replace(assignment, `if (false) ${assignment}`)), /reachable recorded step/);
+  assert.throws(() => assertReachableMissingConfigRecovery(
+    source.replace(assignment, "await verifyMissingConfigRecovery(page, options);")),
+  /reachable recorded step/);
 });
 
-test("main attempt captures Chrome pitch after the Question 1 reveal gate", () => {
-  const screenshots = findCalls(playAttempt, "page.screenshot");
-  const pitchScreenshot = callWithLabel(screenshots, "chrome-pitch.png");
-  const q1Reveal = callWithLabel(findCalls(playAttempt, "mouseContinue"), "Question 1 response reveal");
+test("missing-configuration recovery operates the hidden fullscreen harness controls", () => {
+  assertHiddenHarnessRecovery(source);
 
-  assert.match(q1Reveal.text, /,\s*true\s*\)$/s);
-  assert.ok(q1Reveal.end < pitchScreenshot.start);
-  assert.match(pitchScreenshot.text,
-    /path\s*:\s*join\s*\(\s*options\.outputDirectory\s*,\s*["']chrome-pitch\.png["']\s*\)/s);
+  const dispatch = 'await page.locator("#resend").dispatchEvent("click")';
+  const visibleClickMutation = source.replace(dispatch, 'await page.locator("#resend").click()');
+  assert.throws(() => assertHiddenHarnessRecovery(visibleClickMutation),
+    /without requiring hidden harness controls/);
 
-  const chromeGuards = findIfBlocks(playAttempt)
-    .filter(block => /^if\s*\(\s*browserName\s*===\s*["']chrome["']\s*\)\s*$/.test(block.header));
-  assert.ok(chromeGuards.some(block =>
-    pitchScreenshot.start > block.start && pitchScreenshot.end < block.end));
+  const hiddenModeSwitch = 'await setHarnessMode(page, "missing-config")';
+  const visibleSelectMutation = source.replace(hiddenModeSwitch,
+    'await page.locator("#mode").selectOption("missing-config")');
+  assert.throws(() => assertHiddenHarnessRecovery(visibleSelectMutation),
+    undefined,
+    "a visible selectOption mode switch must fail the hidden-control contract");
 });
 
-test("Retry uses pointerAction Skip and remains pointer-only through fresh Question 1", () => {
-  const keyboardCalls = findCalls(playAttempt, "keyboardAction");
-  const retry = callWithLabel(keyboardCalls, "Results Retry");
-  const retryBriefing = callWithLabel(findCalls(playAttempt, "waitForCanvasChange"),
-    "retry Briefing pointer Continue");
-  const skip = callWithLabel(findCalls(playAttempt, "pointerAction"), "retry Tutorial Skip");
-  const mouseContinueCalls = findCalls(playAttempt, "mouseContinue");
-  const judge = callWithLabel(mouseContinueCalls, "retry Judge introduction");
-  const reveal = callWithLabel(mouseContinueCalls, "retry Tutorial response reveal");
-  const response = findCalls(playAttempt, "mouseResponse")
-    .find(call => call.start > reveal.start);
-  const reaction = callWithLabel(mouseContinueCalls, "retry Tutorial reaction");
-  const feedback = callWithLabel(mouseContinueCalls, "retry Tutorial feedback");
-  const freshQ1 = callWithLabel(mouseContinueCalls, "retry Question 1 response reveal");
+test("recovered Title Start retries frame-polled presses until Briefing content appears", () => {
+  assertRetryingRecoveredStart(source);
 
-  assert.match(skip.text,
-    /^await\s+pointerAction\s*\(\s*page\s*,\s*0\.40\s*,\s*0\.79\s*,\s*canvas\s*,\s*options\.timeoutMs\s*,\s*["']retry Tutorial Skip["']\s*,\s*\{\s*delay\s*:\s*120\s*\}\s*\)$/);
-  assert.ok(response, "missing executable retry practice response");
-  assert.match(reveal.text, /,\s*true\s*\)$/s);
-  assert.match(freshQ1.text, /,\s*true\s*\)$/s);
-  assertOrdered(retry.start, retryBriefing.start, skip.start, judge.start, reveal.start,
-    response.start, reaction.start, feedback.start, freshQ1.start);
+  const retryCallPattern =
+    /await pressCanvasUntilContentChange\(page, canvas, 0\.5, 0\.61,\s*recoveredRegionsBefore\.content, options\.timeoutMs, "recovered Title pointer Start"\);/;
+  const singlePress = 'const recoveredBefore = await canvasHash(canvas);\n' +
+    '  await canvas.click({ position: { x: 320, y: 240 }, delay: 120 });\n' +
+    '  await waitForCanvasChange(canvas, recoveredBefore, options.timeoutMs, ' +
+    '"recovered Title pointer Start");';
+  const singlePressMutation = source.replace(retryCallPattern, singlePress);
+  assert.notEqual(singlePressMutation, source, "the single-press mutation must apply to the source");
+  assert.throws(() => assertRetryingRecoveredStart(singlePressMutation),
+    undefined,
+    "a single unretried press behind the whole-canvas gate must fail the contract");
+});
 
-  const retryProof = playAttempt.slice(retry.end, freshQ1.end);
-  assert.equal(findCalls(retryProof, "keyboardAction").length, 0,
-    "retry proof must remain pointer-only after activating Retry");
+test("guided actions require stable localized content and control changes after focus and hover", () => {
+  const gate = extractFunction(source, "waitForStableRegionChange");
+  const gateCode = maskNonCode(gate);
+  assert.match(gateCode, /required\.content/);
+  assert.match(gateCode, /required\.controls/);
+  assert.match(gateCode, /stableSamples\s*>=\s*3/);
+  assert.match(canonicalCode(source),
+    /transition: Object\.freeze\(\{ content: true, controls: true \}\), focus: Object\.freeze\(\{ content: false, controls: true \}\), content: Object\.freeze\(\{ content: true, controls: false \}\), controls: Object\.freeze\(\{ content: false, controls: true \}\)/);
+
+  for (const [name, action] of [["keyboardStableStep", "canvas.press"], ["pointerStableStep", "canvas.click"]]) {
+    const step = extractFunction(source, name);
+    const focus = findCalls(step, "canvas.focus")[0];
+    const baseline = findCalls(step, "regionHashes")[0];
+    const actionCall = findCalls(step, action)[0];
+    const changed = findCalls(step, "waitForStableRegionChange")[0];
+    assert.ok(focus && baseline && actionCall && changed, `${name} must execute focus, baseline, action and gate`);
+    assertOrdered(focus.start, baseline.start, actionCall.start, changed.start);
+    assert.match(canonicalCode(changed.text),
+      /^await waitForStableRegionChange\(page, canvas, before, required, options\.timeoutMs, label\)$/);
+    if (name === "pointerStableStep") {
+      const hover = findCalls(step, "canvas.hover")[0];
+      assert.ok(hover && focus.start < hover.start && hover.start < baseline.start,
+        "pointer hover must settle before the localized baseline");
+    }
+  }
+});
+
+test("viewport verification settles changed compact Unity content and controls before capture", () => {
+  const verify = extractFunction(source, "verifyCanvasContract");
+  const before = findCalls(verify, "regionHashes")[0];
+  const resize = findCalls(verify, "useFullscreenHarness")[0];
+  const settle = findCalls(verify, "waitForStableRegionChange")[0];
+  assert.ok(before && resize && settle);
+  assertOrdered(before.start, resize.start, settle.start);
+  assert.match(canonicalCode(settle.text),
+    /^await waitForStableRegionChange\(page, canvas, beforeComposition, \{ content: viewportChanged, controls: viewportChanged \}, 10_000, "responsive Unity composition"\)$/);
+
+  for (const pathName of ["runPrimaryKeyboardPath", "runSecondaryPointerPath"]) {
+    const guidedPath = extractFunction(source, pathName);
+    const mobileVerify = findCalls(guidedPath, "verifyCanvasContract")
+      .find(call => /width:\s*390,\s*height:\s*844/.test(call.text));
+    const mobileCapture = findCalls(guidedPath, "captureCanvas")
+      .find(call => /mobile-compact\.png/.test(call.text));
+    assert.ok(mobileVerify && mobileCapture && mobileVerify.end < mobileCapture.start,
+      `${pathName} compact capture must follow Unity composition settlement`);
+  }
+});
+
+test("guided paths own exactly the required executable evidence captures", () => {
+  const primary = extractFunction(source, "runPrimaryKeyboardPath");
+  const secondary = extractFunction(source, "runSecondaryPointerPath");
+  assert.deepEqual(findCalls(primary, "captureCanvas").map(lastQuotedValue), [
+    "chrome-primary-mode.png", "chrome-mobile-compact.png", "chrome-primary-build.png",
+    "chrome-primary-improve.png", "chrome-primary-present.png", "chrome-primary-results.png",
+  ]);
+  assert.deepEqual(findCalls(secondary, "captureCanvas").map(lastQuotedValue), [
+    "edge-secondary-mode.png", "edge-mobile-compact.png", "edge-secondary-build.png",
+    "edge-secondary-present.png", "edge-secondary-results.png",
+  ]);
+  assert.equal(findCalls(source, "captureCanvas").length, 11);
+  assert.equal(findCalls(primary, "setTimeout", { awaited: false }).length, 0);
+  assert.equal(findCalls(secondary, "setTimeout", { awaited: false }).length, 0);
+  assert.equal(findCalls(primary, "page.locator", { awaited: false }).length, 0);
+  assert.equal(findCalls(secondary, "page.locator", { awaited: false }).length, 0);
+
+  for (const [guidedPath, actionName, milestones] of [
+    [primary, "keyboardStableStep", [
+      ["briefing continue", "chrome-primary-mode.png", "learn"],
+      ["build", "chrome-primary-build.png", "problem developing option"],
+      ["improve", "chrome-primary-improve.png", "revision options"],
+      ["present", "chrome-primary-present.png", "cost follow-up"],
+      ["results", "chrome-primary-results.png", "submission failure"],
+    ]],
+    [secondary, "pointerStableStep", [
+      ["briefing continue", "edge-secondary-mode.png", "learn"],
+      ["build", "edge-secondary-build.png", "problem feedback"],
+      ["present", "edge-secondary-present.png", "cost follow-up"],
+      ["results", "edge-secondary-results.png", "submission failure"],
+    ]],
+  ]) {
+    const actions = findCalls(guidedPath, actionName);
+    const captures = findCalls(guidedPath, "captureCanvas");
+    for (const [beforeLabel, filename, afterLabel] of milestones) {
+      const before = actions.find(call => lastQuotedValue(call) === beforeLabel);
+      const capture = captures.find(call => lastQuotedValue(call) === filename);
+      const after = actions.find(call => lastQuotedValue(call) === afterLabel);
+      assert.ok(before && capture && after);
+      assertOrdered(before.end, capture.start, after.start);
+    }
+  }
+});
+
+test("matrix metadata describes localized state gates rather than obsolete canvas hashes", () => {
+  const runBrowser = canonicalCode(extractFunction(source, "runBrowser"));
+  assert.doesNotMatch(runBrowser, /changed canvas hash/);
+  assert.match(runBrowser,
+    /Primary path is keyboard-only from Title through fresh Mode Selection; every named action waits for state-specific localized content\/control regions stable across three samples\./);
+  assert.match(runBrowser,
+    /Secondary path is pointer-only from Title through fresh Mode Selection; every named action waits for state-specific localized content\/control regions stable across three samples\./);
 });

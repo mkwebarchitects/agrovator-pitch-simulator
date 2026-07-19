@@ -1,25 +1,35 @@
 using System;
 using System.Collections;
+using System.Collections.Generic;
 using System.Linq;
 using Agrovator.PitchSimulator.Accessibility;
 using Agrovator.PitchSimulator.Audio;
 using Agrovator.PitchSimulator.Core;
-using Agrovator.PitchSimulator.Dialogue;
+using Agrovator.PitchSimulator.GuidedPitch;
 using Agrovator.PitchSimulator.LMS;
-using Agrovator.PitchSimulator.Scoring;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.SceneManagement;
-using UnityEngine.UI;
 
 namespace Agrovator.PitchSimulator.UI
 {
+    /// <summary>
+    /// Composition root for the guided pitch builder. Loads localization first,
+    /// then the versioned guided content, and blocks the attempt on the safe
+    /// fallback screen when either is unusable. Failure logs carry only stable
+    /// diagnostic codes - never JSON, launch payloads, learner IDs, or response
+    /// text.
+    /// </summary>
     [DefaultExecutionOrder(-10000)]
     public sealed class Bootstrapper : MonoBehaviour
     {
         private const string GameSceneName = "Game";
+        private const string ContentInvalidCode = "guided_content_invalid";
+        private const string LocalizationInvalidCode = "guided_localization_invalid";
+        private const string LaunchInvalidCode = "guided_launch_invalid";
+        private const string SceneContractInvalidCode = "guided_scene_contract_invalid";
 
-        [SerializeField] private TextAsset scenarioJson;
+        [SerializeField] private TextAsset guidedPitchContentJson;
         [SerializeField] private TextAsset englishCatalogJson;
         [SerializeField] private TextAsset malayCatalogJson;
         [SerializeField] private AudioSource musicSource;
@@ -27,8 +37,8 @@ namespace Agrovator.PitchSimulator.UI
         [SerializeField] private AudioCueBinding[] audioCueBindings = Array.Empty<AudioCueBinding>();
 
         private static Bootstrapper instance;
-        private PitchSessionController controller;
-        private GameScreenRouter router;
+        private GuidedPitchSessionController controller;
+        private GuidedPitchScreenRouter router;
         private Func<string, string> localize;
         private AudioService audioService;
         private AudioCueDirector audioCueDirector;
@@ -60,7 +70,7 @@ namespace Agrovator.PitchSimulator.UI
                 var load = SceneManager.LoadSceneAsync(GameSceneName, LoadSceneMode.Additive);
                 if (load == null)
                 {
-                    Debug.LogError("The Game scene could not be loaded.", this);
+                    Debug.LogError(SceneContractInvalidCode, this);
                     yield break;
                 }
 
@@ -69,83 +79,46 @@ namespace Agrovator.PitchSimulator.UI
             }
 
             var roots = gameScene.GetRootGameObjects();
-            var routers = FindInRoots<GameScreenRouter>(roots);
+            var routers = FindInRoots<GuidedPitchScreenRouter>(roots);
             var canvases = FindInRoots<Canvas>(roots);
             var eventSystems = FindInRoots<EventSystem>(roots);
-            if (routers.Length != 1 || canvases.Length != 1 || eventSystems.Length != 1)
+            if (routers.Length != 1 || canvases.Length != 1 || eventSystems.Length != 1 ||
+                !routers[0].ValidateContract(out _))
             {
-                Debug.LogError(
-                    $"Game scene contract requires one Canvas, EventSystem and router; found " +
-                    $"{canvases.Length}/{eventSystems.Length}/{routers.Length}.", this);
-                yield break;
-            }
-            if (!routers[0].ValidateContract(out var contractError))
-            {
-                Debug.LogError($"Game router contract is invalid: {contractError}", this);
+                Debug.LogError(SceneContractInvalidCode, this);
                 yield break;
             }
 
-            if (!TryLoadContent(out var scenario, out var catalog))
-            {
-                yield break;
-            }
-
-            var lmsBridge = CreateLmsBridge(scenario);
-            var launchPoller = new LmsLaunchPoller(lmsBridge);
-            LmsLaunchConfig launch;
 #if UNITY_WEBGL && !UNITY_EDITOR
-            while (!launchPoller.TryPoll(Time.realtimeSinceStartup, out launch))
+            if (!TryLoadGuidedContent(out var loadedContent, out var loadedCatalog))
+            {
+                EnterSafeFallback(routers[0], loadedCatalog);
+                yield break;
+            }
+
+            var launchBridge = CreateLmsBridge(loadedContent);
+            var launchPoller = new LmsLaunchPoller(launchBridge);
+            while (!launchPoller.TryPoll(Time.realtimeSinceStartup, out _))
             {
                 yield return null;
             }
+
+            PresentLoadedGuidedSession(routers[0], loadedContent, loadedCatalog, launchBridge);
 #else
-            if (!launchPoller.TryPoll(Time.realtimeSinceStartup, out launch))
-            {
-                Debug.LogError("LMS launch configuration was not available.", this);
-                yield break;
-            }
+            TryPresentGuidedSession(routers[0]);
 #endif
-
-            if (!TryCreateController(scenario, catalog, lmsBridge, launch, out controller))
-            {
-                yield break;
-            }
-
-            if (!controller.FinishLaunch())
-            {
-                Debug.LogError("Pitch session launch configuration was rejected.", this);
-                controller.Dispose();
-                controller = null;
-                yield break;
-            }
-
-            ConfigureAudio(launch);
-            router = routers[0];
-            router.Initialize(controller, localize, HandleTitleUserGesture);
-            IsInitialized = true;
         }
 
         private void Update()
         {
-            if (controller == null)
-            {
-                return;
-            }
-
-            controller.Tick(Time.unscaledDeltaTime);
-            var snapshot = controller.Snapshot;
-            audioCueDirector?.UpdateTimer(
-                snapshot.State,
-                snapshot.TimerRemainingSeconds,
-                snapshot.TimerTotalSeconds);
-            router?.TickPresentation(snapshot);
+            controller?.Tick(Time.unscaledDeltaTime);
         }
 
         private void OnDestroy()
         {
             if (controller != null && audioCueDirector != null)
             {
-                controller.EventPublished -= audioCueDirector.HandleSessionEvent;
+                controller.EventPublished -= audioCueDirector.HandleGuidedSessionEvent;
             }
             controller?.Dispose();
             controller = null;
@@ -156,6 +129,129 @@ namespace Agrovator.PitchSimulator.UI
             {
                 instance = null;
             }
+        }
+
+        /// <summary>
+        /// Loads localization first, then the versioned guided content validated
+        /// against the English catalog keys. Failures log one stable diagnostic
+        /// code and never any content, payload, or learner data.
+        /// </summary>
+        public bool TryLoadGuidedContent(out GuidedPitchContent content, out LocalizationCatalog catalog)
+        {
+            content = null;
+            catalog = null;
+            if (englishCatalogJson == null || malayCatalogJson == null)
+            {
+                Debug.LogError(LocalizationInvalidCode, this);
+                return false;
+            }
+
+            try
+            {
+                catalog = LocalizationCatalog.Load(englishCatalogJson.text, malayCatalogJson.text);
+            }
+            catch (FormatException)
+            {
+                catalog = null;
+                Debug.LogError(LocalizationInvalidCode, this);
+                return false;
+            }
+
+            if (guidedPitchContentJson == null)
+            {
+                Debug.LogError(ContentInvalidCode, this);
+                return false;
+            }
+
+            var loaded = GuidedPitchContentLoader.Load(guidedPitchContentJson.text, catalog.GetKeys("en"));
+            if (!loaded.IsSuccess)
+            {
+                Debug.LogError(ContentInvalidCode, this);
+                return false;
+            }
+
+            content = loaded.Content;
+            return true;
+        }
+
+        /// <summary>
+        /// Composes the guided session against a validated scene router. On any
+        /// content, localization, or launch failure the attempt is blocked on the
+        /// SafeFallback screen and this returns false.
+        /// </summary>
+        public bool TryPresentGuidedSession(GuidedPitchScreenRouter sceneRouter,
+            ILmsBridge bridgeOverride = null)
+        {
+            if (sceneRouter == null) throw new ArgumentNullException(nameof(sceneRouter));
+
+            if (!TryLoadGuidedContent(out var content, out var catalog))
+            {
+                EnterSafeFallback(sceneRouter, catalog);
+                return false;
+            }
+
+            return PresentLoadedGuidedSession(sceneRouter, content, catalog, bridgeOverride);
+        }
+
+        /// <summary>
+        /// Composes the guided session from already-loaded content so callers
+        /// that had to load the content earlier (the WebGL launch poll) never
+        /// parse or log twice. On a launch failure the attempt is blocked on the
+        /// SafeFallback screen with one stable diagnostic code and this returns
+        /// false.
+        /// </summary>
+        public bool PresentLoadedGuidedSession(
+            GuidedPitchScreenRouter sceneRouter,
+            GuidedPitchContent content,
+            LocalizationCatalog catalog,
+            ILmsBridge bridgeOverride = null)
+        {
+            if (sceneRouter == null) throw new ArgumentNullException(nameof(sceneRouter));
+            if (content == null) throw new ArgumentNullException(nameof(content));
+            if (catalog == null) throw new ArgumentNullException(nameof(catalog));
+
+            var lmsBridge = bridgeOverride ?? CreateLmsBridge(content);
+            var launch = lmsBridge.GetLaunchConfig();
+            if (launch == null)
+            {
+                Debug.LogError(LaunchInvalidCode, this);
+                EnterSafeFallback(sceneRouter, catalog);
+                return false;
+            }
+
+            localize = BuildGuidedLocalizer(content, catalog, launch.Language);
+            Enum.TryParse(launch.TimerMode, true, out TimerMode timerMode);
+            var sessionController = new GuidedPitchSessionController(
+                content,
+                new AccessibilitySettings(
+                    timerMode,
+                    launch.ReducedMotion,
+                    launch.MusicVolume,
+                    launch.SfxVolume,
+                    launch.Language),
+                lmsBridge,
+                () => DateTimeOffset.UtcNow,
+                Application.version);
+            if (!sessionController.FinishLaunch())
+            {
+                sessionController.Dispose();
+                Debug.LogError(LaunchInvalidCode, this);
+                EnterSafeFallback(sceneRouter, catalog);
+                return false;
+            }
+
+            controller = sessionController;
+            ConfigureAudio(launch);
+            router = sceneRouter;
+            router.Initialize(controller, localize, HandleTitleUserGesture);
+            IsInitialized = true;
+            return true;
+        }
+
+        private void EnterSafeFallback(GuidedPitchScreenRouter sceneRouter, LocalizationCatalog catalog)
+        {
+            sceneRouter.ShowSafeFallback(
+                catalog == null ? (Func<string, string>)null : key => catalog.Resolve("en", key));
         }
 
         private void ConfigureAudio(LmsLaunchConfig launch)
@@ -175,7 +271,7 @@ namespace Agrovator.PitchSimulator.UI
             audioService.SetMusicVolume(launch.MusicVolume);
             audioService.SetSfxVolume(launch.SfxVolume);
             audioCueDirector = new AudioCueDirector(cue => audioService.Play(cue));
-            controller.EventPublished += audioCueDirector.HandleSessionEvent;
+            controller.EventPublished += audioCueDirector.HandleGuidedSessionEvent;
         }
 
         private void HandleTitleUserGesture()
@@ -185,39 +281,27 @@ namespace Agrovator.PitchSimulator.UI
             audioCueDirector?.HandleUserGesture();
         }
 
-        private bool TryLoadContent(
-            out RuntimeScenario scenario,
-            out LocalizationCatalog catalog)
+        private static Func<string, string> BuildGuidedLocalizer(
+            GuidedPitchContent content,
+            LocalizationCatalog catalog,
+            string language)
         {
-            scenario = null;
-            catalog = null;
-            if (scenarioJson == null || englishCatalogJson == null || malayCatalogJson == null)
+            var textKeysByResponseId = new Dictionary<string, string>(StringComparer.Ordinal);
+            foreach (var mode in content.Modes.Values)
             {
-                Debug.LogError("Bootstrap content references are incomplete.", this);
-                return false;
-            }
-
-            try
-            {
-                catalog = LocalizationCatalog.Load(englishCatalogJson.text, malayCatalogJson.text);
-                var loaded = ScenarioJsonLoader.Load(scenarioJson.text, catalog.GetKeys("en"));
-                if (!loaded.IsSuccess)
+                foreach (var option in mode.Parts.SelectMany(part => part.Options)
+                             .Concat(mode.FollowUp.Options))
                 {
-                    Debug.LogError("Scenario content failed validated loading.", this);
-                    return false;
+                    textKeysByResponseId[option.Id] = option.TextKey;
                 }
+            }
 
-                scenario = loaded.Scenario;
-                return true;
-            }
-            catch (Exception exception)
-            {
-                Debug.LogError($"Bootstrap composition failed: {exception.GetType().Name}.", this);
-                return false;
-            }
+            return key => textKeysByResponseId.TryGetValue(key, out var textKey)
+                ? catalog.Resolve(language, textKey)
+                : catalog.Resolve(language, key);
         }
 
-        private static ILmsBridge CreateLmsBridge(RuntimeScenario scenario)
+        private static ILmsBridge CreateLmsBridge(GuidedPitchContent content)
         {
 #if UNITY_WEBGL && !UNITY_EDITOR
             return new WebGlLmsBridge();
@@ -229,51 +313,17 @@ namespace Agrovator.PitchSimulator.UI
                 CourseId = "local_course",
                 ModuleId = "local_module",
                 LessonId = "local_lesson",
-                ScenarioId = scenario.Id,
+                ScenarioId = content.Id,
                 Language = "en",
                 AttemptNumber = 1,
                 TimerMode = "Normal",
                 ReducedMotion = false,
                 MusicVolume = 0.8f,
                 SfxVolume = 0.8f,
-                ContentVersion = scenario.Version,
+                ContentVersion = content.Version,
                 LaunchReference = "lref_localLaunch01",
             });
 #endif
-        }
-
-        private bool TryCreateController(
-            RuntimeScenario scenario,
-            LocalizationCatalog catalog,
-            ILmsBridge lmsBridge,
-            LmsLaunchConfig launch,
-            out PitchSessionController result)
-        {
-            result = null;
-            if (LmsPayloadValidator.ValidateLaunch(launch).Count > 0 ||
-                !string.Equals(launch.ScenarioId, scenario.Id, StringComparison.Ordinal) ||
-                launch.ContentVersion != scenario.Version)
-            {
-                Debug.LogError("LMS launch configuration was rejected.", this);
-                return false;
-            }
-
-            Enum.TryParse(launch.TimerMode, true, out TimerMode timerMode);
-            localize = key => catalog.Resolve(launch.Language, key);
-            result = new PitchSessionController(
-                scenario,
-                new ScoreAccumulator(),
-                new AccessibilitySettings(
-                    timerMode,
-                    launch.ReducedMotion,
-                    launch.MusicVolume,
-                    launch.SfxVolume,
-                    launch.Language),
-                new QuestionTimer(0d),
-                lmsBridge,
-                () => DateTimeOffset.UtcNow,
-                Application.version);
-            return true;
         }
 
         private static T[] FindInRoots<T>(GameObject[] roots) where T : Component

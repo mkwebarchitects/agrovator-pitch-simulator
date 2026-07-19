@@ -1,7 +1,10 @@
-using System.Reflection;
+using System;
 using System.Collections;
+using System.Collections.Generic;
 using System.Linq;
-using Agrovator.PitchSimulator.Core;
+using System.Reflection;
+using Agrovator.PitchSimulator.GuidedPitch;
+using Agrovator.PitchSimulator.LMS;
 using Agrovator.PitchSimulator.UI;
 using NUnit.Framework;
 using UnityEngine;
@@ -14,278 +17,422 @@ namespace Agrovator.PitchSimulator.Tests.PlayMode
 {
     public sealed class BootstrapPlayModeTests
     {
-        [UnitySetUp]
-        public IEnumerator SetUp()
+        private const string RecoverySentence =
+            "This pitch activity could not be loaded. Refresh and try again, or ask your teacher for help.";
+
+        private readonly List<GameObject> roots = new List<GameObject>();
+        private readonly List<string> capturedErrors = new List<string>();
+
+        [SetUp]
+        public void SetUp()
         {
-            yield return ClearLoadedFoundation();
+            capturedErrors.Clear();
+            Application.logMessageReceived += CaptureLog;
         }
 
-        [UnityTest]
-        public IEnumerator Bootstrap_InitializesContract_FocusesTitle_AndRestoresFocusAfterRouting()
+        [TearDown]
+        public void TearDown()
         {
-            var load = SceneManager.LoadSceneAsync("Bootstrap", LoadSceneMode.Single);
-            Assert.That(load, Is.Not.Null, "Bootstrap must be present in Build Settings.");
-            yield return load;
-
-            var deadline = Time.realtimeSinceStartup + 5f;
-            Bootstrapper bootstrapper = null;
-            while ((bootstrapper == null || !bootstrapper.IsInitialized) &&
-                   Time.realtimeSinceStartup < deadline)
+            Application.logMessageReceived -= CaptureLog;
+            foreach (var root in roots.Where(root => root != null))
             {
-                bootstrapper = Object.FindAnyObjectByType<Bootstrapper>(FindObjectsInactive.Include);
-                yield return null;
+                UnityEngine.Object.DestroyImmediate(root);
             }
 
-            var bootstrappers = Object.FindObjectsByType<Bootstrapper>(FindObjectsInactive.Include);
-            Assert.That(bootstrappers, Has.Length.EqualTo(1));
-            Assert.That(bootstrapper.IsInitialized, Is.True);
-            Assert.That(SceneManager.GetSceneByName("Game").isLoaded, Is.True);
-
-            var generatedRoot = GameObject.Find("Generated UI");
-            Assert.That(generatedRoot, Is.Not.Null);
-            var canvasRoot = generatedRoot.transform.Find("Canvas");
-            Assert.That(canvasRoot, Is.Not.Null);
-            var title = canvasRoot.Find("Title");
-            Assert.That(title, Is.Not.Null);
-            Assert.That(title.gameObject.activeInHierarchy, Is.True);
-
-            foreach (var screenName in new[] { "Briefing", "Tutorial", "PitchRoom", "Results", "Settings" })
-            {
-                var screen = canvasRoot.Find(screenName);
-                Assert.That(screen, Is.Not.Null, $"Missing {screenName} screen.");
-                Assert.That(screen.gameObject.activeInHierarchy, Is.False, $"{screenName} must start hidden.");
-            }
-
-            Assert.That(Object.FindObjectsByType<Canvas>(FindObjectsInactive.Include),
-                Has.Length.EqualTo(1));
-            Assert.That(Object.FindObjectsByType<EventSystem>(FindObjectsInactive.Include),
-                Has.Length.EqualTo(1));
-            var routers = Object.FindObjectsByType<GameScreenRouter>(FindObjectsInactive.Include);
-            Assert.That(routers, Has.Length.EqualTo(1));
-            Assert.That(routers[0].IsInitialized, Is.True);
-
-            var startButton = title.Find("Content Frame/Start Button").GetComponent<Button>();
-            var settingsButton = title.Find("Content Frame/Settings Button").GetComponent<Button>();
-            Assert.That(EventSystem.current.currentSelectedGameObject, Is.EqualTo(startButton.gameObject));
-            settingsButton.onClick.Invoke();
-            yield return null;
-            var settings = canvasRoot.Find("Settings");
-            var closeButton = settings.Find("Content Frame/Close Button").GetComponent<Button>();
-            Assert.That(EventSystem.current.currentSelectedGameObject, Is.EqualTo(closeButton.gameObject));
-            closeButton.onClick.Invoke();
-            yield return null;
-            Assert.That(EventSystem.current.currentSelectedGameObject, Is.EqualTo(startButton.gameObject));
-            startButton.onClick.Invoke();
-            yield return null;
-            var briefing = canvasRoot.Find("Briefing");
-            var briefingContinue = briefing.Find("Content Frame/Continue Button").GetComponent<Button>();
-            Assert.That(EventSystem.current.currentSelectedGameObject, Is.EqualTo(briefingContinue.gameObject));
-
-            briefingContinue.onClick.Invoke();
-            yield return null;
-            var tutorial = canvasRoot.Find("Tutorial");
-            Assert.That(tutorial.gameObject.activeInHierarchy, Is.True);
-            var next = tutorial.Find("Content Frame/Navigation/Next Button").GetComponent<Button>();
-            Assert.That(EventSystem.current.currentSelectedGameObject, Is.EqualTo(next.gameObject));
-            next.onClick.Invoke();
-            next.onClick.Invoke();
-            next.onClick.Invoke();
-            yield return null;
-            Assert.That(GetController(bootstrapper).Snapshot.State, Is.EqualTo(GameState.JudgeIntro));
-            var pitchRoom = canvasRoot.Find("PitchRoom");
-            Assert.That(pitchRoom.gameObject.activeInHierarchy, Is.True);
-            var pitchContinue = pitchRoom.Find("Content Frame/Continue Button").GetComponent<Button>();
-            for (var step = 0; step < 2; step++)
-            {
-                Assert.That(pitchContinue.gameObject.activeInHierarchy, Is.True);
-                pitchContinue.onClick.Invoke();
-                yield return null;
-            }
-
-            var responseList = pitchRoom.Find("Content Frame/Responses").GetComponent<ResponseListView>();
-            var responseViews = pitchRoom.Find("Content Frame/Responses")
-                .GetComponentsInChildren<ResponseButtonView>(true);
-            Assert.That(responseViews, Has.Length.EqualTo(3));
-            Assert.That(responseViews.Count(view => view.gameObject.activeSelf), Is.EqualTo(1));
-            responseViews[0].Button.onClick.Invoke();
-            Assert.That(responseList.IsSelectionLocked, Is.True);
-            for (var step = 0; step < 3; step++)
-            {
-                Assert.That(pitchContinue.gameObject.activeInHierarchy, Is.True);
-                pitchContinue.onClick.Invoke();
-                yield return null;
-            }
-
-            Assert.That(responseViews.All(view => view.gameObject.activeSelf), Is.True);
-            Assert.That(responseViews.Select(view => view.DisplayText),
-                Is.EqualTo(new[]
-                {
-                    "1. Our logs show dry beds after assembly, wet beds after rain, and students carrying watering cans, so the timing is inconsistent.",
-                    "2. We water on fixed schedules even when soil is wet, wasting water and weakening canteen crops.",
-                    "3. Our invention will cut the school's water bill by 90% and produce enough vegetables for everyone.",
-                }));
-            Assert.That(EventSystem.current.currentSelectedGameObject,
-                Is.EqualTo(responseViews[0].Button.gameObject));
-            Assert.That(pitchRoom.GetComponentInChildren<TimerView>(), Is.Not.Null);
-            Assert.That(pitchRoom.GetComponentInChildren<ConfidenceView>(), Is.Not.Null);
-            Assert.That(pitchRoom.Find("Environment").GetComponent<Image>().sprite, Is.Not.Null);
-            Assert.That(pitchRoom.Find("Content Frame/Dialogue Panel").GetComponent<Image>().type,
-                Is.EqualTo(Image.Type.Sliced));
-            var judgeView = pitchRoom.Find("Content Frame/Judge Aya").GetComponent<JudgeReactionView>();
-            Assert.That(judgeView.IsConfigured, Is.True);
-            Assert.That(judgeView.IsTalkLoopActive, Is.True);
-
-            responseViews[0].Button.onClick.Invoke();
-            responseViews[0].Button.onClick.Invoke();
-            Assert.That(responseList.IsSelectionLocked, Is.True);
-            Assert.That(responseViews.All(view => !view.Button.interactable), Is.True);
-            Assert.That(pitchContinue.gameObject.activeInHierarchy, Is.True);
-            Assert.That(pitchContinue.interactable, Is.True);
-            Assert.That(EventSystem.current.currentSelectedGameObject,
-                Is.EqualTo(pitchContinue.gameObject));
-
-            var controller = GetController(bootstrapper);
-            Assert.That(controller.Snapshot.State, Is.EqualTo(GameState.ShowingReaction));
-            Assert.That(judgeView.CurrentReaction,
-                Is.EqualTo(JudgeReactionMapper.Parse(controller.Snapshot.LastReactionCue)));
-            ExecuteEvents.Execute(
-                pitchContinue.gameObject,
-                new BaseEventData(EventSystem.current),
-                ExecuteEvents.submitHandler);
-            Assert.That(controller.Snapshot.State, Is.EqualTo(GameState.ShowingFeedback));
-            Assert.That(EventSystem.current.currentSelectedGameObject,
-                Is.EqualTo(pitchContinue.gameObject));
-        }
-
-        [UnityTest]
-        public IEnumerator Bootstrap_CountdownRendersAcrossFrames_AndPulseStopsOnReaction()
-        {
-            var load = SceneManager.LoadSceneAsync("Bootstrap", LoadSceneMode.Single);
-            Assert.That(load, Is.Not.Null);
-            yield return load;
-
-            var initializationDeadline = Time.realtimeSinceStartup + 5f;
-            Bootstrapper bootstrapper = null;
-            while ((bootstrapper == null || !bootstrapper.IsInitialized) &&
-                   Time.realtimeSinceStartup < initializationDeadline)
-            {
-                bootstrapper = Object.FindAnyObjectByType<Bootstrapper>(FindObjectsInactive.Include);
-                yield return null;
-            }
-            Assert.That(bootstrapper, Is.Not.Null);
-            Assert.That(bootstrapper.IsInitialized, Is.True);
-
-            var canvas = GameObject.Find("Generated UI").transform.Find("Canvas");
-            var title = canvas.Find("Title");
-            title.Find("Content Frame/Start Button").GetComponent<Button>().onClick.Invoke();
-            yield return null;
-            var briefing = canvas.Find("Briefing");
-            briefing.Find("Content Frame/Continue Button").GetComponent<Button>().onClick.Invoke();
-            yield return null;
-
-            var tutorial = canvas.Find("Tutorial");
-            var tutorialNext = tutorial.Find("Content Frame/Navigation/Next Button").GetComponent<Button>();
-            tutorialNext.onClick.Invoke();
-            tutorialNext.onClick.Invoke();
-            tutorialNext.onClick.Invoke();
-            yield return null;
-
-            var pitchRoom = canvas.Find("PitchRoom");
-            var pitchContinue = pitchRoom.Find("Content Frame/Continue Button").GetComponent<Button>();
-            for (var step = 0; step < 2; step++)
-            {
-                pitchContinue.onClick.Invoke();
-                yield return null;
-            }
-
-            var responseViews = pitchRoom.Find("Content Frame/Responses")
-                .GetComponentsInChildren<ResponseButtonView>(true);
-            responseViews[0].Button.onClick.Invoke();
-            for (var step = 0; step < 3; step++)
-            {
-                pitchContinue.onClick.Invoke();
-                yield return null;
-            }
-
-            var timer = pitchRoom.GetComponentInChildren<TimerView>();
-            var timerFill = pitchRoom.Find("Content Frame/Metrics/Timer/Fill").GetComponent<Image>();
-            var initialSeconds = timer.DisplayedSeconds;
-            var initialFill = timerFill.fillAmount;
-            Assert.That(initialSeconds, Is.GreaterThan(5));
-            Assert.That(initialFill, Is.GreaterThan(0f));
-
-            var countdownDeadline = Time.realtimeSinceStartup + 1.5f;
-            var renderedFrames = 0;
-            while (timer.DisplayedSeconds >= initialSeconds &&
-                   Time.realtimeSinceStartup < countdownDeadline)
-            {
-                renderedFrames++;
-                yield return null;
-            }
-
-            Assert.That(renderedFrames, Is.GreaterThan(1));
-            Assert.That(timer.DisplayedSeconds, Is.LessThan(initialSeconds));
-            Assert.That(timerFill.fillAmount, Is.LessThan(initialFill));
-
-            var controller = GetController(bootstrapper);
-            controller.Tick(controller.Snapshot.TimerRemainingSeconds - 4.25d);
-            yield return null;
-            Assert.That(timer.DisplayedSeconds, Is.EqualTo(5));
-            Assert.That(timer.IsPulsing, Is.True);
-            Assert.That(timer.transform.localScale.x, Is.GreaterThan(1f));
-
-            responseViews[0].Button.onClick.Invoke();
-            Assert.That(controller.Snapshot.State, Is.EqualTo(GameState.ShowingReaction));
-            Assert.That(timer.IsPulsing, Is.False);
-            Assert.That(timer.transform.localScale, Is.EqualTo(Vector3.one));
+            roots.Clear();
         }
 
         [UnityTearDown]
-        public IEnumerator TearDown()
+        public IEnumerator UnityTearDown()
         {
-            yield return ClearLoadedFoundation();
-        }
-
-        private static IEnumerator ClearLoadedFoundation()
-        {
-            var bootstrappers = Object.FindObjectsByType<Bootstrapper>(FindObjectsInactive.Include);
-            foreach (var bootstrapper in bootstrappers)
+            foreach (var bootstrapper in UnityEngine.Object.FindObjectsByType<Bootstrapper>(
+                FindObjectsInactive.Include, FindObjectsSortMode.None))
             {
-                Object.Destroy(bootstrapper.gameObject);
+                UnityEngine.Object.Destroy(bootstrapper.gameObject);
             }
-            if (bootstrappers.Length > 0)
-            {
-                yield return null;
-            }
-
-            if (EventSystem.current != null)
-            {
-                EventSystem.current.SetSelectedGameObject(null);
-            }
-
-            var cleanup = SceneManager.GetSceneByName("PitchSimulatorTestCleanup");
-            if (!cleanup.isLoaded)
-            {
-                cleanup = SceneManager.CreateScene("PitchSimulatorTestCleanup");
-            }
-            SceneManager.SetActiveScene(cleanup);
-
+            yield return null;
             foreach (var sceneName in new[] { "Game", "Bootstrap" })
             {
                 var scene = SceneManager.GetSceneByName(sceneName);
-                if (scene.isLoaded)
+                if (scene.IsValid() && scene.isLoaded)
                 {
-                    var unload = SceneManager.UnloadSceneAsync(scene);
-                    if (unload != null) yield return unload;
+                    yield return SceneManager.UnloadSceneAsync(scene);
                 }
             }
         }
 
-        private static PitchSessionController GetController(Bootstrapper bootstrapper)
+        [UnityTest]
+        public IEnumerator BootstrapScene_BootsTheGuidedComposition_ThroughTitleIntoModeSelection()
         {
-            return (PitchSessionController)typeof(Bootstrapper)
-                .GetField("controller", BindingFlags.Instance | BindingFlags.NonPublic)
-                .GetValue(bootstrapper);
+            yield return SceneManager.LoadSceneAsync("Bootstrap", LoadSceneMode.Additive);
+            Bootstrapper bootstrapper = null;
+            var deadline = Time.realtimeSinceStartup + 60f;
+            while (bootstrapper == null && Time.realtimeSinceStartup < deadline)
+            {
+                bootstrapper = UnityEngine.Object.FindFirstObjectByType<Bootstrapper>();
+                yield return null;
+            }
+            Assert.That(bootstrapper, Is.Not.Null, "The Bootstrap scene must own one Bootstrapper.");
+            while (!bootstrapper.IsInitialized && Time.realtimeSinceStartup < deadline)
+            {
+                yield return null;
+            }
+            Assert.That(bootstrapper.IsInitialized, Is.True,
+                "Bootstrap must compose the guided session against the generated scenes.");
+
+            var gameScene = SceneManager.GetSceneByName("Game");
+            Assert.That(gameScene.isLoaded, Is.True, "Bootstrap must load the Game scene additively.");
+            var gameRoots = gameScene.GetRootGameObjects();
+            var routers = gameRoots
+                .SelectMany(root => root.GetComponentsInChildren<GuidedPitchScreenRouter>(true))
+                .ToArray();
+            Assert.That(routers, Has.Length.EqualTo(1));
+            Assert.That(gameRoots.SelectMany(root => root.GetComponentsInChildren<Canvas>(true)).Count(),
+                Is.EqualTo(1));
+            Assert.That(gameRoots.SelectMany(root => root.GetComponentsInChildren<EventSystem>(true)).Count(),
+                Is.EqualTo(1));
+
+            var router = routers[0];
+            Assert.That(router.IsInitialized, Is.True);
+            Assert.That(router.ActivePhase, Is.EqualTo(GuidedPitchPhase.Title));
+            var canvas = router.transform;
+            var title = canvas.Find("Title");
+            var guided = canvas.Find("Guided Pitch");
+            Assert.That(title, Is.Not.Null);
+            Assert.That(guided, Is.Not.Null);
+            Assert.That(title.gameObject.activeSelf, Is.True);
+            Assert.That(guided.gameObject.activeSelf, Is.False);
+            var start = title.Find("Content Frame/Start Button").GetComponent<Button>();
+            var eventSystem = EventSystem.current;
+            Assert.That(eventSystem, Is.Not.Null);
+            Assert.That(eventSystem.currentSelectedGameObject, Is.SameAs(start.gameObject),
+                "Title Start must receive the initial focus.");
+
+            start.onClick.Invoke();
+            yield return null;
+            Assert.That(router.ActivePhase, Is.EqualTo(GuidedPitchPhase.Briefing));
+            var briefing = canvas.Find("Briefing");
+            Assert.That(briefing.gameObject.activeSelf, Is.True);
+            var briefingCopy = string.Join(" ", briefing
+                .Find("Content Frame")
+                .GetComponentsInChildren<Text>(false)
+                .Where(line => line.name.StartsWith("Line", StringComparison.Ordinal))
+                .Select(line => line.text));
+            Assert.That(briefingCopy, Does.Contain("Judge Aya"));
+            Assert.That(briefingCopy, Does.Contain("no timer"));
+            Assert.That(briefingCopy, Does.Not.Contain("[[missing:"));
+
+            briefing.Find("Content Frame/Continue Button").GetComponent<Button>().onClick.Invoke();
+            yield return null;
+            Assert.That(router.ActivePhase, Is.EqualTo(GuidedPitchPhase.ModeSelection));
+            Assert.That(guided.gameObject.activeSelf, Is.True,
+                "The guided panel must stay active behind the nested Mode Selection section.");
+            var modeSelection = guided.Find(
+                "Content Frame/Phase Scroll/Viewport/Content/Mode Selection");
+            Assert.That(modeSelection, Is.Not.Null);
+            Assert.That(modeSelection.gameObject.activeInHierarchy, Is.True,
+                "The nested Mode Selection section must be visible during ModeSelection.");
+            var modeView = modeSelection.GetComponent<ModeSelectionView>();
+            Assert.That(modeView.Cards.Count, Is.EqualTo(2));
+            Assert.That(eventSystem.currentSelectedGameObject,
+                Is.SameAs(modeView.Cards[0].Button.gameObject),
+                "The first mode card must take the ModeSelection default focus.");
+            var firstIndicator = RequireFocusIndicator(modeView.Cards[0].Button);
+            var secondIndicator = RequireFocusIndicator(modeView.Cards[1].Button);
+            Assert.That(IsFocusIndicatorActive(firstIndicator), Is.True,
+                "The gold indicator must follow the EventSystem's current mode-card focus.");
+            Assert.That(IsFocusIndicatorActive(secondIndicator), Is.False);
+
+            eventSystem.SetSelectedGameObject(modeView.Cards[1].Button.gameObject);
+            yield return null;
+            Assert.That(IsFocusIndicatorActive(firstIndicator), Is.False);
+            Assert.That(IsFocusIndicatorActive(secondIndicator), Is.True,
+                "Moving actual EventSystem focus must move the gold indicator.");
+            var phaseScroll = guided.Find("Content Frame/Phase Scroll").GetComponent<ScrollRect>();
+            AssertFullyVisible(phaseScroll.viewport,
+                modeView.Cards[1].Button.GetComponent<RectTransform>(),
+                "Focusing Secondary must scroll its complete compact card into view.");
+
+            eventSystem.SetSelectedGameObject(modeView.Cards[0].Button.gameObject);
+            yield return null;
+            AssertFullyVisible(phaseScroll.viewport,
+                modeView.Cards[0].Button.GetComponent<RectTransform>(),
+                "Returning focus to Primary must scroll its complete compact card into view.");
+            Assert.That(capturedErrors, Is.Empty,
+                "A healthy boot must log no errors: " + string.Join(", ", capturedErrors));
+        }
+
+        [UnityTest]
+        public IEnumerator GeneratedGame_LiveScreenSpaceOverlayResize_UsesPhysicalCompactBreakpoints()
+        {
+            yield return SceneManager.LoadSceneAsync("Game", LoadSceneMode.Additive);
+            var gameScene = SceneManager.GetSceneByName("Game");
+            var canvas = gameScene.GetRootGameObjects()
+                .SelectMany(root => root.GetComponentsInChildren<Canvas>(true))
+                .Single();
+            var guided = canvas.transform.Find("Guided Pitch");
+            guided.gameObject.SetActive(true);
+
+            var content = guided.Find("Content Frame/Phase Scroll/Viewport/Content");
+            foreach (Transform section in content)
+            {
+                section.gameObject.SetActive(section.name == "Mode Selection" ||
+                    section.name == "Sentence Cards" || section.name == "Improve Actions");
+            }
+            var primaryAction = guided.Find("Content Frame/Primary Action");
+            foreach (Transform button in primaryAction)
+            {
+                button.gameObject.SetActive(true);
+            }
+
+            var objectCount = guided.GetComponentsInChildren<Transform>(true).Length;
+            Assert.That(canvas.renderMode, Is.EqualTo(RenderMode.ScreenSpaceOverlay));
+            var canvasRect = canvas.GetComponent<RectTransform>();
+            var responsive = guided.GetComponent<GuidedPitchResponsiveLayout>();
+            var board = guided.Find("Content Frame/Pitch Board").GetComponent<GridLayoutGroup>();
+            var cards = content.Find("Sentence Cards").GetComponent<GridLayoutGroup>();
+            var canvasField = typeof(GuidedPitchResponsiveLayout).GetField(
+                "viewportCanvas", BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.That(canvasField, Is.Not.Null,
+                "Generated runtime layout must serialize the physical Canvas viewport source.");
+            Assert.That(canvasField.GetValue(responsive), Is.SameAs(canvas));
+            var sourceObject = new GameObject("Physical Viewport Source", typeof(RectTransform));
+            roots.Add(sourceObject);
+            var physicalViewport = sourceObject.GetComponent<RectTransform>();
+            responsive.ConfigurePhysicalViewportSource(physicalViewport);
+
+            foreach (var physicalSize in new[]
+                { new Vector2Int(960, 720), new Vector2Int(720, 960) })
+            {
+                physicalViewport.SetSizeWithCurrentAnchors(
+                    RectTransform.Axis.Horizontal, physicalSize.x);
+                physicalViewport.SetSizeWithCurrentAnchors(
+                    RectTransform.Axis.Vertical, physicalSize.y);
+                yield return null;
+                Canvas.ForceUpdateCanvases();
+                LayoutRebuilder.ForceRebuildLayoutImmediate(canvasRect);
+                LayoutRebuilder.ForceRebuildLayoutImmediate(guided.GetComponent<RectTransform>());
+                yield return null;
+
+                Assert.That(responsive.IsCompact, Is.True,
+                    physicalSize + " physical pixels must invoke compact lifecycle rules.");
+                Assert.That(board.constraint, Is.EqualTo(GridLayoutGroup.Constraint.FixedColumnCount));
+                Assert.That(board.constraintCount, Is.EqualTo(2));
+                Assert.That(cards.constraint, Is.EqualTo(GridLayoutGroup.Constraint.FixedColumnCount));
+                Assert.That(cards.constraintCount, Is.EqualTo(1));
+                Assert.That(guided.Find("Content Frame/Phase Scroll").GetComponent<ScrollRect>().enabled,
+                    Is.True, "Compact live layout must enable scrolling.");
+                AssertStacked(content.Find("Mode Selection"));
+                AssertStacked(content.Find("Improve Actions"));
+                AssertStacked(primaryAction);
+                Assert.That(guided.GetComponentsInChildren<Transform>(true).Length,
+                    Is.EqualTo(objectCount),
+                    "Responsive lifecycle updates must not allocate hierarchy objects.");
+            }
+        }
+
+        [Test]
+        public void Bootstrap_LoadsValidGuidedContent_AndRouterEntersTitle()
+        {
+            var bootstrap = CreateBootstrapper(
+                GuidedRigFactory.ReadProjectFile("Content", "Scenarios", "guided-pitch-builder.en.json"),
+                GuidedRigFactory.ReadProjectFile("Content", "Localization", "en.json"),
+                GuidedRigFactory.ReadProjectFile("Content", "Localization", "ms.json"));
+
+            Assert.That(bootstrap.TryLoadGuidedContent(out var content, out var catalog), Is.True);
+            Assert.That(content, Is.Not.Null);
+            Assert.That(catalog, Is.Not.Null);
+            Assert.That(content.Id, Is.EqualTo("smart-school-garden"));
+            Assert.That(content.Version, Is.EqualTo(2));
+
+            var rig = GuidedRigFactory.CreateRig(roots);
+            var bridge = new MockLmsBridge(
+                MockLmsBridgeMode.Success, GuidedRigFactory.CreateLaunch(content));
+            Assert.That(bootstrap.TryPresentGuidedSession(rig.Router, bridge), Is.True);
+            Assert.That(rig.Router.ActivePhase, Is.EqualTo(GuidedPitchPhase.Title));
+            Assert.That(bootstrap.IsInitialized, Is.True);
+            Assert.That(rig.TitlePanel.activeSelf, Is.True);
+            Assert.That(rig.SafeFallbackPanel.activeSelf, Is.False);
+            Assert.That(capturedErrors, Is.Empty);
+        }
+
+        [Test]
+        public void Bootstrap_MissingGuidedContentReference_BlocksTheAttemptOnSafeFallback()
+        {
+            var bootstrap = CreateBootstrapper(
+                null,
+                GuidedRigFactory.ReadProjectFile("Content", "Localization", "en.json"),
+                GuidedRigFactory.ReadProjectFile("Content", "Localization", "ms.json"));
+
+            AssertBlockedOnSafeFallback(bootstrap, "guided_content_invalid");
+        }
+
+        [Test]
+        public void Bootstrap_MalformedGuidedJson_BlocksTheAttemptOnSafeFallback()
+        {
+            var bootstrap = CreateBootstrapper(
+                "{\"Id\":\"smart-school-garden\",",
+                GuidedRigFactory.ReadProjectFile("Content", "Localization", "en.json"),
+                GuidedRigFactory.ReadProjectFile("Content", "Localization", "ms.json"));
+
+            AssertBlockedOnSafeFallback(bootstrap, "guided_content_invalid");
+        }
+
+        [Test]
+        public void Bootstrap_InvalidGuidedRoute_BlocksTheAttemptOnSafeFallback()
+        {
+            var brokenRoutes = GuidedRigFactory
+                .ReadProjectFile("Content", "Scenarios", "guided-pitch-builder.en.json")
+                .Replace("\"Modes\"", "\"Modez\"");
+            var bootstrap = CreateBootstrapper(
+                brokenRoutes,
+                GuidedRigFactory.ReadProjectFile("Content", "Localization", "en.json"),
+                GuidedRigFactory.ReadProjectFile("Content", "Localization", "ms.json"));
+
+            AssertBlockedOnSafeFallback(bootstrap, "guided_content_invalid");
+        }
+
+        [Test]
+        public void Bootstrap_LocalizationMismatch_BlocksTheAttemptOnSafeFallback()
+        {
+            var sparseEnglish =
+                "{\"locale\":\"en\",\"translationStatus\":\"reviewed\",\"entries\":[" +
+                "{\"key\":\"ui.start\",\"value\":\"Start\"}]}";
+            var sparseMalay =
+                "{\"locale\":\"ms\",\"translationStatus\":\"pending_human_review\",\"entries\":[" +
+                "{\"key\":\"ui.start\",\"value\":\"Start\"}]}";
+            var bootstrap = CreateBootstrapper(
+                GuidedRigFactory.ReadProjectFile("Content", "Scenarios", "guided-pitch-builder.en.json"),
+                sparseEnglish,
+                sparseMalay);
+
+            AssertBlockedOnSafeFallback(bootstrap, "guided_content_invalid");
+        }
+
+        [Test]
+        public void Bootstrap_LocalizationFailure_UsesTheExactEnglishRecoverySentence()
+        {
+            var bootstrap = CreateBootstrapper(
+                GuidedRigFactory.ReadProjectFile("Content", "Scenarios", "guided-pitch-builder.en.json"),
+                "{not-a-catalog",
+                GuidedRigFactory.ReadProjectFile("Content", "Localization", "ms.json"));
+
+            AssertBlockedOnSafeFallback(bootstrap, "guided_localization_invalid");
+        }
+
+        [Test]
+        public void Bootstrap_PreloadedComposition_RejectedLaunch_LogsTheLaunchCodeExactlyOnce()
+        {
+            var bootstrap = CreateBootstrapper(
+                GuidedRigFactory.ReadProjectFile("Content", "Scenarios", "guided-pitch-builder.en.json"),
+                GuidedRigFactory.ReadProjectFile("Content", "Localization", "en.json"),
+                GuidedRigFactory.ReadProjectFile("Content", "Localization", "ms.json"));
+            Assert.That(bootstrap.TryLoadGuidedContent(out var content, out var catalog), Is.True);
+            var badLaunch = GuidedRigFactory.CreateLaunch(content);
+            badLaunch.ContentVersion = 1;
+            var rig = GuidedRigFactory.CreateRig(roots);
+            LogAssert.Expect(LogType.Error, "guided_launch_invalid");
+
+            Assert.That(bootstrap.PresentLoadedGuidedSession(rig.Router, content, catalog,
+                new MockLmsBridge(MockLmsBridgeMode.Success, badLaunch)), Is.False);
+
+            Assert.That(bootstrap.IsInitialized, Is.False);
+            Assert.That(rig.Router.ActivePhase, Is.EqualTo(GuidedPitchPhase.SafeFallback));
+            Assert.That(rig.SafeFallbackPanel.activeSelf, Is.True);
+            Assert.That(rig.SafeFallbackText.text, Is.EqualTo(RecoverySentence));
+            Assert.That(capturedErrors, Is.EqualTo(new[] { "guided_launch_invalid" }),
+                "The shared composition path must log the stable code exactly once.");
+        }
+
+        private void AssertBlockedOnSafeFallback(Bootstrapper bootstrap, string expectedCode)
+        {
+            var rig = GuidedRigFactory.CreateRig(roots);
+            LogAssert.Expect(LogType.Error, expectedCode);
+
+            Assert.That(bootstrap.TryPresentGuidedSession(rig.Router), Is.False);
+            Assert.That(bootstrap.IsInitialized, Is.False);
+            Assert.That(rig.Router.ActivePhase, Is.EqualTo(GuidedPitchPhase.SafeFallback));
+            Assert.That(rig.SafeFallbackPanel.activeSelf, Is.True);
+            Assert.That(rig.TitlePanel.activeSelf, Is.False);
+            Assert.That(rig.GuidedPanel.activeSelf, Is.False);
+            Assert.That(rig.SafeFallbackText.text, Is.EqualTo(RecoverySentence));
+
+            Assert.That(capturedErrors, Has.Count.EqualTo(1),
+                "Each blocked attempt must log its stable diagnostic code exactly once.");
+            foreach (var error in capturedErrors)
+            {
+                Assert.That(error, Is.EqualTo(expectedCode),
+                    "Failure logs must contain only the stable diagnostic code.");
+                Assert.That(error, Does.Not.Contain("{"));
+                Assert.That(error, Does.Not.Contain("local_learner"));
+                Assert.That(error, Does.Not.Contain("lref_"));
+                Assert.That(error, Does.Not.Contain("garden beds"));
+            }
+        }
+
+        private Bootstrapper CreateBootstrapper(string guidedJson, string englishJson, string malayJson)
+        {
+            var root = new GameObject("Bootstrap Rig");
+            root.SetActive(false);
+            roots.Add(root);
+            var bootstrap = root.AddComponent<Bootstrapper>();
+            GuidedRigFactory.SetField(bootstrap, "guidedPitchContentJson", CreateAsset(guidedJson));
+            GuidedRigFactory.SetField(bootstrap, "englishCatalogJson", CreateAsset(englishJson));
+            GuidedRigFactory.SetField(bootstrap, "malayCatalogJson", CreateAsset(malayJson));
+            return bootstrap;
+        }
+
+        private static TextAsset CreateAsset(string text)
+        {
+            return text == null ? null : new TextAsset(text);
+        }
+
+        private static void AssertStacked(Transform group)
+        {
+            var layout = group.GetComponents<LayoutGroup>().SingleOrDefault();
+            Assert.That(layout, Is.Not.Null, group.name + " must own one reusable layout group.");
+            Assert.That(layout.GetType().Name, Is.EqualTo("GuidedPitchFlowLayout"),
+                group.name + " must use the reusable generated responsive layout.");
+            var stacked = layout.GetType().GetProperty("IsStacked");
+            Assert.That(stacked, Is.Not.Null);
+            Assert.That(stacked.GetValue(layout), Is.True,
+                group.name + " must switch its existing layout to compact stacking.");
+            Assert.That(group.Cast<Transform>().Select(child => Mathf.Round(child.position.y)).Distinct().Count(),
+                Is.EqualTo(group.childCount), group.name + " controls must render on distinct rows.");
+        }
+
+        private static MonoBehaviour RequireFocusIndicator(Selectable selectable)
+        {
+            var indicator = selectable.GetComponents<MonoBehaviour>()
+                .SingleOrDefault(component => component.GetType().Name == "SelectableFocusIndicator");
+            Assert.That(indicator, Is.Not.Null,
+                selectable.name + " must own the reusable focus indicator.");
+            return indicator;
+        }
+
+        private static bool IsFocusIndicatorActive(MonoBehaviour indicator)
+        {
+            var property = indicator.GetType().GetProperty("IsFocused");
+            Assert.That(property, Is.Not.Null);
+            return (bool)property.GetValue(indicator);
+        }
+
+        private static void AssertFullyVisible(
+            RectTransform viewport, RectTransform target, string message)
+        {
+            var bounds = RectTransformUtility.CalculateRelativeRectTransformBounds(viewport, target);
+            Assert.That(bounds.min.y, Is.GreaterThanOrEqualTo(viewport.rect.yMin - 0.5f), message);
+            Assert.That(bounds.max.y, Is.LessThanOrEqualTo(viewport.rect.yMax + 0.5f), message);
+            Assert.That(bounds.min.x, Is.GreaterThanOrEqualTo(viewport.rect.xMin - 0.5f), message);
+            Assert.That(bounds.max.x, Is.LessThanOrEqualTo(viewport.rect.xMax + 0.5f), message);
+        }
+
+        private void CaptureLog(string condition, string stackTrace, LogType type)
+        {
+            if (type == LogType.Error || type == LogType.Exception || type == LogType.Assert)
+            {
+                capturedErrors.Add(condition);
+            }
         }
     }
 }

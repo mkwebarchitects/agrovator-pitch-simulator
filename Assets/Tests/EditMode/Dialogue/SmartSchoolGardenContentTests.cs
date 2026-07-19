@@ -41,7 +41,7 @@ namespace Agrovator.PitchSimulator.Tests.EditMode.Dialogue
             var scenario = LoadDefinition();
 
             Assert.That(scenario.Id, Is.EqualTo("smart-school-garden"));
-            Assert.That(scenario.Version, Is.EqualTo(1));
+            Assert.That(scenario.Version, Is.EqualTo(2));
             Assert.That(scenario.OpeningNodeId, Is.EqualTo("tutorial"));
             var tutorial = scenario.Nodes.Single(node => node.Id == scenario.OpeningNodeId);
             Assert.That(tutorial.NodeType, Is.EqualTo("Tutorial"));

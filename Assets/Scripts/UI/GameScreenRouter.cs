@@ -54,8 +54,9 @@ namespace Agrovator.PitchSimulator.UI
             }
 
             controller = sessionController;
-            titlePresenter.Initialize(controller, Refresh, OpenSettings, onTitleUserGesture);
-            briefingPresenter.Initialize(controller, Refresh);
+            titlePresenter.Initialize(
+                () => controller.StartScenario(), Refresh, OpenSettings, onTitleUserGesture);
+            briefingPresenter.Initialize(() => controller.Continue(), Refresh, localize);
             tutorialPresenter.Initialize(controller, Refresh, localize);
             pitchRoomPresenter.Initialize(controller, Refresh, localize);
             resultsPresenter.Initialize(controller, Refresh,
@@ -153,8 +154,8 @@ namespace Agrovator.PitchSimulator.UI
             }
 
             var snapshot = controller.Snapshot;
-            titlePresenter.Refresh(snapshot);
-            briefingPresenter.Refresh(snapshot);
+            titlePresenter.SetStartInteractable(snapshot.State == GameState.Title);
+            briefingPresenter.SetContinueInteractable(snapshot.State == GameState.Briefing);
             tutorialPresenter.Refresh(snapshot);
             pitchRoomPresenter.Refresh(snapshot);
             resultsPresenter.Refresh(snapshot);

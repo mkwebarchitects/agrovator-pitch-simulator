@@ -238,6 +238,13 @@ async function contentRegionHash(page, canvas) {
   return hash(await page.screenshot({ type: "png", clip }));
 }
 
+async function regionHashes(page, canvas) {
+  return {
+    content: await contentRegionHash(page, canvas),
+    controls: await controlRegionHash(page, canvas),
+  };
+}
+
 async function waitForCanvasChange(canvas, previousHash, timeoutMs, label) {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
@@ -248,96 +255,12 @@ async function waitForCanvasChange(canvas, previousHash, timeoutMs, label) {
   throw new Error(`Canvas did not visibly change after ${label}.`);
 }
 
-async function keyboardAction(page, canvas, key, timeoutMs, label, expectControlChange = true) {
-  const before = expectControlChange ? await controlRegionHash(page, canvas) : null;
-  await canvas.focus();
-  // Unity's frame-polled WebGL input must observe keydown before keyup.
-  await canvas.press(key, { delay: 120 });
-  if (!expectControlChange) {
-    await new Promise(resolveWait => setTimeout(resolveWait, 180));
-    return null;
-  }
-  const deadline = Date.now() + timeoutMs;
-  while (Date.now() < deadline) {
-    const current = await controlRegionHash(page, canvas);
-    if (current !== before) {
-      await new Promise(resolveWait => setTimeout(resolveWait, 220));
-      return current;
-    }
-    await new Promise(resolveWait => setTimeout(resolveWait, 100));
-  }
-  throw new Error(`Stable control region did not change after ${label}.`);
-}
-
-async function pointerAction(page, normalizedX, normalizedY, canvas, timeoutMs, label, clickOptions) {
-  const before = await controlRegionHash(page, canvas);
-  const bounds = await canvas.boundingBox();
-  if (!bounds) throw new Error(`Unity canvas has no pointer bounds for ${label}.`);
-  await canvas.click({
-    ...clickOptions,
-    position: { x: bounds.width * normalizedX, y: bounds.height * normalizedY },
-  });
-  const deadline = Date.now() + timeoutMs;
-  while (Date.now() < deadline) {
-    const current = await controlRegionHash(page, canvas);
-    if (current !== before) {
-      await new Promise(resolveWait => setTimeout(resolveWait, 220));
-      return current;
-    }
-    await new Promise(resolveWait => setTimeout(resolveWait, 100));
-  }
-  throw new Error(`Stable control region did not change after ${label}.`);
-}
-
-async function mouseResponse(page, canvas, timeoutMs) {
-  const before = await controlRegionHash(page, canvas);
-  const bounds = await canvas.boundingBox();
-  if (!bounds) throw new Error("Unity canvas has no pointer bounds.");
-  // Measured centered layout contract: tutorial response spans ~68%-78% canvas height.
-  await canvas.click({ position: { x: bounds.width * 0.5, y: bounds.height * 0.73 }, delay: 120 });
-  const deadline = Date.now() + timeoutMs;
-  while (Date.now() < deadline) {
-    const current = await controlRegionHash(page, canvas);
-    if (current !== before) {
-      await new Promise(resolveWait => setTimeout(resolveWait, 220));
-      return current;
-    }
-    await new Promise(resolveWait => setTimeout(resolveWait, 100));
-  }
-  throw new Error("Stable control region did not change after mouse response selection.");
-}
-
-async function mouseContinue(page, canvas, timeoutMs, label, expectControlChange = false) {
-  const before = expectControlChange ? await controlRegionHash(page, canvas) : null;
-  const bounds = await canvas.boundingBox();
-  if (!bounds) throw new Error("Unity canvas has no Continue-control bounds.");
-  // Generated layout contract: active pitch-room Continue spans the bottom control row.
-  await canvas.click({ position: { x: bounds.width * 0.5, y: bounds.height * 0.86 }, delay: 120 });
-  if (!expectControlChange) {
-    await new Promise(resolveWait => setTimeout(resolveWait, 180));
-    return null;
-  }
-  const deadline = Date.now() + timeoutMs;
-  while (Date.now() < deadline) {
-    const current = await controlRegionHash(page, canvas);
-    if (current !== before) {
-      await new Promise(resolveWait => setTimeout(resolveWait, 220));
-      return current;
-    }
-    await new Promise(resolveWait => setTimeout(resolveWait, 100));
-  }
-  throw new Error(`Stable control region did not change after ${label}.`);
-}
-
 async function waitForStableCanvasRegions(page, canvas, previous, timeoutMs, label) {
   const deadline = Date.now() + timeoutMs;
   let last = null;
   let stableSamples = 0;
   while (Date.now() < deadline) {
-    const current = {
-      content: await contentRegionHash(page, canvas),
-      controls: await controlRegionHash(page, canvas),
-    };
+    const current = await regionHashes(page, canvas);
     const bothChanged = current.content !== previous.content && current.controls !== previous.controls;
     if (bothChanged) {
       const matchesLast = last && current.content === last.content && current.controls === last.controls;
@@ -368,92 +291,30 @@ async function canvasMetrics(page, frame, canvas, viewport) {
   return { viewport, iframeViewport: inner, bounds, aspect };
 }
 
-async function playAttempt(page, frame, canvas, options, browserName) {
-  const titleBounds = await canvas.boundingBox();
-  if (!titleBounds) throw new Error("Unity canvas has no Title-control bounds.");
-  const titleBefore = await canvasHash(canvas);
-  await canvas.click({ position: { x: titleBounds.width * 0.5, y: titleBounds.height * 0.61 }, delay: 120 });
-  await waitForCanvasChange(canvas, titleBefore, options.timeoutMs, "Title pointer Start");
-  await new Promise(resolveWait => setTimeout(resolveWait, 300));
-  const briefingBounds = await canvas.boundingBox();
-  if (!briefingBounds) throw new Error("Unity canvas has no Briefing-control bounds.");
-  const briefingBefore = await canvasHash(canvas);
-  await canvas.click({ position: { x: briefingBounds.width * 0.5, y: briefingBounds.height * 0.66 }, delay: 120 });
-  await waitForCanvasChange(canvas, briefingBefore, options.timeoutMs, "Briefing pointer Continue");
-  await new Promise(resolveWait => setTimeout(resolveWait, 300));
-
-  if (browserName === "chrome") {
-    await page.screenshot({
-      path: join(options.outputDirectory, "chrome-tutorial.png"),
-      fullPage: true,
+async function pressCanvasUntilContentChange(page, canvas, normalizedX, normalizedY,
+  previousContent, timeoutMs, label) {
+  // Unity's frame-polled WebGL input can miss a single press during relaunch stalls;
+  // retry held presses until the state-specific content region actually changes.
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    const bounds = await canvas.boundingBox();
+    if (!bounds) throw new Error(`Unity canvas has no pointer bounds for ${label}.`);
+    await canvas.click({
+      position: { x: bounds.width * normalizedX, y: bounds.height * normalizedY },
+      delay: 120,
     });
-  }
-  await keyboardAction(page, canvas, "Enter", options.timeoutMs, "Tutorial page 1 Next");
-  await new Promise(resolveWait => setTimeout(resolveWait, 250));
-  await keyboardAction(page, canvas, "Enter", options.timeoutMs, "Tutorial page 2 Next");
-  await new Promise(resolveWait => setTimeout(resolveWait, 250));
-  await keyboardAction(page, canvas, "Enter", options.timeoutMs, "Tutorial page 3 Start Practice");
-  await new Promise(resolveWait => setTimeout(resolveWait, 250));
-  await mouseContinue(page, canvas, options.timeoutMs, "Judge introduction");
-  await mouseContinue(page, canvas, options.timeoutMs, "Tutorial response reveal", true);
-  await mouseResponse(page, canvas, options.timeoutMs);
-  await mouseContinue(page, canvas, options.timeoutMs, "Tutorial reaction");
-  await mouseContinue(page, canvas, options.timeoutMs, "Tutorial feedback");
-  await mouseContinue(page, canvas, options.timeoutMs, "Question 1 response reveal", true);
-  if (browserName === "chrome") {
-    await page.screenshot({
-      path: join(options.outputDirectory, "chrome-pitch.png"),
-      fullPage: true,
-    });
-  }
-
-  for (let question = 1; question <= 6; question += 1) {
-    await keyboardAction(page, canvas, "Enter", options.timeoutMs, `question ${question} keyboard response`);
-    await mouseContinue(page, canvas, options.timeoutMs, `question ${question} reaction`);
-    await mouseContinue(page, canvas, options.timeoutMs,
-      question === 6 ? "question 6 results transition" : `question ${question} feedback`, question === 6);
-    if (question < 6) {
-      await mouseContinue(page, canvas, options.timeoutMs, `question ${question + 1} response reveal`, true);
+    const settleDeadline = Math.min(deadline, Date.now() + 1500);
+    while (Date.now() < settleDeadline) {
+      const current = await contentRegionHash(page, canvas);
+      if (current !== previousContent) return current;
+      await new Promise(resolveWait => setTimeout(resolveWait, 100));
     }
   }
-
-  await page.locator("#mode").selectOption("failure");
-  await keyboardAction(page, canvas, "Enter", options.timeoutMs, "failed completion submit", false);
-  await page.waitForFunction(() => document.querySelector("#progress li")?.textContent.includes("failure"), null,
-    { timeout: options.timeoutMs });
-
-  await page.locator("#mode").selectOption("success");
-  await keyboardAction(page, canvas, "Enter", options.timeoutMs, "successful completion resubmit", false);
-  await page.waitForFunction(() => document.querySelector("#progress li")?.textContent.includes("success"), null,
-    { timeout: options.timeoutMs });
-  const completion = await page.locator("#completion").innerText();
-  if (!completion.includes("Completed") || !completion.includes("Overall score")) {
-    throw new Error("Sanitized completion summary was not rendered after successful resubmit.");
-  }
-
-  await keyboardAction(page, canvas, "Enter", options.timeoutMs, "Results Retry");
-  const retryBriefingBounds = await canvas.boundingBox();
-  if (!retryBriefingBounds) throw new Error("Retry Briefing canvas has no pointer bounds.");
-  const retryBriefingBefore = await canvasHash(canvas);
-  await canvas.click({ position: {
-    x: retryBriefingBounds.width * 0.5,
-    y: retryBriefingBounds.height * 0.66,
-  }, delay: 120 });
-  await waitForCanvasChange(canvas, retryBriefingBefore, options.timeoutMs,
-    "retry Briefing pointer Continue");
-  await pointerAction(page, 0.40, 0.79, canvas, options.timeoutMs,
-    "retry Tutorial Skip", { delay: 120 });
-  await mouseContinue(page, canvas, options.timeoutMs, "retry Judge introduction");
-  await mouseContinue(page, canvas, options.timeoutMs, "retry Tutorial response reveal", true);
-  await mouseResponse(page, canvas, options.timeoutMs);
-  await mouseContinue(page, canvas, options.timeoutMs, "retry Tutorial reaction");
-  await mouseContinue(page, canvas, options.timeoutMs, "retry Tutorial feedback");
-  await mouseContinue(page, canvas, options.timeoutMs, "retry Question 1 response reveal", true);
-  return sanitizeText(completion);
+  throw new Error(`Content region did not change after retried presses for ${label}.`);
 }
 
 async function verifyMissingConfigRecovery(page, options) {
-  await page.locator("#mode").selectOption("missing-config");
+  await setHarnessMode(page, "missing-config");
   const frameElement = page.locator("#game");
   await frameElement.evaluate(element => element.contentWindow.location.reload());
   await page.waitForFunction(() => document.querySelector("#connection")?.textContent.includes("Missing Config"), null,
@@ -463,23 +324,290 @@ async function verifyMissingConfigRecovery(page, options) {
   const canvas = frame.locator("#unity-canvas");
   await frame.locator("#unity-loading").waitFor({ state: "hidden", timeout: options.unityTimeoutMs });
   const waitingHash = await canvasHash(canvas);
-  await page.locator("#mode").selectOption("success");
-  await page.locator("#resend").click();
+  await setHarnessMode(page, "success");
+  await page.locator("#resend").dispatchEvent("click");
   await page.waitForFunction(() => document.querySelector("#connection")?.textContent.includes("Launch configuration sent"), null,
     { timeout: options.timeoutMs });
   await waitForCanvasChange(canvas, waitingHash, options.timeoutMs, "Success plus Resend recovery");
-  const recoveredBounds = await canvas.boundingBox();
-  if (!recoveredBounds) throw new Error("Recovered Unity canvas has no Title-control bounds.");
-  const recoveredBefore = await canvasHash(canvas);
   const recoveredRegionsBefore = {
     content: await contentRegionHash(page, canvas),
     controls: await controlRegionHash(page, canvas),
   };
-  await canvas.click({ position: { x: recoveredBounds.width * 0.5, y: recoveredBounds.height * 0.61 }, delay: 120 });
-  await waitForCanvasChange(canvas, recoveredBefore, options.timeoutMs, "recovered Title pointer Start");
+  await pressCanvasUntilContentChange(page, canvas, 0.5, 0.61,
+    recoveredRegionsBefore.content, options.timeoutMs, "recovered Title pointer Start");
   await waitForStableCanvasRegions(page, canvas, recoveredRegionsBefore, options.timeoutMs,
     "recovered Briefing");
   return true;
+}
+
+async function waitForStableRegionChange(page, canvas, previous, required, timeoutMs, label) {
+  const deadline = Date.now() + timeoutMs;
+  let last = null;
+  let stableSamples = 0;
+  while (Date.now() < deadline) {
+    const current = await regionHashes(page, canvas);
+    const requiredChanged = (!required.content || current.content !== previous.content) &&
+      (!required.controls || current.controls !== previous.controls);
+    if (requiredChanged) {
+      const matchesLast = last && current.content === last.content && current.controls === last.controls;
+      stableSamples = matchesLast ? stableSamples + 1 : 1;
+      if (stableSamples >= 3) return current;
+    } else {
+      stableSamples = 0;
+    }
+    last = current;
+    await new Promise(resolveWait => setTimeout(resolveWait, 80));
+  }
+  throw new Error(`Required stable content/control regions did not change after ${label}.`);
+}
+
+async function waitForStableRegionComposition(page, canvas, timeoutMs, label) {
+  const deadline = Date.now() + timeoutMs;
+  let last = null;
+  let stableSamples = 0;
+  while (Date.now() < deadline) {
+    const current = await regionHashes(page, canvas);
+    const matchesLast = last && current.content === last.content && current.controls === last.controls;
+    stableSamples = matchesLast ? stableSamples + 1 : 1;
+    if (stableSamples >= 3) return current;
+    last = current;
+    await new Promise(resolveWait => setTimeout(resolveWait, 80));
+  }
+  throw new Error(`Canvas content/control composition did not settle for ${label}.`);
+}
+
+async function keyboardStableStep(page, canvas, key, required, options, label) {
+  await canvas.focus();
+  await waitForStableRegionComposition(page, canvas, options.timeoutMs, `${label} focus`);
+  const before = await regionHashes(page, canvas);
+  await canvas.press(key, { delay: 120 });
+  return await waitForStableRegionChange(page, canvas, before, required, options.timeoutMs, label);
+}
+
+async function pointerStableStep(page, canvas, normalizedX, normalizedY, required, options, label) {
+  await canvas.focus();
+  await waitForStableRegionComposition(page, canvas, options.timeoutMs, `${label} focus`);
+  const bounds = await canvas.boundingBox();
+  if (!bounds) throw new Error(`Unity canvas has no pointer bounds for ${label}.`);
+  const position = { x: bounds.width * normalizedX, y: bounds.height * normalizedY };
+  await canvas.hover({ position });
+  await waitForStableRegionComposition(page, canvas, options.timeoutMs, `${label} hover`);
+  const before = await regionHashes(page, canvas);
+  await canvas.click({
+    position,
+    delay: 120,
+  });
+  return await waitForStableRegionChange(page, canvas, before, required, options.timeoutMs, label);
+}
+
+async function captureCanvas(canvas, options, filename) {
+  await canvas.screenshot({ path: join(options.outputDirectory, filename), type: "png" });
+}
+
+async function waitForSubmission(page, expectedStatus, options, label) {
+  await page.waitForFunction(status => [...document.querySelectorAll("#progress li")]
+    .some(item => item.textContent.includes(status)), expectedStatus, { timeout: options.timeoutMs });
+  const completion = sanitizeText(await page.locator("#completion").innerText());
+  if (!completion) throw new Error(`Harness did not expose sanitized completion for ${label}.`);
+  return completion;
+}
+
+async function setHarnessMode(page, mode) {
+  await page.evaluate(nextMode => {
+    const select = document.querySelector("#mode");
+    select.value = nextMode;
+    select.dispatchEvent(new Event("change", { bubbles: true }));
+  }, mode);
+}
+
+async function useFullscreenHarness(page, viewport) {
+  await page.setViewportSize(viewport);
+  await page.evaluate(() => {
+    let style = document.querySelector("#smoke-fullscreen-harness");
+    if (!style) {
+      style = document.createElement("style");
+      style.id = "smoke-fullscreen-harness";
+      style.textContent = `
+        html, body { width: 100%; height: 100%; max-width: none; padding: 0; overflow: hidden; }
+        header, main > section:not(.player) { display: none; }
+        main, .player { display: block; width: 100%; height: 100%; margin: 0; padding: 0; border: 0; }
+        iframe { width: 100vw; height: 100vh; min-height: 100vh; border-radius: 0; }
+      `;
+      document.head.appendChild(style);
+    }
+  });
+}
+
+const GuidedGate = Object.freeze({
+  transition: Object.freeze({ content: true, controls: true }),
+  focus: Object.freeze({ content: false, controls: true }),
+  content: Object.freeze({ content: true, controls: false }),
+  controls: Object.freeze({ content: false, controls: true }),
+});
+
+async function runPrimaryKeyboardPath(definition, page, frame, canvas, options) {
+  if (definition.name !== "chrome") return null;
+  const pathContract = { interaction: "keyboard", mode: "Primary" };
+  await keyboardStableStep(page, canvas, "Enter", GuidedGate.content, options, "title start");
+  await keyboardStableStep(page, canvas, "Enter", GuidedGate.transition, options, "briefing continue");
+  await waitForStableRegionComposition(page, canvas, options.timeoutMs, "mode");
+  await captureCanvas(canvas, options, "chrome-primary-mode.png");
+
+  const mobile = await verifyCanvasContract(page, frame, canvas, { width: 390, height: 844 });
+  await captureCanvas(canvas, options, "chrome-mobile-compact.png");
+  const desktop = await verifyCanvasContract(page, frame, canvas, { width: 1440, height: 1000 });
+
+  await keyboardStableStep(page, canvas, "Enter", GuidedGate.transition, options, "learn");
+  await keyboardStableStep(page, canvas, "Enter", GuidedGate.transition, options, "build");
+  await captureCanvas(canvas, options, "chrome-primary-build.png");
+  await keyboardStableStep(page, canvas, "Tab", GuidedGate.focus, options, "problem developing option");
+  await keyboardStableStep(page, canvas, "Enter", GuidedGate.transition, options, "problem feedback");
+  await keyboardStableStep(page, canvas, "Enter", GuidedGate.transition, options, "evidence build");
+  await keyboardStableStep(page, canvas, "Enter", GuidedGate.transition, options, "evidence feedback");
+  await keyboardStableStep(page, canvas, "Enter", GuidedGate.transition, options, "solution build");
+  await keyboardStableStep(page, canvas, "Enter", GuidedGate.transition, options, "solution feedback");
+  await keyboardStableStep(page, canvas, "Enter", GuidedGate.transition, options, "value build");
+  await keyboardStableStep(page, canvas, "Enter", GuidedGate.transition, options, "value feedback");
+  await keyboardStableStep(page, canvas, "Enter", GuidedGate.transition, options, "improve");
+  await captureCanvas(canvas, options, "chrome-primary-improve.png");
+  await keyboardStableStep(page, canvas, "Enter", GuidedGate.content, options, "revision options");
+  await keyboardStableStep(page, canvas, "Tab", GuidedGate.focus, options, "revision focus present");
+  await keyboardStableStep(page, canvas, "Tab", GuidedGate.focus, options, "revision focus clear option");
+  await keyboardStableStep(page, canvas, "Enter", GuidedGate.transition, options, "one revision");
+  await keyboardStableStep(page, canvas, "Enter", GuidedGate.transition, options, "present");
+  await captureCanvas(canvas, options, "chrome-primary-present.png");
+  await keyboardStableStep(page, canvas, "Enter", GuidedGate.transition, options, "cost follow-up");
+  await keyboardStableStep(page, canvas, "Enter", GuidedGate.transition, options, "cost feedback");
+  await keyboardStableStep(page, canvas, "Enter", GuidedGate.transition, options, "results");
+  await captureCanvas(canvas, options, "chrome-primary-results.png");
+
+  await setHarnessMode(page, "failure");
+  await keyboardStableStep(page, canvas, "Enter", GuidedGate.controls, options, "submission failure");
+  await waitForSubmission(page, "failure", options, "failed result");
+  await setHarnessMode(page, "success");
+  await keyboardStableStep(page, canvas, "Enter", GuidedGate.controls, options, "submission success");
+  const completion = await waitForSubmission(page, "success", options, "successful result");
+  await keyboardStableStep(page, canvas, "Enter", GuidedGate.transition, options, "retry");
+  await keyboardStableStep(page, canvas, "Enter", GuidedGate.transition, options, "fresh mode selection");
+  return { ...pathContract, completion, mobile, desktop };
+}
+
+async function runSecondaryPointerPath(definition, page, frame, canvas, options) {
+  if (definition.name !== "edge") return null;
+  const pathContract = { interaction: "pointer", mode: "Secondary" };
+  await pointerStableStep(page, canvas, 0.50, 0.50, GuidedGate.content, options, "title start");
+  await pointerStableStep(page, canvas, 0.50, 0.60, GuidedGate.transition, options, "briefing continue");
+  await waitForStableRegionComposition(page, canvas, options.timeoutMs, "mode");
+  await captureCanvas(canvas, options, "edge-secondary-mode.png");
+
+  const mobile = await verifyCanvasContract(page, frame, canvas, { width: 390, height: 844 });
+  await captureCanvas(canvas, options, "edge-mobile-compact.png");
+  const desktop = await verifyCanvasContract(page, frame, canvas, { width: 1440, height: 1000 });
+
+  await pointerStableStep(page, canvas, 0.70, 0.76, GuidedGate.transition, options, "learn");
+  await pointerStableStep(page, canvas, 0.50, 0.86, GuidedGate.transition, options, "build");
+  await captureCanvas(canvas, options, "edge-secondary-build.png");
+  await pointerStableStep(page, canvas, 0.50, 0.70, GuidedGate.transition, options, "problem feedback");
+  await pointerStableStep(page, canvas, 0.50, 0.86, GuidedGate.transition, options, "evidence build");
+  await pointerStableStep(page, canvas, 0.27, 0.70, GuidedGate.transition, options, "evidence feedback");
+  await pointerStableStep(page, canvas, 0.50, 0.86, GuidedGate.transition, options, "solution build");
+  await pointerStableStep(page, canvas, 0.27, 0.70, GuidedGate.transition, options, "solution feedback");
+  await pointerStableStep(page, canvas, 0.50, 0.86, GuidedGate.transition, options, "value build");
+  await pointerStableStep(page, canvas, 0.27, 0.70, GuidedGate.transition, options, "value feedback");
+  await pointerStableStep(page, canvas, 0.50, 0.86, GuidedGate.transition, options, "improve");
+  await pointerStableStep(page, canvas, 0.50, 0.70, GuidedGate.content, options, "revision options");
+  await pointerStableStep(page, canvas, 0.27, 0.60, GuidedGate.transition, options, "one revision");
+  await pointerStableStep(page, canvas, 0.50, 0.86, GuidedGate.transition, options, "present");
+  await captureCanvas(canvas, options, "edge-secondary-present.png");
+  await pointerStableStep(page, canvas, 0.50, 0.86, GuidedGate.transition, options, "cost follow-up");
+  await pointerStableStep(page, canvas, 0.27, 0.70, GuidedGate.transition, options, "cost feedback");
+  await pointerStableStep(page, canvas, 0.50, 0.86, GuidedGate.transition, options, "results");
+  await captureCanvas(canvas, options, "edge-secondary-results.png");
+
+  await setHarnessMode(page, "failure");
+  await pointerStableStep(page, canvas, 0.36, 0.82, GuidedGate.controls, options, "submission failure");
+  await waitForSubmission(page, "failure", options, "failed result");
+  await setHarnessMode(page, "success");
+  await pointerStableStep(page, canvas, 0.36, 0.82, GuidedGate.controls, options, "submission success");
+  const completion = await waitForSubmission(page, "success", options, "successful result");
+  await pointerStableStep(page, canvas, 0.64, 0.82, GuidedGate.transition, options, "retry");
+  await pointerStableStep(page, canvas, 0.50, 0.60, GuidedGate.transition, options, "fresh mode selection");
+  return { ...pathContract, completion, mobile, desktop };
+}
+
+async function verifyCanvasContract(page, frame, canvas, viewport) {
+  const previousViewport = page.viewportSize();
+  const beforeComposition = await regionHashes(page, canvas);
+  const viewportChanged = !previousViewport || previousViewport.width !== viewport.width ||
+    previousViewport.height !== viewport.height;
+  await useFullscreenHarness(page, viewport);
+  await frame.waitForFunction(expected => {
+    const canvas = document.querySelector("#unity-canvas");
+    const rect = canvas && canvas.getBoundingClientRect();
+    return rect && rect.width > 0 && rect.height > 0 &&
+      Math.abs(innerWidth - expected.width) < 1 && Math.abs(innerHeight - expected.height) < 1;
+  }, viewport, { timeout: 10_000 });
+  const sizingDeadline = Date.now() + 10_000;
+  let sizingSignature = null;
+  let sizingStableSamples = 0;
+  while (Date.now() < sizingDeadline && sizingStableSamples < 3) {
+    const sizing = await frame.evaluate(() => {
+      const canvas = document.querySelector("#unity-canvas");
+      const stage = document.querySelector("#unity-stage");
+      if (!canvas || !stage || canvas.clientWidth <= 0 || canvas.clientHeight <= 0) return null;
+      const scale = window.AgrovatorLayout.renderScale(window.devicePixelRatio || 1);
+      const ready = Boolean(stage.style.width && stage.style.height) &&
+        Math.abs((canvas.width / canvas.clientWidth) - scale) <= 0.05 &&
+        Math.abs((canvas.height / canvas.clientHeight) - scale) <= 0.05;
+      return {
+        ready,
+        signature: `${stage.style.width}|${stage.style.height}|${canvas.clientWidth}|` +
+          `${canvas.clientHeight}|${canvas.width}|${canvas.height}|${scale}`,
+      };
+    });
+    if (sizing?.ready) {
+      sizingStableSamples = sizing.signature === sizingSignature ? sizingStableSamples + 1 : 1;
+      sizingSignature = sizing.signature;
+    } else {
+      sizingStableSamples = 0;
+      sizingSignature = null;
+    }
+    if (sizingStableSamples < 3) {
+      await new Promise(resolveWait => setTimeout(resolveWait, 80));
+    }
+  }
+  if (sizingStableSamples < 3) throw new Error("Canvas CSS/backing sizing did not settle.");
+  await waitForStableRegionChange(page, canvas, beforeComposition,
+    { content: viewportChanged, controls: viewportChanged }, 10_000, "responsive Unity composition");
+  await canvas.focus();
+  const metrics = await frame.evaluate(() => {
+    const canvas = document.querySelector("#unity-canvas");
+    const stage = document.querySelector("#unity-stage");
+    const rect = canvas.getBoundingClientRect();
+    const stageRect = stage.getBoundingClientRect();
+    const renderScale = window.AgrovatorLayout.renderScale(window.devicePixelRatio || 1);
+    return {
+      css: { width: rect.width, height: rect.height },
+      backing: { width: canvas.width, height: canvas.height },
+      dpr: window.devicePixelRatio || 1,
+      renderScale,
+      ratios: { x: canvas.width / rect.width, y: canvas.height / rect.height },
+      contained: rect.left >= stageRect.left - 0.5 && rect.top >= stageRect.top - 0.5 &&
+        rect.right <= stageRect.right + 0.5 && rect.bottom <= stageRect.bottom + 0.5,
+      horizontalOverflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+      canvasFocused: document.activeElement === canvas,
+    };
+  });
+  const outerOverflow = await page.evaluate(() =>
+    document.documentElement.scrollWidth - document.documentElement.clientWidth);
+  if (Math.abs(metrics.ratios.x - metrics.renderScale) > 0.05 ||
+      Math.abs(metrics.ratios.y - metrics.renderScale) > 0.05) {
+    throw new Error(`Canvas backing/CSS metrics did not match render scale: ${JSON.stringify(metrics)}.`);
+  }
+  if (!metrics.contained || !metrics.canvasFocused || metrics.horizontalOverflow > 0.5 || outerOverflow > 0.5) {
+    throw new Error(`Canvas containment/focus/overflow contract failed: ${JSON.stringify({ metrics, outerOverflow })}`);
+  }
+  return { viewport, ...metrics, outerHorizontalOverflow: outerOverflow };
 }
 
 async function runBrowser(playwright, definition, server, options) {
@@ -499,7 +627,11 @@ async function runBrowser(playwright, definition, server, options) {
     warnings: [],
     completionSummary: null,
     modes: { success: false, failure: false, missingConfig: false, expired: "not-exercised" },
-    interactionContract: "Measured Start pointer at (0.50, 0.61), Briefing pointer at (0.50, 0.66); three focused Enter presses held 120ms complete Tutorial; pitch-room Continue pointer at (0.50, 0.86); tutorial pointer response at (0.50, 0.73); six focused Enter responses held 120ms; Continue x3 between Q1-Q5 and x2 after Q6 to Results. After successful completion, Retry uses pointer-only Briefing and Tutorial Skip at (0.40, 0.79), then proves the downstream pointer-only practice sequence through fresh Q1 reveal, preventing focus-tint-only false positives. Stable lower-control-region changes plus 220ms settle gate observable swaps; 180ms bounded waits cover internal reaction/feedback transitions. Final recovery requires changed content and control regions to remain identical for three bounded samples before capture.",
+    interactionContract: definition.name === "chrome"
+      ? "Primary path is keyboard-only from Title through fresh Mode Selection; every named action waits for state-specific localized content/control regions stable across three samples."
+      : definition.name === "edge"
+        ? "Secondary path is pointer-only from Title through fresh Mode Selection; every named action waits for state-specific localized content/control regions stable across three samples."
+        : "Availability and canvas sizing only; no guided flow coverage claimed.",
     screenshot: null,
   };
   if (!definition.path || !existsSync(definition.path)) {
@@ -541,18 +673,21 @@ async function runBrowser(playwright, definition, server, options) {
     await frame.locator("#unity-loading").waitFor({ state: "hidden", timeout: options.unityTimeoutMs });
     await canvas.waitFor({ state: "visible", timeout: options.timeoutMs });
 
-    result.desktop = await canvasMetrics(page, frame, canvas, { width: 1440, height: 1000 });
-    result.mobile = await canvasMetrics(page, frame, canvas, { width: 390, height: 844 });
-    await canvasMetrics(page, frame, canvas, { width: 1440, height: 1000 });
-
-    result.completionSummary = await playAttempt(page, frame, canvas, options, definition.name);
+    result.desktop = await verifyCanvasContract(page, frame, canvas, { width: 1440, height: 1000 });
+    const pathResult = await runPrimaryKeyboardPath(definition, page, frame, canvas, options) ||
+      await runSecondaryPointerPath(definition, page, frame, canvas, options);
+    if (!pathResult) {
+      result.status = "not-covered";
+      result.reason = "Browser is available, but Task 8 assigns complete guided paths only to Chrome and Edge.";
+      return result;
+    }
+    result.desktop = pathResult.desktop;
+    result.mobile = pathResult.mobile;
+    result.completionSummary = pathResult.completion;
     result.modes.failure = true;
     result.modes.success = true;
     result.modes.missingConfig = await verifyMissingConfigRecovery(page, options);
-
-    const screenshotPath = join(options.outputDirectory, `${definition.name}-smoke.png`);
-    await page.screenshot({ path: screenshotPath, fullPage: true });
-    result.screenshot = screenshotPath.substring(projectRoot.length + 1).replaceAll("\\", "/");
+    result.screenshot = `artifacts/smoke/${definition.name}-${pathResult.mode.toLowerCase()}-results.png`;
     if (result.consoleErrors.length || result.pageErrors.length) {
       throw new Error(`Browser emitted ${result.consoleErrors.length} console errors and ${result.pageErrors.length} page errors.`);
     }
@@ -604,7 +739,8 @@ async function main() {
   }
 
   const requiredFailure = matrix.results.some(result => result.browser === "chrome" && result.status !== "passed");
-  const availableFailure = matrix.results.some(result => !["passed", "unavailable", "incompatible"].includes(result.status));
+  const availableFailure = matrix.results.some(result =>
+    !["passed", "unavailable", "incompatible", "not-covered"].includes(result.status));
   if (!matrix.server.stopped || requiredFailure || availableFailure) process.exitCode = 1;
   console.log(JSON.stringify({
     outputDirectory: options.outputDirectory,

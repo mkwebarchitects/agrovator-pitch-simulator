@@ -1,39 +1,42 @@
 using System;
-using Agrovator.PitchSimulator.Core;
 using UnityEngine;
 using UnityEngine.UI;
 
 namespace Agrovator.PitchSimulator.UI
 {
+    /// <summary>
+    /// Title screen binding expressed as callbacks so it depends on neither the
+    /// legacy nor the guided session controller.
+    /// </summary>
     public sealed class TitlePresenter : MonoBehaviour
     {
         [SerializeField] private Button startButton;
         [SerializeField] private Button settingsButton;
-        private PitchSessionController controller;
+        private Action start;
         private Action changed;
         private Action openSettings;
         private Action userGesture;
         private bool initialized;
 
-        public void Initialize(PitchSessionController sessionController, Action onChanged, Action onOpenSettings,
+        public void Initialize(Action start, Action changed, Action openSettings,
             Action onUserGesture = null)
         {
-            if (sessionController == null) throw new ArgumentNullException(nameof(sessionController));
+            if (start == null) throw new ArgumentNullException(nameof(start));
             startButton.onClick.RemoveListener(StartScenario);
             settingsButton.onClick.RemoveListener(OpenSettings);
-            controller = sessionController;
-            changed = onChanged;
-            openSettings = onOpenSettings;
+            this.start = start;
+            this.changed = changed;
+            this.openSettings = openSettings;
             userGesture = onUserGesture;
             startButton.onClick.AddListener(StartScenario);
             settingsButton.onClick.AddListener(OpenSettings);
             initialized = true;
         }
 
-        public void Refresh(PitchSessionSnapshot snapshot)
+        public void SetStartInteractable(bool value)
         {
             if (!initialized) return;
-            startButton.interactable = snapshot.State == GameState.Title;
+            startButton.interactable = value;
         }
 
         private void OnDestroy()
@@ -46,7 +49,7 @@ namespace Agrovator.PitchSimulator.UI
         {
             if (!initialized) return;
             userGesture?.Invoke();
-            controller.StartScenario();
+            start();
             changed?.Invoke();
         }
 

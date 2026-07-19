@@ -4,7 +4,8 @@
     "references": [
         "Agrovator.PitchSimulator.UI",
         "Agrovator.PitchSimulator.Audio",
-        "Agrovator.PitchSimulator.LMS"
+        "Agrovator.PitchSimulator.LMS",
+        "Agrovator.PitchSimulator.GuidedPitch"
     ],
     "includePlatforms": [
         "Editor"

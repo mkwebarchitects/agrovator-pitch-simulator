@@ -10,7 +10,8 @@
         "Agrovator.PitchSimulator.LMS",
         "Agrovator.PitchSimulator.Audio",
         "Agrovator.PitchSimulator.UI",
-        "Agrovator.PitchSimulator.Editor"
+        "Agrovator.PitchSimulator.Editor",
+        "Agrovator.PitchSimulator.GuidedPitch"
     ],
     "includePlatforms": [
         "Editor"

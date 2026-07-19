@@ -1,56 +1,102 @@
-# Verify the Vertical Slice
+# Verify the Guided Pitch Builder
 
-## Automated baseline
+## Canonical acceptance commands
 
-The fresh final-review checkpoint is EditMode `311/311` and PlayMode `39/39`, with zero failures, skips, or inconclusive tests. NUnit reported `1.7349866 s` and `2.116046 s`; the canonical wrappers completed in approximately `50.3 s` and `49.9 s`. Both complete logs contained zero `error CS`, compilation-failure, or unhandled-exception markers. The companion Node source/layout suite passed `14/14`. Run:
-
-```powershell
-powershell -ExecutionPolicy Bypass -File tools/Run-UnityTests.ps1 -Platform EditMode
-powershell -ExecutionPolicy Bypass -File tools/Run-UnityTests.ps1 -Platform PlayMode
-```
-
-The wrappers write XML under `artifacts/test-results` and logs under `artifacts/logs`. Counts can change when tests are added; report fresh XML and complete-log scans rather than repeating this baseline after changes.
-
-## Fresh WebGL build checkpoint
-
-The 2026-07-15 final-review development build wrapper exited zero in `48.8 s`. BuildReport was `Succeeded`, `92,374,282` bytes (`88.09 MiB`), and `00:00:07.2820626`, with zero build warnings and zero build errors. Seven files were emitted: `index.html` `5,505`; `style.css` `2,717`; `layout.js` `1,115`; loader `58,622`; framework `711,897`; data `9,293,457`; and wasm `82,300,969` bytes. Re-run `tools/Build-WebGL.ps1` before a later release decision; this local development artifact is not a hosted production build.
-
-## Final local browser matrix
-
-Run the loopback server contract and automated matrix from the repository root:
+Run these from the repository root:
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File tools/Serve-WebGL.ps1 -SelfTest
-node tools/smoke-webgl.mjs --browser matrix --headless --output-dir artifacts/smoke
+& .\tools\Run-UnityTests.ps1 -Platform EditMode
+& .\tools\Run-UnityTests.ps1 -Platform PlayMode
+node --check .\tools\smoke-webgl.mjs
+node --test .\tools\tests\*.test.js
+& .\tools\Build-WebGL.ps1
+& .\tools\Serve-WebGL.ps1 -SelfTest
+node .\tools\smoke-webgl.mjs
 ```
 
-On 2026-07-15 (Asia/Kuala_Lumpur), the self-test passed its harness/build HTML, CSS, JavaScript, data, WebAssembly, favicon, HEAD, traversal, missing-file and method checks. After the final review repairs, Playwright `1.61.1` produced this fresh Windows matrix:
+Parse the Unity XML `test-run` root and inspect each complete log. Do not treat Unity's process exit code alone as a pass. Keep XML, logs, builds, JSON, and screenshots ignored.
 
-| Browser | Version | Result | Unity ready | Evidence |
-| --- | --- | --- | ---: | --- |
-| Chrome | `150.0.7871.116` | Passed | `7.293 s` | `artifacts/smoke/chrome-smoke.{json,png}` plus `chrome-tutorial.png` and `chrome-pitch.png` |
-| Edge | `150.0.4078.65` | Passed | `7.549 s` | `artifacts/smoke/edge-smoke.{json,png}` |
-| Firefox | Not installed at either standard Windows path | Unavailable | — | `artifacts/smoke/matrix.json` |
-| Safari | Not available on Windows | Unverified | — | Requires macOS |
+## Fresh 2026-07-19 automated baseline
 
-Chrome and Edge each used the hosted harness and iframe, completed all three dedicated Tutorial pages plus six scored questions, used a pointer tutorial response and keyboard scored responses, reached Results, observed Failure then successful resubmission, retried from Complete, used Tutorial Skip with pointer only, proved the downstream practice flow through a fresh Question 1 reveal, and recovered from Missing Config through Success plus Resend. The final matrix used measured centered-layout coordinates: Continue `(0.50,0.86)`, practice response `(0.50,0.73)`, and Retry Tutorial Skip `(0.40,0.79)`, each with `120 ms` dwell. Before final capture, the recovered Briefing's upper content and lower control regions must both differ from the recovered Title and remain hash-identical for three consecutive `100 ms`-polled samples inside the existing timeout. Both browsers recorded zero console errors and zero page errors; their complete smoke runs took `36.210 s` and `36.559 s`. The loopback server stopped with zero stderr. An initial Edge attempt sampled the prior desktop canvas size before its asynchronous iframe resize, while its later failure capture showed the contained mobile canvas; the unchanged full rerun passed the complete Edge flow. Expired submission was not exercised because Success/Failure/Missing Config provide the deterministic smoke contract.
+| Check | Fresh result |
+| --- | --- |
+| EditMode | XML `Passed`, `370/370`, zero failures/skips/inconclusive, `2.6572753 s`; complete `897`-line log, zero configured compile/exception/failure markers |
+| PlayMode | XML `Passed`, `48/48`, zero failures/skips/inconclusive, `1.760119 s`; complete `890`-line log, zero configured compile/exception/failure markers |
+| JavaScript | `smoke-webgl.mjs` syntax passed; Node contracts `17/17`, zero failures/skips/todos |
+| Content fixture | `GuidedPitchContentTests` `18/18` |
+| Localization fixture | `LocalizationTests` `27/27` |
+| LMS/reflection fixture | `LmsPayloadTests` `92/92` |
+| Active composition fixture | `BootstrapPlayModeTests` `9/9` |
+| Guided flow fixture | `GuidedPitchFlowPlayModeTests` `8/8` |
 
-At desktop `1440x1000`, both browsers recorded an iframe viewport of `1006x720` and a contained `978x548.375` canvas. At the `390x844` viewport, both recorded a `324x218` iframe and `280x156.625` canvas at aspect `1.7877094972`; the iframe therefore retained `44px` horizontal and `61.375px` vertical spare space, with no canvas overflow. These are responsive pointer/layout metrics, not native-touch evidence.
+The focused fixtures cover the exact two-mode routes, `30` stable unique option IDs, every content/localization key, 12-16/32-word rules, `319/319` English/Malay parity, Malay `pending_human_review`, one active v2 Bootstrap reference, DTO/reflection/privacy shape, both learner modes, four Build rounds, revision, Present, follow-up, Results, keyboard/focus, safe fallback, submission preservation, and Retry reset.
 
-The regenerated PNGs were opened individually with image tooling, not accepted by filename or first render. `chrome-tutorial.png` shows a centered `920x560` page-one card, readable wrapped copy, compact `180/180/420px` navigation, a disabled Back state, and no clipping. The replacement `chrome-pitch.png` shows the centered contained PitchRoom card; the prompt now ends with `system?`, response 1 ends with `inconsistent.`, the confidence label reads `Curious`, all three responses remain readable, and no text is clipped. The generated regression independently assigns every authored node/feedback/explanation prompt and response plus all five confidence labels to the active `1280x720` layout and requires complete TextGenerator character counts. The fresh `chrome-smoke.png` and `edge-smoke.png` are byte-identical (`SHA-256 5D85498F78B73CAF12CACA001385C013FEC73019B2B3256922589BAFC965ADE8`) and each shows the complete readable harness, progress/completion panels, centered Briefing heading/body/card, bounded `520px` action, fullscreen control, consistent spacing, and visible gold canvas focus outline. No black partial-repaint checkpoint or horizontal overflow remains. The smoke intentionally creates only Chrome tutorial/pitch intermediate checkpoints; Edge has a final smoke PNG but no literal Edge tutorial/pitch equivalents, so no such files are claimed.
+## Fresh WebGL build and server
 
-The warning collection is non-empty and must remain visible: each passing browser recorded 12 warnings. Eight unique null cue slots were reached (`MusicLoop`, `ButtonPress`, `ResponseSelected`, `JudgeReaction`, `FeedbackOpen`, `ResultsReveal`, `CompletionFailure`, and `CompletionSuccess`); repeated Start/reload paths produced the remaining duplicate cue warnings. `TimerWarning` is covered by its once-per-question EditMode tests because the smoke responds immediately. Each browser also recorded the existing non-root `DontDestroyOnLoad` Bootstrapper warning twice, including after iframe reload.
+BuildReport was `Succeeded`, `92,631,312` bytes, `00:00:02.0019569`, zero warnings, and zero errors. The complete `626`-line build log had zero configured failure markers. The seven-file artifact was:
 
-The 2026-07-15 in-app Browser pass found the default harness visually clean with no horizontal overflow; its `831x720` iframe contained a 16:9 canvas and rendered Title. Before Start there was no app audio warning. Pointer Start reached Briefing and only then emitted the expected missing-`ButtonPress` warning, confirming the user-gesture hook and no autoplay/no blocking with null clips; audible content and human hearing remain unverified. Reload returned Launch configuration sent, bridge ready, frame loaded and a fresh Unity Title.
+| File | Bytes |
+| --- | ---: |
+| `Build/WebGL/index.html` | 5,972 |
+| `Build/WebGL/TemplateData/style.css` | 2,730 |
+| `Build/WebGL/TemplateData/layout.js` | 1,077 |
+| `Build/WebGL/Build/WebGL.loader.js` | 58,622 |
+| `Build/WebGL/Build/WebGL.framework.js` | 712,694 |
+| `Build/WebGL/Build/WebGL.data` | 9,030,172 |
+| `Build/WebGL/Build/WebGL.wasm` | 82,820,045 |
 
-At a `390x844` override, client width was `375`, the iframe was `309x218.39`, horizontal overflow remained absent, and the measured canvas Start pointer reached Briefing. The in-app Browser API cannot emit native touch events, so this proves touch-sized pointer layout/input only, not real touch hardware. The uniquely located fullscreen control was exercised, but the controlled browser denied it with `TypeError: Permissions check failed`; `fullscreenElement` remained false. Record this as an environment limitation, not fullscreen success. A URL-less MutationObserver injection error came from the in-app tooling layer and was absent from product code and from both automated Chrome/Edge page-error captures.
+`Serve-WebGL.ps1 -SelfTest` passed on temporary port `58382` for GET/HEAD, MIME, traversal, missing paths, and rejected methods.
 
-Firefox, Safari, native touch, fullscreen in an unrestricted browser, reduced-motion/all-timer combinations, qualified Malay review, assistive-technology review and audible final clips remain unverified unless separately evidenced.
+## Fresh local browser matrix
 
-## Content and human review
+The final matrix used Playwright `1.61.1` and temporary port `63464`. An earlier acceptance run had claimed missing-configuration recovery without executing it; `runBrowser` now invokes and records `verifyMissingConfigRecovery`, three Node source contracts keep that step reachable, hidden-control-safe, and press-retried, and the recovered Title Start retries held `120 ms` presses until Briefing content replaces Title content because Unity's frame-polled input can miss a single press during relaunch stalls.
 
-Play every branch including recovery/timeouts; verify pedagogy, no answer-length/order cue, child suitability, English, qualified Malay review, accessibility with relevant assistive technology, visual quality, audio rights/loudness, privacy/security, and production LMS contract.
+| Browser | Assigned route | Version | Start / finish (UTC) | Load | Result |
+| --- | --- | ---: | --- | ---: | --- |
+| Chrome | Primary, keyboard-only | `150.0.7871.127` | `15:05:05.793` / `15:05:52.988` | `7,654 ms` | Passed; zero console/page errors |
+| Edge | Secondary, pointer-only | `150.0.4078.83` | `15:05:52.988` / `15:06:50.264` | `7,647 ms` | Passed; zero console/page errors |
+| Firefox | Availability only | unavailable | - | - | No standard-path executable; no pass claimed |
 
-## Defect evidence
+Each passing route covered Title, Briefing, fresh mode selection, Learn, all four choice/feedback rounds, one revision, Present, cost follow-up, Results, forced submission failure, successful resubmission, Retry with fresh mode selection, executed and recorded missing-configuration recovery (`modes.missingConfig: true` in both browser JSON artifacts), and completion (`100` overall, `6` competencies, `0` timeouts). The server stopped cleanly with zero stderr.
 
-Record environment, commit, exact command/actions, expected/actual result, sanitized screenshot/log excerpt, severity, owner, and retest. Never fabricate a pass or include a launch/completion payload. See [acceptance](18-VERTICAL-SLICE-ACCEPTANCE.md) and [operations](14-OPERATIONS-TROUBLESHOOTING.md).
+Desktop was viewport `1440x1000` with CSS/backing `1276x918`. Mobile was viewport `390x844` with CSS/backing `380x783`. DPR/render scale and backing/CSS ratios were `1`; containment and canvas focus were true with zero inner/outer horizontal overflow. This is responsive pointer/layout evidence, not native-touch or higher-DPR runtime evidence.
+
+Each browser recorded twelve disclosed non-error warnings. Missing-configuration recovery reloads the player for a second boot, so the root-only `DontDestroyOnLoad`, empty `MusicLoop`, and empty `ButtonPress` warnings appear twice each, alongside single empty-slot warnings for `ResponseSelected`, `JudgeReaction`, `FeedbackOpen`, `ResultsReveal`, `CompletionFailure`, and `CompletionSuccess`. No new warning class appeared. Final licensed/audible audio is absent.
+
+## Original-detail visual review
+
+All eleven required fresh guided screenshots were opened at original detail:
+
+- `artifacts/smoke/chrome-primary-mode.png`
+- `artifacts/smoke/chrome-primary-build.png`
+- `artifacts/smoke/chrome-primary-improve.png`
+- `artifacts/smoke/chrome-primary-present.png`
+- `artifacts/smoke/chrome-primary-results.png`
+- `artifacts/smoke/chrome-mobile-compact.png`
+- `artifacts/smoke/edge-secondary-mode.png`
+- `artifacts/smoke/edge-secondary-build.png`
+- `artifacts/smoke/edge-secondary-present.png`
+- `artifacts/smoke/edge-secondary-results.png`
+- `artifacts/smoke/edge-mobile-compact.png`
+
+The review confirmed contained point-filtered garden art, opaque navy lesson surfaces, cream selectable cards, persistent part icons/colours, visible gold focus, complete Primary/Secondary mode cards in compact view, readable wide Build/Improve copy, four complete Present sentences in both modes, complete final pitches including Secondary `beds.`, and fixed submission/Retry actions. The longer Secondary Results content remains vertically scrollable while the fixed actions stay visible.
+
+## Reconciliation and hygiene
+
+- Asset/meta: `142` logical files plus `40` logical directories (`182` entries) and `182` matching `.meta` files; zero missing and zero orphaned.
+- Content/localization: one active content-v2 asset, `30` exact stable unique options, every route/key resolved, `319/319` exact English/Malay key and guided fallback-value parity.
+- DTOs: launch `14` fields and completion `19` fields/types unchanged; source files have zero diff from the guided baseline.
+- Links: `48` tracked Markdown files, `78` relative links checked, zero broken.
+- Ignore rules: `Library`, `Temp`, `Logs`, `UserSettings`, `Build`, and `artifacts` are ignored. Generated ProjectSettings/editor noise was removed.
+- Privacy: zero unexpected email, credential-query, secret-named-file, secret/private-key, free-text input, private learner value, response-text log, or full-payload log findings after every match was reviewed.
+- Branch whitespace: the six known metadata trailing spaces were removed without GUID/content changes; `git diff --check ce7f8ac` exits zero.
+
+## Evidence and human-review boundary
+
+Automated tests, browser smoke, and screenshots demonstrate implementation behavior. They do not demonstrate classroom learning effectiveness. Before such a claim, Primary and Secondary educators or representative learners must review reading level, coaching tone, task length, and transfer usefulness.
+
+Malay human review, Firefox/Safari, native touch, a real LMS, unrestricted fullscreen, legal approval, classroom use, and human accessibility/assistive-technology review remain unclaimed. The lexical source-contract extractor's treatment of calls inside constant-unreachable branches such as `if (false)` is a retained minor for final review triage; runtime smoke is the current behavioral backstop.
+
+Independent Task 9 and whole-branch reviews are post-commit gates and are not claimed in this implementation record.
+
+See [acceptance](18-VERTICAL-SLICE-ACCEPTANCE.md), [privacy](12-PRIVACY-SECURITY.md), and [operations](14-OPERATIONS-TROUBLESHOOTING.md).
