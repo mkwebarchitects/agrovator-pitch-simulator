@@ -10,8 +10,8 @@ The external AGROVATOR LMS repository was not accessed. Real LMS behavior, Malay
 
 ## Fresh execution evidence
 
-- EditMode XML `Passed`: `370/370`, zero failures/skips/inconclusive, `2.6572753 s`; complete `897`-line log with zero configured compile/exception/failure markers.
-- PlayMode XML `Passed`: `48/48`, zero failures/skips/inconclusive, `1.760119 s`; complete `890`-line log with zero configured markers.
+- EditMode XML `Passed`: `370/370`, zero failures/skips/inconclusive, `3.6042203 s`; complete `906`-line log with zero configured compile/exception/failure markers. (Final post-cleanup re-run; the pre-cleanup run passed the same `370/370`.)
+- PlayMode XML `Passed`: `48/48`, zero failures/skips/inconclusive, `2.3099064 s`; complete `895`-line log with zero configured markers. (Final post-cleanup re-run; the pre-cleanup run passed the same `48/48`.)
 - JavaScript syntax passed; Node contracts passed `20/20` with zero failures/skips/todos, including three repair contracts that require reachable recorded missing-configuration recovery, hidden-fullscreen-control operation, and retried frame-polled presses on the recovered Title.
 - WebGL BuildReport `Succeeded`: `92,631,312` bytes, `00:00:02.0019569`, zero warnings/errors; complete `626`-line log with zero configured markers.
 - Server self-test passed on temporary port `58382`.
