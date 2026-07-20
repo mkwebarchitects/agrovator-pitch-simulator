@@ -39,13 +39,15 @@ namespace Agrovator.PitchSimulator.Editor
     {
         private const float FrameWidth = 980f;
         private const float FrameHeight = 672f;
-        private const float JudgeBlinkIntervalSeconds = 5f;
-        private const float JudgeBlinkDurationSeconds = 0.12f;
-        private const float JudgeTalkFrameSeconds = 0.18f;
+        // Internal so the project builder's idempotence guard can compare a saved
+        // scene against the tuning this builder would produce today.
+        internal const float JudgeBlinkIntervalSeconds = 5f;
+        internal const float JudgeBlinkDurationSeconds = 0.12f;
+        internal const float JudgeTalkFrameSeconds = 0.18f;
         // Long enough for a learner to register the reaction to their statement
         // before Aya relaxes, short enough that she is never holding a Concerned
         // face at them while they read the feedback.
-        private const float JudgeSemanticHoldSeconds = 2.5f;
+        internal const float JudgeSemanticHoldSeconds = 2.5f;
         private static readonly Color ScreenDim = new Color(0.055f, 0.09f, 0.12f, 1f);
         private static readonly Color DeepNavy = new Color32(0x0E, 0x17, 0x1F, 0xFF);
         private static readonly Color CardNavy = new Color32(0x16, 0x24, 0x2F, 0xFF);
@@ -308,6 +310,10 @@ namespace Agrovator.PitchSimulator.Editor
             }
             judgeView.Configure(judgeImage, spriteSet, JudgeBlinkIntervalSeconds,
                 JudgeBlinkDurationSeconds, JudgeTalkFrameSeconds, JudgeSemanticHoldSeconds);
+            // Configure applies the Idle frame as its last step, so restore the
+            // resting portrait afterwards: until a presenter runs, the saved scene
+            // is what a learner and an editor both see.
+            judgeImage.sprite = ResolveAyaSprite(ayaSprites, JudgeReaction.Encouraging);
 
             var card = new GameObject("Dialogue Card", typeof(RectTransform), typeof(Image),
                 typeof(VerticalLayoutGroup), typeof(LayoutElement));

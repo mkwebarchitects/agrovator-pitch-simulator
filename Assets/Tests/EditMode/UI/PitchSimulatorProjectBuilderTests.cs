@@ -722,6 +722,15 @@ namespace Agrovator.PitchSimulator.Tests.EditMode.UI
             Assert.That(sheetSprites.Values.Select(sprite => sprite.rect.size).Distinct().Count(),
                 Is.EqualTo(1),
                 "Uniform slices keep the layout stable as the portrait swaps.");
+            Assert.That(judgeImage.sprite, Is.SameAs(sheetSprites["Encouraging"]),
+                "Aya must rest on the encouraging portrait before any presenter runs, not the " +
+                "Idle frame that JudgeReactionView.Configure applies as its last step.");
+            // A saved scene whose tuning has drifted from the builder is a scene that
+            // was never regenerated: it silently ships behaviour no source file describes.
+            AssertSerializedFloat(serializedJudge, "blinkIntervalSeconds", 5f);
+            AssertSerializedFloat(serializedJudge, "blinkDurationSeconds", 0.12f);
+            AssertSerializedFloat(serializedJudge, "talkFrameSeconds", 0.18f);
+            AssertSerializedFloat(serializedJudge, "semanticHoldSeconds", 2.5f);
             using (new ActiveScope(guided.gameObject))
             {
                 ForceGuidedLayout(canvas, guided);
@@ -1131,6 +1140,16 @@ namespace Agrovator.PitchSimulator.Tests.EditMode.UI
                 Is.SameAs(canvas.Find("Title/Content Frame/Start Button").gameObject));
 
             AssertNoLegacyPresentation(canvas);
+        }
+
+        private static void AssertSerializedFloat(
+            SerializedObject target, string property, float expected)
+        {
+            var found = target.FindProperty(property);
+            Assert.That(found, Is.Not.Null, "Missing serialized property '" + property + "'.");
+            Assert.That(found.floatValue, Is.EqualTo(expected).Within(0.0001f),
+                property + " must match the scene builder constant; a stale value means the " +
+                "scene was not regenerated after the builder changed.");
         }
 
         private static void AssertNoLegacyPresentation(Transform canvas)

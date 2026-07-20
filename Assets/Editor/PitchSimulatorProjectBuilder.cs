@@ -306,8 +306,57 @@ namespace Agrovator.PitchSimulator.Editor
                 presentLayout.padding.bottom == 14 &&
                 resultsLayout != null && Mathf.Approximately(resultsLayout.spacing, 5f) &&
                 routers[0].ValidateContract(out _) &&
+                HasCurrentJudgeContract(canvas.transform) &&
                 eventSystems[0].firstSelectedGameObject ==
                     canvas.transform.Find("Title/Content Frame/Start Button")?.gameObject;
+        }
+
+        /// <summary>
+        /// Judge Aya's reaction wiring and tuning are part of what makes a saved
+        /// scene current. Without this, the idempotence guard above would treat a
+        /// scene built by an older builder as up to date and silently keep serving
+        /// tuning values that no longer exist in any source file.
+        /// </summary>
+        private static bool HasCurrentJudgeContract(Transform canvas)
+        {
+            var judge = canvas.Find("Guided Pitch/Content Frame/Aya Row/Judge Aya");
+            var view = judge != null ? judge.GetComponent<JudgeReactionView>() : null;
+            var image = judge != null ? judge.GetComponent<Image>() : null;
+            if (view == null || image == null || !view.IsConfigured)
+            {
+                return false;
+            }
+
+            var serialized = new SerializedObject(view);
+            if (serialized.FindProperty("portraitImage").objectReferenceValue != (UnityEngine.Object)image ||
+                !Mathf.Approximately(serialized.FindProperty("blinkIntervalSeconds").floatValue,
+                    GuidedPitchSceneBuilder.JudgeBlinkIntervalSeconds) ||
+                !Mathf.Approximately(serialized.FindProperty("blinkDurationSeconds").floatValue,
+                    GuidedPitchSceneBuilder.JudgeBlinkDurationSeconds) ||
+                !Mathf.Approximately(serialized.FindProperty("talkFrameSeconds").floatValue,
+                    GuidedPitchSceneBuilder.JudgeTalkFrameSeconds) ||
+                !Mathf.Approximately(serialized.FindProperty("semanticHoldSeconds").floatValue,
+                    GuidedPitchSceneBuilder.JudgeSemanticHoldSeconds))
+            {
+                return false;
+            }
+
+            var sprites = serialized.FindProperty("sprites");
+            foreach (JudgeReaction reaction in Enum.GetValues(typeof(JudgeReaction)))
+            {
+                var field = char.ToLowerInvariant(reaction.ToString()[0]) +
+                    reaction.ToString().Substring(1);
+                var assigned = sprites.FindPropertyRelative(field).objectReferenceValue as Sprite;
+                if (assigned == null ||
+                    !string.Equals(assigned.name, reaction.ToString(), StringComparison.Ordinal))
+                {
+                    return false;
+                }
+            }
+
+            return image.sprite != null &&
+                string.Equals(image.sprite.name, nameof(JudgeReaction.Encouraging),
+                    StringComparison.Ordinal);
         }
 
         private static bool HasCurrentWebIntegrationContract(Scene scene)

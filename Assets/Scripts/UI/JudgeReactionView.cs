@@ -201,6 +201,9 @@ namespace Agrovator.PitchSimulator.UI
                 {
                     semanticActive = false;
                     elapsed = 0f;
+                    // The settled face is now what is latched, so the same cue
+                    // arriving again is a new reaction to show, not a repeat to skip.
+                    latchedSemanticReaction = JudgeReaction.Encouraging;
                     Apply(JudgeReaction.Encouraging);
                 }
                 return;

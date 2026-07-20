@@ -238,6 +238,35 @@ async function contentRegionHash(page, canvas) {
   return hash(await page.screenshot({ type: "png", clip }));
 }
 
+// Judge Aya's portrait sits at the left of the Aya Row, directly under the
+// progress rail. Hashing just her cell turns "the reaction screenshot looks
+// right" into an executable assertion: every other region changes when the
+// feedback text appears, so only this clip can prove the portrait itself moved.
+// Ordering constraint: the lower part of Judge Aya's cell falls inside the
+// gated content region, so a GuidedGate.content step must never immediately
+// follow a reaction. Her settle back to Encouraging would otherwise satisfy a
+// content-only gate on its own and mask a missed press.
+async function judgePortraitHash(page, canvas) {
+  const bounds = await canvas.boundingBox();
+  if (!bounds) throw new Error("Unity canvas has no judge-portrait bounds.");
+  const clip = {
+    x: bounds.x + (bounds.width * 0.06),
+    y: bounds.y + (bounds.height * 0.10),
+    width: bounds.width * 0.14,
+    height: bounds.height * 0.26,
+  };
+  return hash(await page.screenshot({ type: "png", clip }));
+}
+
+async function captureJudgeReaction(page, canvas, options, restingHash, filename) {
+  const reacting = await judgePortraitHash(page, canvas);
+  if (reacting === restingHash) {
+    throw new Error(`Judge Aya did not react before ${filename}; her portrait is unchanged.`);
+  }
+  await captureCanvas(canvas, options, filename);
+  return reacting;
+}
+
 async function regionHashes(page, canvas) {
   return {
     content: await contentRegionHash(page, canvas),
@@ -414,15 +443,17 @@ async function runPrimaryKeyboardPath(definition, page, frame, canvas, options) 
   await keyboardStableStep(page, canvas, "Enter", GuidedGate.transition, options, "learn");
   await keyboardStableStep(page, canvas, "Enter", GuidedGate.transition, options, "build");
   await captureCanvas(canvas, options, "chrome-primary-build.png");
+  // Judge Aya rests on every question, so her resting portrait is the baseline
+  // each reaction below must differ from.
+  const chromeResting = await judgePortraitHash(page, canvas);
   await keyboardStableStep(page, canvas, "Tab", GuidedGate.focus, options, "problem developing option");
   await keyboardStableStep(page, canvas, "Enter", GuidedGate.transition, options, "problem feedback");
-  // Judge Aya's reaction to the statement just assembled. Captured at the
-  // feedback moment, because every other capture sits on a question where she
-  // rests: a Developing answer here and a Clear answer next must not look alike.
-  await captureCanvas(canvas, options, "chrome-primary-reaction-developing.png");
+  const chromeDeveloping = await captureJudgeReaction(page, canvas, options, chromeResting,
+    "chrome-primary-reaction-developing.png");
   await keyboardStableStep(page, canvas, "Enter", GuidedGate.transition, options, "evidence build");
   await keyboardStableStep(page, canvas, "Enter", GuidedGate.transition, options, "evidence feedback");
-  await captureCanvas(canvas, options, "chrome-primary-reaction-clear.png");
+  await captureJudgeReaction(page, canvas, options, chromeDeveloping,
+    "chrome-primary-reaction-clear.png");
   await keyboardStableStep(page, canvas, "Enter", GuidedGate.transition, options, "solution build");
   await keyboardStableStep(page, canvas, "Enter", GuidedGate.transition, options, "solution feedback");
   await keyboardStableStep(page, canvas, "Enter", GuidedGate.transition, options, "value build");
@@ -466,11 +497,14 @@ async function runSecondaryPointerPath(definition, page, frame, canvas, options)
   await pointerStableStep(page, canvas, 0.70, 0.76, GuidedGate.transition, options, "learn");
   await pointerStableStep(page, canvas, 0.50, 0.86, GuidedGate.transition, options, "build");
   await captureCanvas(canvas, options, "edge-secondary-build.png");
+  const edgeResting = await judgePortraitHash(page, canvas);
   await pointerStableStep(page, canvas, 0.50, 0.70, GuidedGate.transition, options, "problem feedback");
-  await captureCanvas(canvas, options, "edge-secondary-reaction-first.png");
+  const edgeFirst = await captureJudgeReaction(page, canvas, options, edgeResting,
+    "edge-secondary-reaction-first.png");
   await pointerStableStep(page, canvas, 0.50, 0.86, GuidedGate.transition, options, "evidence build");
   await pointerStableStep(page, canvas, 0.27, 0.70, GuidedGate.transition, options, "evidence feedback");
-  await captureCanvas(canvas, options, "edge-secondary-reaction-second.png");
+  await captureJudgeReaction(page, canvas, options, edgeFirst,
+    "edge-secondary-reaction-second.png");
   await pointerStableStep(page, canvas, 0.50, 0.86, GuidedGate.transition, options, "solution build");
   await pointerStableStep(page, canvas, 0.27, 0.70, GuidedGate.transition, options, "solution feedback");
   await pointerStableStep(page, canvas, 0.50, 0.86, GuidedGate.transition, options, "value build");

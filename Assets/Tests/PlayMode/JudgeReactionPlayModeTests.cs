@@ -87,6 +87,35 @@ namespace Agrovator.PitchSimulator.Tests.PlayMode
             Assert.That(view.CurrentReaction, Is.EqualTo(JudgeReaction.Idle));
         }
 
+        /// <summary>
+        /// Settling to Encouraging must also release the latch that records which
+        /// reaction is showing. Otherwise the same cue arriving twice in a row is
+        /// silently swallowed as a repeat of a reaction that is no longer on screen.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator View_RepeatsAReactionThatAlreadySettled_InsteadOfSwallowingIt()
+        {
+            var root = Track(new GameObject("Judge", typeof(RectTransform), typeof(Image),
+                typeof(JudgeReactionView)));
+            var image = root.GetComponent<Image>();
+            var view = root.GetComponent<JudgeReactionView>();
+            var sprites = CreateCompleteSpriteSet();
+            view.Configure(image, sprites, 5f, 0.02f, 0.01f, semanticHoldSeconds: 0.04f);
+
+            view.Render("Concerned", questionTextVisible: false, showSemanticReaction: true,
+                reducedMotion: false);
+            Assert.That(view.CurrentReaction, Is.EqualTo(JudgeReaction.Concerned));
+            yield return new WaitForSecondsRealtime(0.06f);
+            Assert.That(view.CurrentReaction, Is.EqualTo(JudgeReaction.Encouraging));
+
+            view.Render("Concerned", questionTextVisible: false, showSemanticReaction: true,
+                reducedMotion: false);
+
+            Assert.That(view.CurrentReaction, Is.EqualTo(JudgeReaction.Concerned),
+                "A repeated cue must show again once the previous one has settled away.");
+            Assert.That(image.sprite, Is.SameAs(sprites.Resolve(JudgeReaction.Concerned)));
+        }
+
         [UnityTearDown]
         public IEnumerator TearDown()
         {
