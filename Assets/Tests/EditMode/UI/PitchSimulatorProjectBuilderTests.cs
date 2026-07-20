@@ -44,6 +44,12 @@ namespace Agrovator.PitchSimulator.Tests.EditMode.UI
             GamePath,
             "Assets/Scenes/WebIntegrationTest.unity",
         };
+        private static readonly string[] RetiredPresentationTypeNames =
+        {
+            "GameScreenRouter", "TutorialPresenter", "PitchRoomPresenter", "ResultsPresenter",
+            "ResponseListView", "ResponseButtonView", "TimerView", "ConfidenceView",
+            "QuestionReviewItemView", "KeyboardReviewScrollbar", "FocusNavigator",
+        };
         private static readonly string[] OwnedRootNames =
         {
             "Generated Bootstrap", "Generated UI", "Generated Web Integration Test",
@@ -1268,21 +1274,26 @@ namespace Agrovator.PitchSimulator.Tests.EditMode.UI
                 "scene was not regenerated after the builder changed.");
         }
 
+        /// <summary>
+        /// The retired presentation types no longer exist to be named in a
+        /// generic argument, so this matches on component type name instead.
+        /// It stays the scene-level regression guard: if any of these classes
+        /// is ever reintroduced and wired into the generated scene - including
+        /// the untimed flow growing a timer or a confidence meter again - the
+        /// generated contract fails here rather than shipping.
+        /// </summary>
         private static void AssertNoLegacyPresentation(Transform canvas)
         {
-            Assert.That(canvas.GetComponentsInChildren<GameScreenRouter>(true), Is.Empty,
-                "The legacy router must not remain active in the owned scene.");
-            Assert.That(canvas.GetComponentsInChildren<TutorialPresenter>(true), Is.Empty);
-            Assert.That(canvas.GetComponentsInChildren<PitchRoomPresenter>(true), Is.Empty);
-            Assert.That(canvas.GetComponentsInChildren<ResultsPresenter>(true), Is.Empty);
-            Assert.That(canvas.GetComponentsInChildren<ResponseListView>(true), Is.Empty);
-            Assert.That(canvas.GetComponentsInChildren<TimerView>(true), Is.Empty,
-                "The untimed guided flow must not present a timer.");
-            Assert.That(canvas.GetComponentsInChildren<ConfidenceView>(true), Is.Empty,
-                "The guided flow must not present the confidence meter.");
-            Assert.That(canvas.GetComponentsInChildren<QuestionReviewItemView>(true), Is.Empty,
-                "The legacy review list must be absent.");
-            Assert.That(canvas.GetComponentsInChildren<KeyboardReviewScrollbar>(true), Is.Empty);
+            var present = canvas.GetComponentsInChildren<Component>(true)
+                .Where(component => component != null)
+                .Select(component => component.GetType().Name)
+                .Where(name => RetiredPresentationTypeNames.Contains(name, StringComparer.Ordinal))
+                .Distinct(StringComparer.Ordinal)
+                .OrderBy(name => name, StringComparer.Ordinal)
+                .ToArray();
+            Assert.That(present, Is.Empty,
+                "The retired question-and-answer presentation must not appear in the owned " +
+                "scene: " + string.Join(", ", present));
             Assert.That(canvas.GetComponentsInChildren<JudgeReactionView>(true), Has.Length.EqualTo(1),
                 "Exactly one reaction view drives Judge Aya in the guided scene.");
             foreach (var legacyName in new[] { "Metrics", "Prompt Backing", "PitchRoom", "Tutorial" })

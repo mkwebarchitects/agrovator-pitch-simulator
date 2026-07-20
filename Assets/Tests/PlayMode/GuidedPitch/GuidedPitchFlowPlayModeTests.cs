@@ -620,8 +620,14 @@ namespace Agrovator.PitchSimulator.Tests.PlayMode
                 .Where(selectable => selectable.IsInteractable()).ToArray();
             Assert.That(learnSelectables, Has.Length.EqualTo(1));
             Assert.That(learnSelectables[0], Is.SameAs((Selectable)rig.ContinueButton));
-            Assert.That(rig.GuidedPanel.GetComponentInChildren<TimerView>(true), Is.Null);
-            Assert.That(rig.GuidedPanel.GetComponentInChildren<ConfidenceView>(true), Is.Null);
+            // The retired timer and confidence views no longer exist as types,
+            // so the untimed guided flow is guarded by component type name.
+            Assert.That(rig.GuidedPanel.GetComponentsInChildren<Component>(true)
+                    .Where(component => component != null)
+                    .Select(component => component.GetType().Name)
+                    .Where(name => name == "TimerView" || name == "ConfidenceView"),
+                Is.Empty,
+                "The untimed guided flow must present neither a timer nor a confidence meter.");
 
             rig.ContinueButton.onClick.Invoke();
 

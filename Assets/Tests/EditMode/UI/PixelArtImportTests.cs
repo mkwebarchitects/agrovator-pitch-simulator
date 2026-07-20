@@ -70,7 +70,9 @@ namespace Agrovator.PitchSimulator.Tests.EditMode.UI
         [Test]
         public void AuthoredReactionCues_AllResolveToExpectedSemanticStates()
         {
-            var json = File.ReadAllText("Assets/Content/Scenarios/smart-school-garden.en.json");
+            // Read from the guided content the learner actually plays; the
+            // retired dialogue scenario it used to read is gone.
+            var json = File.ReadAllText("Assets/Content/Scenarios/guided-pitch-builder.en.json");
             var cues = Regex.Matches(json, "\\\"ReactionCue\\\"\\s*:\\s*\\\"([^\\\"]+)\\\"")
                 .Cast<Match>()
                 .Select(match => match.Groups[1].Value)
@@ -79,14 +81,13 @@ namespace Agrovator.PitchSimulator.Tests.EditMode.UI
                 .ToArray();
             Assert.That(cues, Is.EqualTo(new[]
             {
-                "Concerned", "Curious", "Encouraging", "Impressed",
-            }));
+                "Concerned", "Curious", "Impressed",
+            }), "Encouraging is Aya's resting face rather than an authored cue.");
 
             var expected = new Dictionary<string, JudgeReaction>
             {
                 ["Concerned"] = JudgeReaction.Concerned,
                 ["Curious"] = JudgeReaction.Interested,
-                ["Encouraging"] = JudgeReaction.Encouraging,
                 ["Impressed"] = JudgeReaction.Impressed,
             };
             foreach (var cue in cues)

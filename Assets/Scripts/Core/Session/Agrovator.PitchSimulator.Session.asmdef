@@ -1,10 +1,8 @@
-{
+﻿{
     "name": "Agrovator.PitchSimulator.Session",
     "rootNamespace": "Agrovator.PitchSimulator.Core",
     "references": [
         "Agrovator.PitchSimulator.Core",
-        "Agrovator.PitchSimulator.Dialogue",
-        "Agrovator.PitchSimulator.Scoring",
         "Agrovator.PitchSimulator.Accessibility",
         "Agrovator.PitchSimulator.LMS",
         "Agrovator.PitchSimulator.GuidedPitch"
