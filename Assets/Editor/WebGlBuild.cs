@@ -45,6 +45,79 @@ namespace Agrovator.PitchSimulator.Editor
             {
                 throw new BuildFailedException($"WebGL build entry point is missing at '{indexPath}'.");
             }
+
+            StampBuildAssets(indexPath);
+        }
+
+        /// <summary>
+        /// Every build ships the same asset filenames under a product version that
+        /// never changes, and Unity's loader keeps its own IndexedDB copies of the
+        /// data and wasm keyed on exactly that. Without a stamp a returning learner
+        /// replays a cached build against a freshly downloaded framework, the
+        /// player refuses to start, and refreshing cannot clear it. The stamp is
+        /// derived from content, so an unchanged build keeps its cached assets.
+        /// </summary>
+        private static void StampBuildAssets(string indexPath)
+        {
+            var buildRoot = Path.Combine(Path.GetDirectoryName(indexPath), "Build");
+            var stamp = ComputeContentStamp(buildRoot);
+            var stamped = ApplyCacheBusting(File.ReadAllText(indexPath), stamp);
+            File.WriteAllText(indexPath, stamped);
+            Debug.Log($"WebGL build assets stamped with cache-busting token '{stamp}'.");
+        }
+
+        private static string ComputeContentStamp(string buildRoot)
+        {
+            using (var sha = System.Security.Cryptography.SHA256.Create())
+            {
+                var names = new[] { "WebGL.data", "WebGL.wasm", "WebGL.framework.js", "WebGL.loader.js" };
+                Array.Sort(names, StringComparer.Ordinal);
+                foreach (var name in names)
+                {
+                    var path = Path.Combine(buildRoot, name);
+                    if (!File.Exists(path))
+                    {
+                        continue;
+                    }
+
+                    var bytes = File.ReadAllBytes(path);
+                    sha.TransformBlock(bytes, 0, bytes.Length, null, 0);
+                }
+
+                sha.TransformFinalBlock(Array.Empty<byte>(), 0, 0);
+                return BitConverter.ToString(sha.Hash).Replace("-", string.Empty)
+                    .Substring(0, 12).ToLowerInvariant();
+            }
+        }
+
+        /// <summary>
+        /// Appends the stamp to the four URLs the loader downloads. Idempotent, so
+        /// re-stamping a document never produces a second query string.
+        /// </summary>
+        public static string ApplyCacheBusting(string html, string stamp)
+        {
+            if (string.IsNullOrWhiteSpace(stamp))
+            {
+                throw new ArgumentException("A cache-busting stamp is required.", nameof(stamp));
+            }
+
+            if (html == null)
+            {
+                throw new ArgumentNullException(nameof(html));
+            }
+
+            foreach (var asset in new[]
+                     {
+                         "WebGL.loader.js", "WebGL.data", "WebGL.framework.js", "WebGL.wasm",
+                     })
+            {
+                html = System.Text.RegularExpressions.Regex.Replace(
+                    html,
+                    "/" + System.Text.RegularExpressions.Regex.Escape(asset) + @"(\?v=[^`""']*)?`",
+                    "/" + asset + "?v=" + stamp + "`");
+            }
+
+            return html;
         }
 
         public static void ValidateScenes(EditorBuildSettingsScene[] scenes)

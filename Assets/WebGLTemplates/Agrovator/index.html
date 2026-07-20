@@ -140,7 +140,12 @@
           fullscreen.disabled = false;
           fullscreen.addEventListener("click", () => unityInstance.SetFullscreen(1));
           canvas.focus();
-        }).catch(() => {
+        }).catch((error) => {
+          // Keep the learner-facing copy generic, but never discard the cause: a
+          // stale cached build and a corrupt download look identical without it.
+          // Recorded on the DOM rather than the console, because this template
+          // must stay console-free for the zero-console-error smoke gate.
+          status.dataset.failureReason = String((error && error.message) || error || "unknown");
           status.textContent = "Pitch Simulator could not be loaded.";
           showBanner("The game could not be loaded. Please refresh or contact support.", "error");
         });

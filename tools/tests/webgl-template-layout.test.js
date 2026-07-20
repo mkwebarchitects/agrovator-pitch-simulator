@@ -23,6 +23,21 @@ test("warning alert starts hidden and is revealed only by executable showBanner 
   assert.match(showBanner, /warning\.hidden = false/);
 });
 
+// A bare `.catch(() => ...)` turns every startup failure into the same opaque
+// banner with no recorded cause, which is what made a stale cached build
+// indistinguishable from a corrupt download during a live incident. The cause
+// goes on the DOM, not the console: this template must stay console-free so the
+// smoke's zero-console-error gate keeps its meaning.
+test("startup failure records the underlying cause instead of swallowing it", () => {
+  const html = fs.readFileSync(path.join(templateRoot, "index.html"), "utf8");
+  assert.doesNotMatch(html, /\.catch\(\(\)\s*=>/,
+    "the loader failure path must receive the error, not discard it");
+  assert.match(html, /\.catch\(\(error\)\s*=>/);
+  assert.match(html, /failureReason\s*=\s*String\(/);
+  assert.doesNotMatch(html.toLowerCase(), /console\./,
+    "the template stays console-free");
+});
+
 test("layout calculator uses the full available portrait or landscape stage", () => {
   const { calculateStageSize } = require(path.join(templateRoot, "TemplateData", "layout.js"));
   assert.deepEqual(calculateStageSize({ shellWidth: 1280, viewportHeight: 798, verticalChrome: 78 }),

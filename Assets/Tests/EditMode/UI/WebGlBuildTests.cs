@@ -62,6 +62,48 @@ namespace Agrovator.PitchSimulator.Tests.EditMode.UI
             Assert.That(PlayerSettings.GetStackTraceLogType(LogType.Exception), Is.EqualTo(StackTraceLogType.Full));
         }
 
+        /// <summary>
+        /// Every deploy ships the same asset filenames, and Unity's loader keys its
+        /// IndexedDB copies of the data and wasm on those URLs plus a product
+        /// version that never changes. A returning learner therefore replays a
+        /// stale build against a fresh framework and the player fails to start,
+        /// which no amount of refreshing fixes. The stamp must move with content.
+        /// </summary>
+        [Test]
+        public void CacheBusting_StampsEveryDownloadedAssetUrlWithTheBuildContentStamp()
+        {
+            const string html = @"
+      const loaderUrl = `${buildUrl}/WebGL.loader.js`;
+        dataUrl: `${buildUrl}/WebGL.data`,
+        frameworkUrl: `${buildUrl}/WebGL.framework.js`,
+        codeUrl: `${buildUrl}/WebGL.wasm`,
+        streamingAssetsUrl: ""StreamingAssets"",";
+
+            var stamped = WebGlBuild.ApplyCacheBusting(html, "abc123");
+
+            StringAssert.Contains("/WebGL.loader.js?v=abc123`", stamped);
+            StringAssert.Contains("/WebGL.data?v=abc123`", stamped);
+            StringAssert.Contains("/WebGL.framework.js?v=abc123`", stamped);
+            StringAssert.Contains("/WebGL.wasm?v=abc123`", stamped);
+            Assert.That(stamped, Does.Not.Contain("StreamingAssets?v="),
+                "Only the loader-downloaded build assets carry the stamp.");
+            Assert.That(Regex.Matches(stamped, @"\?v=abc123").Count, Is.EqualTo(4));
+        }
+
+        [Test]
+        public void CacheBusting_IsIdempotentAndRejectsAnEmptyStamp()
+        {
+            const string html = "dataUrl: `${buildUrl}/WebGL.data`,";
+
+            var once = WebGlBuild.ApplyCacheBusting(html, "stamp1");
+            var twice = WebGlBuild.ApplyCacheBusting(once, "stamp1");
+
+            Assert.That(twice, Is.EqualTo(once),
+                "Re-stamping an already stamped document must not append a second query.");
+            Assert.That(() => WebGlBuild.ApplyCacheBusting(html, " "),
+                Throws.ArgumentException);
+        }
+
         [Test]
         public void Template_UsesCurrentTokensResponsiveAccessibleCanvasAndNoAutoplay()
         {
