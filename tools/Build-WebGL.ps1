@@ -1,5 +1,9 @@
-[CmdletBinding()]
-param()
+﻿[CmdletBinding()]
+param(
+    # The development build stays the default: node tools/smoke-webgl.mjs and
+    # the Node contract tests depend on its output shape.
+    [switch]$Release
+)
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
@@ -7,7 +11,14 @@ $ErrorActionPreference = 'Stop'
 $unityPath = 'C:\Program Files\Unity\Hub\Editor\6000.5.3f1\Editor\Unity.exe'
 $projectRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 $logsDirectory = Join-Path $projectRoot 'artifacts\logs'
-$logPath = Join-Path $logsDirectory 'webgl-build.log'
+$flavour = if ($Release) { 'release' } else { 'development' }
+$logName = if ($Release) { 'webgl-build-release.log' } else { 'webgl-build.log' }
+$logPath = Join-Path $logsDirectory $logName
+$buildMethod = if ($Release) {
+    'Agrovator.PitchSimulator.Editor.WebGlBuild.BuildRelease'
+} else {
+    'Agrovator.PitchSimulator.Editor.WebGlBuild.BuildDevelopment'
+}
 $indexPath = Join-Path $projectRoot 'Build\WebGL\index.html'
 
 if (-not (Test-Path -LiteralPath $unityPath -PathType Leaf)) {
@@ -22,7 +33,7 @@ $unityArguments = @(
     '-nographics',
     '-quit',
     '-projectPath', "`"$projectRoot`"",
-    '-executeMethod', 'Agrovator.PitchSimulator.Editor.WebGlBuild.BuildDevelopment',
+    '-executeMethod', $buildMethod,
     '-logFile', "`"$logPath`""
 )
 
@@ -47,4 +58,4 @@ if (-not (Test-Path -LiteralPath $indexPath -PathType Leaf)) {
     throw "WebGL build entry point is missing at '$indexPath'. See '$logPath'."
 }
 
-Write-Output "WebGL development build created at '$(Split-Path -Parent $indexPath)'."
+Write-Output "WebGL $flavour build created at '$(Split-Path -Parent $indexPath)'."

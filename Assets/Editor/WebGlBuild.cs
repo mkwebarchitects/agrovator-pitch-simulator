@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Linq;
 using UnityEditor;
 using UnityEditor.Build;
 using UnityEditor.Build.Reporting;
@@ -20,16 +21,35 @@ namespace Agrovator.PitchSimulator.Editor
 
         public static void BuildDevelopment()
         {
+            Build("development", ApplyDevelopmentSettings, CreateBuildOptions);
+        }
+
+        /// <summary>
+        /// The build learners download. Compressed with Brotli behind Unity's
+        /// decompression fallback because GitHub Pages serves files verbatim
+        /// and cannot send <c>Content-Encoding</c>, with no development player,
+        /// no exception stack traces, and IL2CPP told to optimize for size.
+        /// </summary>
+        public static void BuildRelease()
+        {
+            Build("release", ApplyReleaseSettings, CreateReleaseBuildOptions);
+        }
+
+        private static void Build(
+            string label,
+            Action applySettings,
+            Func<BuildPlayerOptions> createOptions)
+        {
             ValidateScenes(EditorBuildSettings.scenes);
             if (!EditorUserBuildSettings.SwitchActiveBuildTarget(BuildTargetGroup.WebGL, BuildTarget.WebGL))
             {
                 throw new BuildFailedException("Could not switch the active build target to WebGL.");
             }
 
-            ApplyDevelopmentSettings();
+            applySettings();
             PrepareOutputDirectory();
 
-            var report = BuildPipeline.BuildPlayer(CreateBuildOptions());
+            var report = BuildPipeline.BuildPlayer(createOptions());
             var summary = report.summary;
             Debug.Log($"WebGL BuildReport: result={summary.result}; totalSize={summary.totalSize}; " +
                       $"totalTime={summary.totalTime}; warnings={summary.totalWarnings}; errors={summary.totalErrors}.");
@@ -37,7 +57,7 @@ namespace Agrovator.PitchSimulator.Editor
             if (summary.result != BuildResult.Succeeded)
             {
                 throw new BuildFailedException(
-                    $"WebGL development build did not succeed. Result: {summary.result}.");
+                    $"WebGL {label} build did not succeed. Result: {summary.result}.");
             }
 
             var indexPath = Path.Combine(GetProjectRoot(), OutputDirectory, "index.html");
@@ -62,15 +82,56 @@ namespace Agrovator.PitchSimulator.Editor
             var buildRoot = Path.Combine(Path.GetDirectoryName(indexPath), "Build");
             var stamp = ComputeContentStamp(buildRoot);
             var stamped = ApplyCacheBusting(File.ReadAllText(indexPath), stamp);
+
+            // A compressed build serves different filenames, so a stamper that
+            // silently matched nothing would ship an unbustable cache with a
+            // reassuring log line. Fail the build instead.
+            var stampCount = System.Text.RegularExpressions.Regex
+                .Matches(stamped, @"\?v=" + System.Text.RegularExpressions.Regex.Escape(stamp))
+                .Count;
+            if (stampCount != AssetNames.Length)
+            {
+                throw new BuildFailedException(
+                    $"Cache busting stamped {stampCount} of {AssetNames.Length} loader asset URLs. " +
+                    "The built filenames do not match the names the stamper knows.");
+            }
+
             File.WriteAllText(indexPath, stamped);
             Debug.Log($"WebGL build assets stamped with cache-busting token '{stamp}'.");
+        }
+
+        private static readonly string[] AssetNames =
+        {
+            "WebGL.loader.js", "WebGL.data", "WebGL.framework.js", "WebGL.wasm",
+        };
+
+        /// <summary>
+        /// Compression renames the downloaded assets, so every variant is
+        /// hashed and every variant is stampable. Unity writes
+        /// <c>.unityweb</c> - not <c>.br</c> or <c>.gz</c> - whenever the
+        /// decompression fallback is on, which is the only configuration
+        /// GitHub Pages can serve; the server-header variants are covered too
+        /// so turning the fallback off later cannot silently unstamp a build.
+        /// </summary>
+        private static readonly string[] CompressionSuffixes =
+        {
+            string.Empty, ".unityweb", ".br", ".gz",
+        };
+
+        /// <summary>
+        /// Every filename any supported build flavour can produce.
+        /// </summary>
+        public static System.Collections.Generic.IEnumerable<string> StampedAssetNames()
+        {
+            return AssetNames.SelectMany(
+                name => CompressionSuffixes.Select(suffix => name + suffix));
         }
 
         private static string ComputeContentStamp(string buildRoot)
         {
             using (var sha = System.Security.Cryptography.SHA256.Create())
             {
-                var names = new[] { "WebGL.data", "WebGL.wasm", "WebGL.framework.js", "WebGL.loader.js" };
+                var names = StampedAssetNames().ToArray();
                 Array.Sort(names, StringComparer.Ordinal);
                 foreach (var name in names)
                 {
@@ -106,15 +167,16 @@ namespace Agrovator.PitchSimulator.Editor
                 throw new ArgumentNullException(nameof(html));
             }
 
-            foreach (var asset in new[]
-                     {
-                         "WebGL.loader.js", "WebGL.data", "WebGL.framework.js", "WebGL.wasm",
-                     })
+            foreach (var asset in AssetNames)
             {
+                // The optional (\.br|\.gz) group is what keeps a compressed
+                // release build stamped; without it the match fails on the
+                // real built filename and cache busting quietly disappears.
                 html = System.Text.RegularExpressions.Regex.Replace(
                     html,
-                    "/" + System.Text.RegularExpressions.Regex.Escape(asset) + @"(\?v=[^`""']*)?`",
-                    "/" + asset + "?v=" + stamp + "`");
+                    "/" + System.Text.RegularExpressions.Regex.Escape(asset) +
+                        @"(\.unityweb|\.br|\.gz)?(\?v=[^`""']*)?`",
+                    "/" + asset + "$1?v=" + stamp + "`");
             }
 
             return html;
@@ -157,7 +219,40 @@ namespace Agrovator.PitchSimulator.Editor
             };
         }
 
-        public static void ApplyDevelopmentSettings()
+        public static BuildPlayerOptions CreateReleaseBuildOptions()
+        {
+            return new BuildPlayerOptions
+            {
+                scenes = (string[])CanonicalScenes.Clone(),
+                locationPathName = OutputDirectory,
+                target = BuildTarget.WebGL,
+                targetGroup = BuildTargetGroup.WebGL,
+                options = BuildOptions.None,
+            };
+        }
+
+        /// <summary>
+        /// Brotli plus <see cref="WebGLPlayerSettings.decompressionFallback"/>
+        /// is the only compression that is correct on GitHub Pages, which
+        /// serves the file bytes verbatim and cannot add a
+        /// <c>Content-Encoding</c> header; the fallback makes Unity's loader
+        /// decompress in the browser instead. Stack traces and the development
+        /// player are off, and IL2CPP is told to optimize for size, because the
+        /// target deployment is Malaysian school wifi.
+        /// </summary>
+        public static void ApplyReleaseSettings()
+        {
+            ApplySharedSettings();
+            PlayerSettings.WebGL.exceptionSupport = WebGLExceptionSupport.None;
+            PlayerSettings.WebGL.compressionFormat = WebGLCompressionFormat.Brotli;
+            PlayerSettings.WebGL.decompressionFallback = true;
+            PlayerSettings.SetIl2CppCodeGeneration(NamedBuildTarget.WebGL,
+                Il2CppCodeGeneration.OptimizeSize);
+            PlayerSettings.SetStackTraceLogType(LogType.Exception, StackTraceLogType.None);
+            AssetDatabase.SaveAssets();
+        }
+
+        private static void ApplySharedSettings()
         {
             PlayerSettings.companyName = "AGROVATOR";
             PlayerSettings.productName = "Pitch Simulator";
@@ -165,11 +260,23 @@ namespace Agrovator.PitchSimulator.Editor
             PlayerSettings.defaultWebScreenHeight = 720;
             PlayerSettings.WebGL.template = TemplateName;
             PlayerSettings.WebGL.linkerTarget = WebGLLinkerTarget.Wasm;
+            PlayerSettings.WebGL.threadsSupport = false;
+            PlayerSettings.SetScriptingBackend(NamedBuildTarget.WebGL, ScriptingImplementation.IL2CPP);
+        }
+
+        /// <summary>
+        /// Every knob the release path changes is set back explicitly, so a
+        /// development build after a release build is the same build it always
+        /// was rather than whatever the last release left behind.
+        /// </summary>
+        public static void ApplyDevelopmentSettings()
+        {
+            ApplySharedSettings();
             PlayerSettings.WebGL.exceptionSupport = WebGLExceptionSupport.FullWithStacktrace;
             PlayerSettings.WebGL.compressionFormat = WebGLCompressionFormat.Gzip;
             PlayerSettings.WebGL.decompressionFallback = true;
-            PlayerSettings.WebGL.threadsSupport = false;
-            PlayerSettings.SetScriptingBackend(NamedBuildTarget.WebGL, ScriptingImplementation.IL2CPP);
+            PlayerSettings.SetIl2CppCodeGeneration(NamedBuildTarget.WebGL,
+                Il2CppCodeGeneration.OptimizeSpeed);
             PlayerSettings.SetStackTraceLogType(LogType.Exception, StackTraceLogType.Full);
             AssetDatabase.SaveAssets();
         }
