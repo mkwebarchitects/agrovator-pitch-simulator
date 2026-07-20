@@ -32,7 +32,41 @@ namespace Agrovator.PitchSimulator.Editor
         /// </summary>
         public static void BuildRelease()
         {
-            Build("release", ApplyReleaseSettings, CreateReleaseBuildOptions);
+            var releaseSettingsApplied = false;
+            try
+            {
+                Build(
+                    "release",
+                    () =>
+                    {
+                        ApplyReleaseSettings();
+                        releaseSettingsApplied = true;
+                    },
+                    CreateReleaseBuildOptions);
+            }
+            finally
+            {
+                // ProjectSettings.asset is version controlled, and the release
+                // knobs persist through SaveAssets. Leaving them behind would
+                // silently change the shape of the next development build and
+                // of the smoke that depends on it. Only restore what this call
+                // actually changed, so a build that failed before applying
+                // settings does not rewrite them, and never let the restore
+                // throw away the exception that explains the build failure.
+                if (releaseSettingsApplied)
+                {
+                    try
+                    {
+                        ApplyDevelopmentSettings();
+                    }
+                    catch (Exception restoreFailure)
+                    {
+                        Debug.LogError(
+                            "Failed to restore development player settings after a release " +
+                            $"build: {restoreFailure}");
+                    }
+                }
+            }
         }
 
         private static void Build(
@@ -86,9 +120,7 @@ namespace Agrovator.PitchSimulator.Editor
             // A compressed build serves different filenames, so a stamper that
             // silently matched nothing would ship an unbustable cache with a
             // reassuring log line. Fail the build instead.
-            var stampCount = System.Text.RegularExpressions.Regex
-                .Matches(stamped, @"\?v=" + System.Text.RegularExpressions.Regex.Escape(stamp))
-                .Count;
+            var stampCount = CountStampedAssets(stamped, stamp);
             if (stampCount != AssetNames.Length)
             {
                 throw new BuildFailedException(
@@ -100,6 +132,13 @@ namespace Agrovator.PitchSimulator.Editor
             Debug.Log($"WebGL build assets stamped with cache-busting token '{stamp}'.");
         }
 
+        /// <summary>
+        /// The assets the loader downloads on every run. The template also
+        /// emits a <c>symbolsUrl</c>, knowingly excluded: it exists only for
+        /// builds that emit a symbols file, which the release player never
+        /// does, so stamping it would gate the build on a file that is usually
+        /// absent.
+        /// </summary>
         private static readonly string[] AssetNames =
         {
             "WebGL.loader.js", "WebGL.data", "WebGL.framework.js", "WebGL.wasm",
@@ -119,6 +158,26 @@ namespace Agrovator.PitchSimulator.Editor
         };
 
         /// <summary>
+        /// How many of the loader's assets carry this stamp. Counted per
+        /// asset, not as total occurrences, so a template that referenced one
+        /// asset twice could never compensate for another going unstamped.
+        /// </summary>
+        public static int CountStampedAssets(string html, string stamp)
+        {
+            if (html == null) throw new ArgumentNullException(nameof(html));
+            if (string.IsNullOrWhiteSpace(stamp))
+            {
+                throw new ArgumentException("A cache-busting stamp is required.", nameof(stamp));
+            }
+
+            return AssetNames.Count(asset => System.Text.RegularExpressions.Regex.IsMatch(
+                html,
+                "/" + System.Text.RegularExpressions.Regex.Escape(asset) +
+                    @"(\.unityweb|\.br|\.gz)?\?v=" +
+                    System.Text.RegularExpressions.Regex.Escape(stamp) + "`"));
+        }
+
+        /// <summary>
         /// Every filename any supported build flavour can produce.
         /// </summary>
         public static System.Collections.Generic.IEnumerable<string> StampedAssetNames()
@@ -133,6 +192,7 @@ namespace Agrovator.PitchSimulator.Editor
             {
                 var names = StampedAssetNames().ToArray();
                 Array.Sort(names, StringComparer.Ordinal);
+                var hashed = 0;
                 foreach (var name in names)
                 {
                     var path = Path.Combine(buildRoot, name);
@@ -143,6 +203,16 @@ namespace Agrovator.PitchSimulator.Editor
 
                     var bytes = File.ReadAllBytes(path);
                     sha.TransformBlock(bytes, 0, bytes.Length, null, 0);
+                    hashed++;
+                }
+
+                // Hashing nothing yields a constant, so every build would share
+                // one stamp and none would bust a cache. Fail loudly instead.
+                if (hashed == 0)
+                {
+                    throw new BuildFailedException(
+                        $"No build assets were found under '{buildRoot}' to derive a " +
+                        "cache-busting stamp from.");
                 }
 
                 sha.TransformFinalBlock(Array.Empty<byte>(), 0, 0);
@@ -243,7 +313,12 @@ namespace Agrovator.PitchSimulator.Editor
         public static void ApplyReleaseSettings()
         {
             ApplySharedSettings();
-            PlayerSettings.WebGL.exceptionSupport = WebGLExceptionSupport.None;
+            // Not None: None stops managed exceptions being caught at all, and
+            // the safe-fallback screen is reached through catch blocks in
+            // Bootstrapper, GuidedPitchContentLoader and WebGlLmsBridge. This
+            // ships no stack traces while keeping that recovery path alive.
+            PlayerSettings.WebGL.exceptionSupport =
+                WebGLExceptionSupport.ExplicitlyThrownExceptionsOnly;
             PlayerSettings.WebGL.compressionFormat = WebGLCompressionFormat.Brotli;
             PlayerSettings.WebGL.decompressionFallback = true;
             PlayerSettings.SetIl2CppCodeGeneration(NamedBuildTarget.WebGL,

@@ -1,4 +1,4 @@
-﻿{
+{
     "name": "Agrovator.PitchSimulator.PlayModeTests",
     "rootNamespace": "Agrovator.PitchSimulator.Tests.PlayMode",
     "references": [

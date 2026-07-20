@@ -15,17 +15,45 @@ namespace Agrovator.PitchSimulator.Tests.EditMode.UI
     /// </summary>
     public sealed class LegacyClusterRetirementTests
     {
-        private static readonly string[] RetiredTypeNames =
+        /// <summary>
+        /// Matched on full name, not bare name: a future
+        /// <c>GuidedPitch.GameState</c> is a different type with every right
+        /// to exist, and failing it with a message about a retirement it has
+        /// nothing to do with would be a false alarm aimed at the wrong code.
+        /// </summary>
+        private static readonly string[] RetiredTypeFullNames =
         {
-            "GameScreenRouter", "PitchRoomPresenter", "TutorialPresenter", "ResultsPresenter",
-            "ConfidenceView", "TimerView", "ResponseListView", "ResponseButtonView",
-            "QuestionReviewItemView", "KeyboardReviewScrollbar", "FocusNavigator",
-            "PitchSessionController", "PitchSessionSnapshot", "PitchSessionEvent",
-            "PitchSessionEventType", "GameState", "GameStateMachine", "GameCommand",
-            "QuestionTimer", "DialogueSession", "RuntimeScenario", "ScenarioJsonLoader",
-            "ScenarioValidator", "ScenarioAsset", "ResponseAvailability", "ValidationIssue",
-            "ConfidenceMeter", "ResultBuilder", "ResultLevel", "ScoreAccumulator",
-            "ScoreCategory",
+            "Agrovator.PitchSimulator.UI.GameScreenRouter",
+            "Agrovator.PitchSimulator.UI.PitchRoomPresenter",
+            "Agrovator.PitchSimulator.UI.TutorialPresenter",
+            "Agrovator.PitchSimulator.UI.ResultsPresenter",
+            "Agrovator.PitchSimulator.UI.ConfidenceView",
+            "Agrovator.PitchSimulator.UI.TimerView",
+            "Agrovator.PitchSimulator.UI.ResponseListView",
+            "Agrovator.PitchSimulator.UI.ResponseButtonView",
+            "Agrovator.PitchSimulator.UI.QuestionReviewItemView",
+            "Agrovator.PitchSimulator.UI.KeyboardReviewScrollbar",
+            "Agrovator.PitchSimulator.UI.FocusNavigator",
+            "Agrovator.PitchSimulator.Core.PitchSessionController",
+            "Agrovator.PitchSimulator.Core.PitchSessionSnapshot",
+            "Agrovator.PitchSimulator.Core.PitchSessionEvent",
+            "Agrovator.PitchSimulator.Core.PitchSessionEventType",
+            "Agrovator.PitchSimulator.Core.GameState",
+            "Agrovator.PitchSimulator.Core.GameStateMachine",
+            "Agrovator.PitchSimulator.Core.GameCommand",
+            "Agrovator.PitchSimulator.Core.QuestionTimer",
+            "Agrovator.PitchSimulator.Dialogue.DialogueSession",
+            "Agrovator.PitchSimulator.Dialogue.RuntimeScenario",
+            "Agrovator.PitchSimulator.Dialogue.ScenarioJsonLoader",
+            "Agrovator.PitchSimulator.Dialogue.ScenarioValidator",
+            "Agrovator.PitchSimulator.Dialogue.Unity.ScenarioAsset",
+            "Agrovator.PitchSimulator.Dialogue.ResponseAvailability",
+            "Agrovator.PitchSimulator.Dialogue.ValidationIssue",
+            "Agrovator.PitchSimulator.Scoring.ConfidenceMeter",
+            "Agrovator.PitchSimulator.Scoring.ResultBuilder",
+            "Agrovator.PitchSimulator.Scoring.ResultLevel",
+            "Agrovator.PitchSimulator.Scoring.ScoreAccumulator",
+            "Agrovator.PitchSimulator.Scoring.ScoreCategory",
         };
 
         private static readonly string[] RetiredAssemblyNames =
@@ -42,9 +70,9 @@ namespace Agrovator.PitchSimulator.Tests.EditMode.UI
         public void RetiredLegacyTypes_AreAbsentFromEveryProjectAssembly()
         {
             var survivors = ProjectAssemblies()
-                .SelectMany(assembly => assembly.GetTypes())
-                .Select(type => type.Name)
-                .Where(name => RetiredTypeNames.Contains(name, StringComparer.Ordinal))
+                .SelectMany(LoadableTypes)
+                .Select(type => type.FullName)
+                .Where(name => RetiredTypeFullNames.Contains(name, StringComparer.Ordinal))
                 .Distinct(StringComparer.Ordinal)
                 .OrderBy(name => name, StringComparer.Ordinal)
                 .ToArray();
@@ -76,6 +104,23 @@ namespace Agrovator.PitchSimulator.Tests.EditMode.UI
                 "is loaded by nothing the learner can reach.");
             Assert.That(File.Exists(RetiredScenarioPath + ".meta"), Is.False,
                 "A retired asset must not leave its .meta file behind.");
+        }
+
+        /// <summary>
+        /// A partially loadable assembly throws rather than returning what it
+        /// has, which would turn this guard into an unrelated crash. The types
+        /// it did load are still worth checking.
+        /// </summary>
+        private static System.Type[] LoadableTypes(System.Reflection.Assembly assembly)
+        {
+            try
+            {
+                return assembly.GetTypes();
+            }
+            catch (System.Reflection.ReflectionTypeLoadException exception)
+            {
+                return exception.Types.Where(type => type != null).ToArray();
+            }
         }
 
         private static System.Reflection.Assembly[] ProjectAssemblies()

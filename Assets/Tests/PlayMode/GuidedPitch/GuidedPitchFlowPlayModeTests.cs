@@ -621,9 +621,13 @@ namespace Agrovator.PitchSimulator.Tests.PlayMode
             Assert.That(learnSelectables, Has.Length.EqualTo(1));
             Assert.That(learnSelectables[0], Is.SameAs((Selectable)rig.ContinueButton));
             // The retired timer and confidence views no longer exist as types,
-            // so the untimed guided flow is guarded by component type name.
-            Assert.That(rig.GuidedPanel.GetComponentsInChildren<Component>(true)
-                    .Where(component => component != null)
+            // so the untimed guided flow is guarded by component type name. A
+            // null component would mean a missing script, so it fails here
+            // rather than being filtered away.
+            var guidedComponents = rig.GuidedPanel.GetComponentsInChildren<Component>(true);
+            Assert.That(guidedComponents.Any(component => component == null), Is.False,
+                "The guided panel must contain no missing script references.");
+            Assert.That(guidedComponents
                     .Select(component => component.GetType().Name)
                     .Where(name => name == "TimerView" || name == "ConfidenceView"),
                 Is.Empty,

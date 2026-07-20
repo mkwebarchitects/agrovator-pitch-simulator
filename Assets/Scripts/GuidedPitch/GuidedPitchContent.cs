@@ -44,6 +44,17 @@ namespace Agrovator.PitchSimulator.GuidedPitch
 
         internal static GuidedPitchContent Compile(GuidedPitchContentDto dto)
         {
+            // Thrown explicitly rather than left to dereference null. IL2CPP
+            // emits no null checks, so under the release player's
+            // ExplicitlyThrownExceptionsOnly a null dereference is an
+            // unrecoverable wasm trap the loader could not turn into
+            // guided.compile_failed. The validator makes this unreachable
+            // today; this keeps it recoverable if that ever changes.
+            if (dto.Modes == null)
+            {
+                throw new InvalidOperationException("Guided content declares no modes.");
+            }
+
             var modes = new Dictionary<LearnerMode, GuidedLearnerModeContent>();
             foreach (var mode in dto.Modes)
             {
@@ -91,6 +102,13 @@ namespace Agrovator.PitchSimulator.GuidedPitch
 
         internal static GuidedLearnerModeContent Compile(LearnerMode mode, GuidedLearnerModeContentDto dto)
         {
+            // Explicit for the same reason as GuidedPitchContent.Compile: a
+            // null dereference is uncatchable in the release player.
+            if (dto.Parts == null)
+            {
+                throw new InvalidOperationException($"Guided mode '{mode}' declares no parts.");
+            }
+
             var parts = new List<GuidedPitchPartContent>();
             foreach (var part in dto.Parts)
             {

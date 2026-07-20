@@ -1284,8 +1284,16 @@ namespace Agrovator.PitchSimulator.Tests.EditMode.UI
         /// </summary>
         private static void AssertNoLegacyPresentation(Transform canvas)
         {
-            var present = canvas.GetComponentsInChildren<Component>(true)
-                .Where(component => component != null)
+            var components = canvas.GetComponentsInChildren<Component>(true);
+
+            // A null component is a missing script, which is exactly what a
+            // mass MonoBehaviour deletion can leave behind and what a learner
+            // would hit as a runtime error. Filtering nulls away silently
+            // would blind this guard where the refactor is riskiest.
+            Assert.That(components.Any(component => component == null), Is.False,
+                "The owned scene must contain no missing script references.");
+
+            var present = components
                 .Select(component => component.GetType().Name)
                 .Where(name => RetiredPresentationTypeNames.Contains(name, StringComparer.Ordinal))
                 .Distinct(StringComparer.Ordinal)

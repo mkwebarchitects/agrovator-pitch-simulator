@@ -6,8 +6,9 @@ Unity `6000.5.3f1` with WebGL Build Support is required. The default build order
 
 ## Build procedure
 
-1. From the repository root, run `powershell -ExecutionPolicy Bypass -File tools/Build-WebGL.ps1`.
-2. Confirm the wrapper exits zero, scans the complete Unity log, and produces `Build/WebGL/index.html` plus loader/data/framework/wasm artifacts.
+1. For local harness and smoke work, run `powershell -ExecutionPolicy Bypass -File tools/Build-WebGL.ps1`. **To produce the build learners download, add `-Release`.** The development player is roughly `92 MB` uncompressed; the release player is roughly `8 MB`. Never deploy the development build.
+2. Confirm the wrapper exits zero, scans the complete Unity log, and produces `Build/WebGL/index.html` plus loader/data/framework/wasm artifacts. A release build writes `WebGL.wasm.unityweb`, `WebGL.data.unityweb` and `WebGL.framework.js.unityweb` alongside an uncompressed `WebGL.loader.js`, and logs to `artifacts/logs/webgl-build-release.log`.
+   Release compression is Brotli behind Unity's decompression fallback, which is required because GitHub Pages serves file bytes verbatim and cannot set `Content-Encoding`; the loader decompresses in the browser instead. Do not switch the fallback off while Pages is the host.
 3. Serve the repository over HTTP; do not open the harness or player with a `file:` URL.
 4. Open `WebHarness/index.html` through that server. Its iframe targets `../Build/WebGL/index.html`.
 5. Exercise all four harness modes and the manual matrix in [QA](13-QA-PLAN.md).

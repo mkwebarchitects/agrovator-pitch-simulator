@@ -1,4 +1,4 @@
-﻿{
+{
     "name": "Agrovator.PitchSimulator.Session",
     "rootNamespace": "Agrovator.PitchSimulator.Core",
     "references": [

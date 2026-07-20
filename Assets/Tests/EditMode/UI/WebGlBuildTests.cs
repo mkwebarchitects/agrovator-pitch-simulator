@@ -162,6 +162,35 @@ namespace Agrovator.PitchSimulator.Tests.EditMode.UI
             }
         }
 
+        /// <summary>
+        /// Counting stamps document-wide would accept a template that
+        /// referenced one asset twice and dropped another, shipping an
+        /// unstamped asset behind a passing count. The guard is per asset.
+        /// </summary>
+        [Test]
+        public void StampedAssetCount_IsPerAssetRatherThanTotalOccurrences()
+        {
+            const string everyAsset = @"
+      const loaderUrl = `${buildUrl}/WebGL.loader.js`;
+        dataUrl: `${buildUrl}/WebGL.data`,
+        frameworkUrl: `${buildUrl}/WebGL.framework.js`,
+        codeUrl: `${buildUrl}/WebGL.wasm`,";
+            const string duplicatedAndMissing = @"
+      const loaderUrl = `${buildUrl}/WebGL.loader.js`;
+        dataUrl: `${buildUrl}/WebGL.data`,
+        againUrl: `${buildUrl}/WebGL.data`,
+        codeUrl: `${buildUrl}/WebGL.wasm`,";
+
+            Assert.That(
+                WebGlBuild.CountStampedAssets(WebGlBuild.ApplyCacheBusting(everyAsset, "s1"), "s1"),
+                Is.EqualTo(4));
+            Assert.That(
+                WebGlBuild.CountStampedAssets(
+                    WebGlBuild.ApplyCacheBusting(duplicatedAndMissing, "s1"), "s1"),
+                Is.EqualTo(3),
+                "A duplicated asset must not compensate for a missing one.");
+        }
+
         [Test]
         public void ReleaseBuildOptions_CarryNoDevelopmentFlagAndUseCanonicalOutput()
         {
@@ -197,8 +226,16 @@ namespace Agrovator.PitchSimulator.Tests.EditMode.UI
                     Is.EqualTo(WebGLCompressionFormat.Brotli));
                 Assert.That(PlayerSettings.WebGL.decompressionFallback, Is.True,
                     "GitHub Pages cannot send Content-Encoding, so the loader must decompress.");
+                // Not None. None does not merely drop stack traces - it stops
+                // managed exceptions being caught at all, and three production
+                // paths reach the safe-fallback screen through catch blocks:
+                // Bootstrapper's FormatException around the catalog,
+                // GuidedPitchContentLoader's parser catches, and
+                // WebGlLmsBridge returning null on malformed launch JSON. A
+                // learner with a corrupt payload would get an aborted player
+                // instead of the recovery screen.
                 Assert.That(PlayerSettings.WebGL.exceptionSupport,
-                    Is.EqualTo(WebGLExceptionSupport.None));
+                    Is.EqualTo(WebGLExceptionSupport.ExplicitlyThrownExceptionsOnly));
                 Assert.That(PlayerSettings.WebGL.threadsSupport, Is.False);
                 Assert.That(PlayerSettings.GetScriptingBackend(NamedBuildTarget.WebGL),
                     Is.EqualTo(ScriptingImplementation.IL2CPP));

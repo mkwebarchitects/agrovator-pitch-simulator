@@ -19,6 +19,11 @@ namespace Agrovator.PitchSimulator.Editor
         /// owned root records this value and every contract check compares it
         /// first, so a builder change can no longer silently no-op behind the
         /// hand-maintained property whitelists below.
+        ///
+        /// The bump is manual and nothing enforces it: forgetting it can still
+        /// leave a saved scene stale, exactly as the `semanticHoldSeconds`
+        /// regression did. Treat bumping this as part of changing anything
+        /// this class or <see cref="GuidedPitchSceneBuilder"/> generates.
         /// </summary>
         public const int GeneratorVersion = 1;
 

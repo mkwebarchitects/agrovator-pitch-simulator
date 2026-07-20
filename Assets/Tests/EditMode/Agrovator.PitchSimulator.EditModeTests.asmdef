@@ -1,4 +1,4 @@
-﻿{
+{
     "name": "Agrovator.PitchSimulator.EditModeTests",
     "rootNamespace": "Agrovator.PitchSimulator.Tests.EditMode",
     "references": [

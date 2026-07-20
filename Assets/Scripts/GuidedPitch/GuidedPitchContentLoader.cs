@@ -79,6 +79,12 @@ namespace Agrovator.PitchSimulator.GuidedPitch
             {
                 return new GuidedPitchContentLoadResult(GuidedPitchContent.Compile(dto), issues);
             }
+            // The NullReferenceException arm only ever fires in the editor and
+            // PlayMode: the release player builds with
+            // ExplicitlyThrownExceptionsOnly, where a null dereference is an
+            // uncatchable trap rather than a managed exception. Compile
+            // therefore guards its own inputs with explicit throws, and this
+            // arm is a belt-and-braces net for editor runs.
             catch (Exception exception) when (
                 exception is ArgumentException ||
                 exception is InvalidOperationException ||

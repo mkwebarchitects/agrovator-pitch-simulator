@@ -1,4 +1,4 @@
-﻿[CmdletBinding()]
+[CmdletBinding()]
 param(
     # The development build stays the default: node tools/smoke-webgl.mjs and
     # the Node contract tests depend on its output shape.
