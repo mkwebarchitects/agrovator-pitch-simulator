@@ -22,6 +22,7 @@ namespace Agrovator.PitchSimulator.Core
         private LearnerMode? learnerMode;
         private PitchPart? activePart;
         private GuidedPitchFeedback feedback;
+        private string lastReactionCue;
         private GuidedPitchOption followUpOption;
         private LmsLaunchConfig launch;
         private LmsCompletionPayload completionPayload;
@@ -109,7 +110,7 @@ namespace Agrovator.PitchSimulator.Core
                     break;
                 case GuidedPitchPhase.BuildFeedback:
                     feedbackEvent = CreateFeedbackEvent();
-                    feedback = null;
+                    ClearReaction();
                     if (activePart == PitchPart.Value)
                     {
                         activePart = null;
@@ -126,7 +127,7 @@ namespace Agrovator.PitchSimulator.Core
                     break;
                 case GuidedPitchPhase.FollowUpFeedback:
                     feedbackEvent = CreateFeedbackEvent();
-                    feedback = null;
+                    ClearReaction();
                     phase = GuidedPitchPhase.Results;
                     completionPayload = BuildCompletionPayload();
                     RefreshSnapshot();
@@ -168,7 +169,7 @@ namespace Agrovator.PitchSimulator.Core
                 return false;
             }
 
-            feedback = option.Feedback;
+            SetReaction(option);
             selectionHistory.Add(option.Id);
             phase = GuidedPitchPhase.BuildFeedback;
             RefreshSnapshot();
@@ -190,7 +191,7 @@ namespace Agrovator.PitchSimulator.Core
             }
 
             activePart = part;
-            feedback = null;
+            ClearReaction();
             RefreshSnapshot();
             return true;
         }
@@ -208,7 +209,7 @@ namespace Agrovator.PitchSimulator.Core
                 return false;
             }
 
-            feedback = option.Feedback;
+            SetReaction(option);
             selectionHistory.Add(option.Id);
             RefreshSnapshot();
             PublishSelection(option);
@@ -224,7 +225,7 @@ namespace Agrovator.PitchSimulator.Core
 
             phase = GuidedPitchPhase.Present;
             activePart = null;
-            feedback = null;
+            ClearReaction();
             RefreshSnapshot();
             return true;
         }
@@ -244,7 +245,7 @@ namespace Agrovator.PitchSimulator.Core
             }
 
             followUpOption = option;
-            feedback = option.Feedback;
+            SetReaction(option);
             selectionHistory.Add(option.Id);
             phase = GuidedPitchPhase.FollowUpFeedback;
             RefreshSnapshot();
@@ -316,12 +317,30 @@ namespace Agrovator.PitchSimulator.Core
             EventPublished = null;
         }
 
+        /// <summary>
+        /// The reaction cue lives exactly as long as the feedback it accompanies:
+        /// Aya reacts to the statement that produced this feedback and releases it
+        /// the moment the learner moves on, so no face ever latches across a part,
+        /// a revision, the presentation, or a retried attempt.
+        /// </summary>
+        private void SetReaction(GuidedPitchOption option)
+        {
+            feedback = option.Feedback;
+            lastReactionCue = option.ReactionCue;
+        }
+
+        private void ClearReaction()
+        {
+            feedback = null;
+            lastReactionCue = null;
+        }
+
         private void ResetRun()
         {
             activeSubmissionGeneration = 0;
             learnerMode = null;
             activePart = null;
-            feedback = null;
+            ClearReaction();
             followUpOption = null;
             draft.Reset();
             selectionHistory.Clear();
@@ -451,6 +470,7 @@ namespace Agrovator.PitchSimulator.Core
                 PitchAssessmentBuilder.Build(draftSnapshot),
                 GetAvailableOptions(),
                 feedback,
+                lastReactionCue,
                 followUpOption?.Id,
                 selectionHistory.AsReadOnly(),
                 attemptNumber,

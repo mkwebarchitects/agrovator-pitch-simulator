@@ -79,6 +79,7 @@ namespace Agrovator.PitchSimulator.UI
     public sealed class GuidedPitchPresenter : MonoBehaviour
     {
         private const int PartCount = 4;
+        private const string NeutralReactionCue = "Encouraging";
 
         [SerializeField] private ModeSelectionView modeSelection;
         [SerializeField] private LearnPitchView learn;
@@ -94,6 +95,7 @@ namespace Agrovator.PitchSimulator.UI
         [SerializeField] private Button[] strengthenButtons = new Button[PartCount];
         [SerializeField] private Text[] strengthenLabels = new Text[PartCount];
         [SerializeField] private ScrollRect cardsScroll;
+        [SerializeField] private JudgeReactionView judge;
 
         private readonly UnityAction[] strengthenHandlers = new UnityAction[PartCount];
         private GuidedPitchSessionController controller;
@@ -118,7 +120,8 @@ namespace Agrovator.PitchSimulator.UI
             Button presentControl,
             Button[] strengthenControls,
             Text[] strengthenControlLabels,
-            ScrollRect cardsScrollRect)
+            ScrollRect cardsScrollRect,
+            JudgeReactionView judgeView)
         {
             RemoveListeners();
             modeSelection = modeSelectionView;
@@ -135,6 +138,7 @@ namespace Agrovator.PitchSimulator.UI
             strengthenButtons = strengthenControls == null ? null : (Button[])strengthenControls.Clone();
             strengthenLabels = strengthenControlLabels == null ? null : (Text[])strengthenControlLabels.Clone();
             cardsScroll = cardsScrollRect;
+            judge = judgeView;
             if (!ValidateContract(out var reason))
             {
                 throw new InvalidOperationException(reason);
@@ -175,7 +179,7 @@ namespace Agrovator.PitchSimulator.UI
             if (modeSelection == null || learn == null || rail == null || board == null ||
                 cards == null || feedback == null || questionText == null || hintText == null ||
                 presentationText == null || continueButton == null || presentButton == null ||
-                cardsScroll == null)
+                cardsScroll == null || judge == null)
             {
                 reason = "Guided presenter view references are incomplete.";
                 return false;
@@ -225,6 +229,10 @@ namespace Agrovator.PitchSimulator.UI
             var guidedVisible = phase >= GuidedPitchPhase.Learn && phase <= GuidedPitchPhase.FollowUpFeedback;
             if (!guidedVisible)
             {
+                // Title, Briefing, Mode Selection, and Results carry no statement to
+                // react to. Resetting here is what stops a Retry from reopening the
+                // next attempt on the previous attempt's face.
+                RenderJudge(snapshot);
                 learn.gameObject.SetActive(false);
                 cards.Clear();
                 feedback.Clear();
@@ -276,6 +284,8 @@ namespace Agrovator.PitchSimulator.UI
                 feedback.Clear();
             }
 
+            RenderJudge(snapshot);
+
             SetText(questionText, QuestionFor(snapshot));
             SetText(hintText, revisionListOpen
                 ? localize(PartKey(snapshot.ActivePart.Value, "hint"))
@@ -314,6 +324,28 @@ namespace Agrovator.PitchSimulator.UI
             {
                 ResetPhaseScroll();
             }
+        }
+
+        /// <summary>
+        /// Aya reacts to the statement the learner just assembled, never to the
+        /// learner, and rests on a still encouraging face the rest of the time.
+        /// <para>
+        /// The cue rides the snapshot, so the same reaction survives the repeated
+        /// refreshes one interaction produces, and no reaction outlives the feedback
+        /// it belongs to. Absent a cue we hold the neutral face through the same
+        /// semantic channel rather than the ambient blink/talk loops: these guided
+        /// screens are untimed reading surfaces, so a portrait that never stops
+        /// moving would compete with reading and leave the canvas unsettled for
+        /// visual verification. Reduced motion drops the settle animation and pins
+        /// the reaction static.
+        /// </para>
+        /// </summary>
+        private void RenderJudge(GuidedPitchSessionSnapshot snapshot)
+        {
+            var cue = string.IsNullOrEmpty(snapshot.LastReactionCue)
+                ? NeutralReactionCue
+                : snapshot.LastReactionCue;
+            judge.Render(cue, false, true, snapshot.ReducedMotion);
         }
 
         public Selectable GetDefaultSelectable(GuidedPitchPhase phase)

@@ -39,6 +39,13 @@ namespace Agrovator.PitchSimulator.Editor
     {
         private const float FrameWidth = 980f;
         private const float FrameHeight = 672f;
+        private const float JudgeBlinkIntervalSeconds = 5f;
+        private const float JudgeBlinkDurationSeconds = 0.12f;
+        private const float JudgeTalkFrameSeconds = 0.18f;
+        // Long enough for a learner to register the reaction to their statement
+        // before Aya relaxes, short enough that she is never holding a Concerned
+        // face at them while they read the feedback.
+        private const float JudgeSemanticHoldSeconds = 2.5f;
         private static readonly Color ScreenDim = new Color(0.055f, 0.09f, 0.12f, 1f);
         private static readonly Color DeepNavy = new Color32(0x0E, 0x17, 0x1F, 0xFF);
         private static readonly Color CardNavy = new Color32(0x16, 0x24, 0x2F, 0xFF);
@@ -163,7 +170,7 @@ namespace Agrovator.PitchSimulator.Editor
 
             var rail = CreateProgressRail(frame.transform);
             var ayaRow = CreateAyaRow(frame.transform, ayaSprites, out var questionText,
-                out var hintText);
+                out var hintText, out var judge);
             var board = CreateBoard(frame.transform);
             var phaseScroll = CreatePhaseScroll(frame.transform, out var scrollContent);
 
@@ -198,7 +205,8 @@ namespace Agrovator.PitchSimulator.Editor
                 presentButton,
                 strengthenButtons,
                 strengthenLabels,
-                phaseScroll);
+                phaseScroll,
+                judge);
             responsive.Configure(
                 canvas.GetComponent<Canvas>(),
                 board.GetComponent<GridLayoutGroup>(),
@@ -268,7 +276,8 @@ namespace Agrovator.PitchSimulator.Editor
         }
 
         private static GameObject CreateAyaRow(
-            Transform frame, Sprite[] ayaSprites, out Text questionText, out Text hintText)
+            Transform frame, Sprite[] ayaSprites, out Text questionText, out Text hintText,
+            out JudgeReactionView judgeView)
         {
             var row = new GameObject("Aya Row", typeof(RectTransform),
                 typeof(HorizontalLayoutGroup), typeof(LayoutElement));
@@ -278,17 +287,27 @@ namespace Agrovator.PitchSimulator.Editor
             row.GetComponent<LayoutElement>().preferredHeight = 160f;
 
             var judge = new GameObject("Judge Aya", typeof(RectTransform), typeof(Image),
-                typeof(LayoutElement));
+                typeof(LayoutElement), typeof(JudgeReactionView));
             judge.transform.SetParent(row.transform, false);
             var judgeImage = judge.GetComponent<Image>();
-            judgeImage.sprite = ayaSprites.FirstOrDefault(sprite => sprite.name == "Encouraging")
-                ?? ayaSprites[0];
+            judgeImage.sprite = ResolveAyaSprite(ayaSprites, JudgeReaction.Encouraging);
             judgeImage.preserveAspect = true;
             judgeImage.raycastTarget = false;
             var judgeLayout = judge.GetComponent<LayoutElement>();
+            // Every sheet slice shares one cell size, so the reserved row size holds
+            // as the portrait swaps and the art is never scaled to fit.
             judgeLayout.preferredWidth = judgeImage.sprite.rect.width;
             judgeLayout.preferredHeight = judgeImage.sprite.rect.height;
             judgeLayout.flexibleWidth = 0f;
+
+            judgeView = judge.GetComponent<JudgeReactionView>();
+            var spriteSet = new JudgeReactionSpriteSet();
+            foreach (JudgeReaction reaction in Enum.GetValues(typeof(JudgeReaction)))
+            {
+                spriteSet.Set(reaction, ResolveAyaSprite(ayaSprites, reaction));
+            }
+            judgeView.Configure(judgeImage, spriteSet, JudgeBlinkIntervalSeconds,
+                JudgeBlinkDurationSeconds, JudgeTalkFrameSeconds, JudgeSemanticHoldSeconds);
 
             var card = new GameObject("Dialogue Card", typeof(RectTransform), typeof(Image),
                 typeof(VerticalLayoutGroup), typeof(LayoutElement));
@@ -318,6 +337,25 @@ namespace Agrovator.PitchSimulator.Editor
             hintText = CreateText("Hint", card.transform, 13, FontStyle.Italic, LightText,
                 TextAnchor.MiddleLeft);
             return row;
+        }
+
+        /// <summary>
+        /// Resolves one reaction to the identically named slice of the Judge Aya
+        /// sheet. A missing slice is a build-stopping content error rather than a
+        /// silent fallback, so a renamed slice can never quietly freeze her face.
+        /// </summary>
+        private static Sprite ResolveAyaSprite(Sprite[] ayaSprites, JudgeReaction reaction)
+        {
+            var name = reaction.ToString();
+            var sprite = ayaSprites.FirstOrDefault(candidate =>
+                string.Equals(candidate.name, name, StringComparison.Ordinal));
+            if (sprite == null)
+            {
+                throw new InvalidOperationException(
+                    $"Judge Aya sheet is missing the '{name}' slice.");
+            }
+
+            return sprite;
         }
 
         private static PitchBoardView CreateBoard(Transform frame)

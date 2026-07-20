@@ -683,11 +683,45 @@ namespace Agrovator.PitchSimulator.Tests.EditMode.UI
             var environmentImage = RequireChild(guided, "Environment Frame").GetComponent<Image>();
             Assert.That(environmentImage.sprite.texture.filterMode, Is.EqualTo(FilterMode.Point),
                 "The pitch room must stay point filtered.");
-            var judgeImage = RequireChild(guided, "Content Frame/Aya Row/Judge Aya").GetComponent<Image>();
+            var judgeObject = RequireChild(guided, "Content Frame/Aya Row/Judge Aya");
+            var judgeImage = judgeObject.GetComponent<Image>();
             Assert.That(judgeImage.sprite, Is.Not.Null);
             Assert.That(judgeImage.sprite.texture.filterMode, Is.EqualTo(FilterMode.Point),
                 "Judge Aya must stay point filtered.");
             Assert.That(judgeImage.preserveAspect, Is.True);
+
+            var judgeView = judgeObject.GetComponent<JudgeReactionView>();
+            Assert.That(judgeView, Is.Not.Null,
+                "Judge Aya must carry the reaction view, or she is a frozen portrait.");
+            Assert.That(judgeView.IsConfigured, Is.True,
+                "The reaction view must be serialized with its portrait Image and sprite set.");
+            var serializedJudge = new SerializedObject(judgeView);
+            Assert.That(serializedJudge.FindProperty("portraitImage").objectReferenceValue,
+                Is.SameAs(judgeImage), "The reaction view must drive Judge Aya's own Image.");
+            var sheetSprites = AssetDatabase
+                .LoadAllAssetsAtPath("Assets/Art/Characters/judge-aya-sheet.png")
+                .OfType<Sprite>()
+                .ToDictionary(sprite => sprite.name, StringComparer.Ordinal);
+            var spriteSet = serializedJudge.FindProperty("sprites");
+            var resolvedNames = new List<string>();
+            foreach (JudgeReaction reaction in Enum.GetValues(typeof(JudgeReaction)))
+            {
+                var field = char.ToLowerInvariant(reaction.ToString()[0]) +
+                    reaction.ToString().Substring(1);
+                var assigned = spriteSet.FindPropertyRelative(field).objectReferenceValue as Sprite;
+                Assert.That(assigned, Is.Not.Null, reaction + " must be assigned from the sheet.");
+                Assert.That(sheetSprites.ContainsKey(reaction.ToString()), Is.True,
+                    reaction + " must exist as a named slice of the Judge Aya sheet.");
+                Assert.That(assigned, Is.SameAs(sheetSprites[reaction.ToString()]),
+                    reaction + " must resolve to the identically named sheet slice.");
+                resolvedNames.Add(assigned.name);
+            }
+            Assert.That(resolvedNames, Has.Count.EqualTo(11));
+            Assert.That(resolvedNames.Distinct().Count(), Is.EqualTo(11),
+                "Every reaction must resolve to a distinct portrait.");
+            Assert.That(sheetSprites.Values.Select(sprite => sprite.rect.size).Distinct().Count(),
+                Is.EqualTo(1),
+                "Uniform slices keep the layout stable as the portrait swaps.");
             using (new ActiveScope(guided.gameObject))
             {
                 ForceGuidedLayout(canvas, guided);
@@ -1114,8 +1148,8 @@ namespace Agrovator.PitchSimulator.Tests.EditMode.UI
             Assert.That(canvas.GetComponentsInChildren<QuestionReviewItemView>(true), Is.Empty,
                 "The legacy review list must be absent.");
             Assert.That(canvas.GetComponentsInChildren<KeyboardReviewScrollbar>(true), Is.Empty);
-            Assert.That(canvas.GetComponentsInChildren<JudgeReactionView>(true), Is.Empty,
-                "The legacy reaction bridge must not remain in the owned scene.");
+            Assert.That(canvas.GetComponentsInChildren<JudgeReactionView>(true), Has.Length.EqualTo(1),
+                "Exactly one reaction view drives Judge Aya in the guided scene.");
             foreach (var legacyName in new[] { "Metrics", "Prompt Backing", "PitchRoom", "Tutorial" })
             {
                 Assert.That(canvas.GetComponentsInChildren<Transform>(true)

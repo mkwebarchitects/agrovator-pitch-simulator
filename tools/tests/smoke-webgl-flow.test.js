@@ -256,15 +256,20 @@ test("viewport verification settles changed compact Unity content and controls b
 test("guided paths own exactly the required executable evidence captures", () => {
   const primary = extractFunction(source, "runPrimaryKeyboardPath");
   const secondary = extractFunction(source, "runSecondaryPointerPath");
+  // The reaction captures sit at feedback moments: every other capture lands on
+  // a question, where Judge Aya rests, so without these the run carries no
+  // evidence that her portrait responds to the assembled statement at all.
   assert.deepEqual(findCalls(primary, "captureCanvas").map(lastQuotedValue), [
     "chrome-primary-mode.png", "chrome-mobile-compact.png", "chrome-primary-build.png",
+    "chrome-primary-reaction-developing.png", "chrome-primary-reaction-clear.png",
     "chrome-primary-improve.png", "chrome-primary-present.png", "chrome-primary-results.png",
   ]);
   assert.deepEqual(findCalls(secondary, "captureCanvas").map(lastQuotedValue), [
     "edge-secondary-mode.png", "edge-mobile-compact.png", "edge-secondary-build.png",
+    "edge-secondary-reaction-first.png", "edge-secondary-reaction-second.png",
     "edge-secondary-present.png", "edge-secondary-results.png",
   ]);
-  assert.equal(findCalls(source, "captureCanvas").length, 11);
+  assert.equal(findCalls(source, "captureCanvas").length, 15);
   assert.equal(findCalls(primary, "setTimeout", { awaited: false }).length, 0);
   assert.equal(findCalls(secondary, "setTimeout", { awaited: false }).length, 0);
   assert.equal(findCalls(primary, "page.locator", { awaited: false }).length, 0);

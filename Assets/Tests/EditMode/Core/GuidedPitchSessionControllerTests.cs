@@ -299,6 +299,75 @@ namespace Agrovator.PitchSimulator.Tests.EditMode.Core
         }
 
         [Test]
+        public void LastReactionCue_MirrorsTheSelectedOptionAndClearsWhenTheFeedbackDoes()
+        {
+            var fixture = CreateFixture();
+            EnterFirstBuild(fixture.Controller);
+            Assert.That(fixture.Controller.Snapshot.LastReactionCue, Is.Null,
+                "A Build prompt must not open on a previous reaction.");
+
+            Assert.That(fixture.Controller.SelectPitchResponse("primary-problem-needs-practice"), Is.True);
+            Assert.That(fixture.Controller.Snapshot.LastReactionCue, Is.EqualTo("Concerned"));
+            Assert.That(fixture.Controller.Continue(), Is.True);
+            Assert.That(fixture.Controller.Snapshot.LastReactionCue, Is.Null,
+                "Advancing past Build feedback must release the reaction.");
+
+            Assert.That(fixture.Controller.SelectPitchResponse("primary-evidence-developing"), Is.True);
+            Assert.That(fixture.Controller.Snapshot.LastReactionCue, Is.EqualTo("Curious"));
+            fixture.Controller.Continue();
+            Assert.That(fixture.Controller.SelectPitchResponse("primary-solution-clear"), Is.True);
+            Assert.That(fixture.Controller.Snapshot.LastReactionCue, Is.EqualTo("Impressed"));
+            fixture.Controller.Continue();
+            fixture.Controller.SelectPitchResponse("primary-value-clear");
+            fixture.Controller.Continue();
+
+            Assert.That(fixture.Controller.Snapshot.Phase, Is.EqualTo(GuidedPitchPhase.Improve));
+            Assert.That(fixture.Controller.Snapshot.LastReactionCue, Is.Null);
+            Assert.That(fixture.Controller.BeginRevision(PitchPart.Problem), Is.True);
+            Assert.That(fixture.Controller.Snapshot.LastReactionCue, Is.Null);
+            Assert.That(fixture.Controller.ReplacePitchResponse("primary-problem-clear"), Is.True);
+            Assert.That(fixture.Controller.Snapshot.LastReactionCue, Is.EqualTo("Impressed"),
+                "An Improve replacement must react to the new statement.");
+            Assert.That(fixture.Controller.BeginRevision(PitchPart.Evidence), Is.True);
+            Assert.That(fixture.Controller.Snapshot.LastReactionCue, Is.Null,
+                "Reopening a revision list must release the previous reaction.");
+            Assert.That(fixture.Controller.ReplacePitchResponse("primary-evidence-needs-practice"), Is.True);
+            Assert.That(fixture.Controller.Snapshot.LastReactionCue, Is.EqualTo("Concerned"));
+
+            Assert.That(fixture.Controller.PresentPitch(), Is.True);
+            Assert.That(fixture.Controller.Snapshot.LastReactionCue, Is.Null,
+                "Present must not stage the pitch under the last revision reaction.");
+            Assert.That(fixture.Controller.Continue(), Is.True);
+            Assert.That(fixture.Controller.SelectFollowUpResponse("primary-cost-needs-practice"), Is.True);
+            Assert.That(fixture.Controller.Snapshot.LastReactionCue, Is.EqualTo("Concerned"));
+            Assert.That(fixture.Controller.Continue(), Is.True);
+
+            Assert.That(fixture.Controller.Snapshot.Phase, Is.EqualTo(GuidedPitchPhase.Results));
+            Assert.That(fixture.Controller.Snapshot.LastReactionCue, Is.Null);
+            Assert.That(LmsPayloadJson.SerializeCompletion(fixture.Controller.Snapshot.CompletionPayload),
+                Does.Not.Contain("Concerned"),
+                "A reaction cue is presentation state and must never reach the LMS payload.");
+
+            Assert.That(fixture.Controller.Retry(), Is.True);
+            Assert.That(fixture.Controller.Snapshot.LastReactionCue, Is.Null,
+                "Retry must clear the reaction so attempt two never opens on attempt one's face.");
+        }
+
+        [Test]
+        public void LastReactionCue_ClearsOnRetryFromAnUnsubmittedFollowUpReaction()
+        {
+            var fixture = CreateFixture();
+            MoveToFollowUpFeedback(fixture.Controller);
+            Assert.That(fixture.Controller.Snapshot.LastReactionCue, Is.EqualTo("Impressed"));
+
+            Assert.That(fixture.Controller.Continue(), Is.True);
+            Assert.That(fixture.Controller.Retry(), Is.True);
+
+            Assert.That(fixture.Controller.Snapshot.Phase, Is.EqualTo(GuidedPitchPhase.Briefing));
+            Assert.That(fixture.Controller.Snapshot.LastReactionCue, Is.Null);
+        }
+
+        [Test]
         public void BuildFeedbackEvent_PublishesAfterTransitionAndRefreshBeforeSynchronousListener()
         {
             var fixture = CreateFixture();

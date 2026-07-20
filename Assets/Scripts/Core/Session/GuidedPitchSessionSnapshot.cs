@@ -17,6 +17,7 @@ namespace Agrovator.PitchSimulator.Core
             PitchAssessment assessment,
             IReadOnlyList<GuidedPitchOption> availableOptions,
             GuidedPitchFeedback feedback,
+            string lastReactionCue,
             string followUpResponseId,
             IReadOnlyList<string> selectionHistory,
             int attemptNumber,
@@ -31,6 +32,7 @@ namespace Agrovator.PitchSimulator.Core
             Assessment = assessment;
             AvailableOptions = Copy(availableOptions);
             Feedback = feedback;
+            LastReactionCue = lastReactionCue;
             FollowUpResponseId = followUpResponseId;
             SelectionHistory = Copy(selectionHistory);
             AttemptNumber = attemptNumber;
@@ -52,6 +54,13 @@ namespace Agrovator.PitchSimulator.Core
         public IReadOnlyList<GuidedPitchOption> AvailableOptions { get; }
 
         public GuidedPitchFeedback Feedback { get; }
+
+        /// <summary>
+        /// Authored reaction cue for the statement the learner just assembled, or
+        /// null while no statement is being reacted to. Presentation state only: it
+        /// is never written into <see cref="CompletionPayload"/>.
+        /// </summary>
+        public string LastReactionCue { get; }
 
         public string FollowUpResponseId { get; }
 

@@ -416,8 +416,13 @@ async function runPrimaryKeyboardPath(definition, page, frame, canvas, options) 
   await captureCanvas(canvas, options, "chrome-primary-build.png");
   await keyboardStableStep(page, canvas, "Tab", GuidedGate.focus, options, "problem developing option");
   await keyboardStableStep(page, canvas, "Enter", GuidedGate.transition, options, "problem feedback");
+  // Judge Aya's reaction to the statement just assembled. Captured at the
+  // feedback moment, because every other capture sits on a question where she
+  // rests: a Developing answer here and a Clear answer next must not look alike.
+  await captureCanvas(canvas, options, "chrome-primary-reaction-developing.png");
   await keyboardStableStep(page, canvas, "Enter", GuidedGate.transition, options, "evidence build");
   await keyboardStableStep(page, canvas, "Enter", GuidedGate.transition, options, "evidence feedback");
+  await captureCanvas(canvas, options, "chrome-primary-reaction-clear.png");
   await keyboardStableStep(page, canvas, "Enter", GuidedGate.transition, options, "solution build");
   await keyboardStableStep(page, canvas, "Enter", GuidedGate.transition, options, "solution feedback");
   await keyboardStableStep(page, canvas, "Enter", GuidedGate.transition, options, "value build");
@@ -462,8 +467,10 @@ async function runSecondaryPointerPath(definition, page, frame, canvas, options)
   await pointerStableStep(page, canvas, 0.50, 0.86, GuidedGate.transition, options, "build");
   await captureCanvas(canvas, options, "edge-secondary-build.png");
   await pointerStableStep(page, canvas, 0.50, 0.70, GuidedGate.transition, options, "problem feedback");
+  await captureCanvas(canvas, options, "edge-secondary-reaction-first.png");
   await pointerStableStep(page, canvas, 0.50, 0.86, GuidedGate.transition, options, "evidence build");
   await pointerStableStep(page, canvas, 0.27, 0.70, GuidedGate.transition, options, "evidence feedback");
+  await captureCanvas(canvas, options, "edge-secondary-reaction-second.png");
   await pointerStableStep(page, canvas, 0.50, 0.86, GuidedGate.transition, options, "solution build");
   await pointerStableStep(page, canvas, 0.27, 0.70, GuidedGate.transition, options, "solution feedback");
   await pointerStableStep(page, canvas, 0.50, 0.86, GuidedGate.transition, options, "value build");

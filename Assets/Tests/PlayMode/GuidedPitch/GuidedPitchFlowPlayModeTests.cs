@@ -29,6 +29,8 @@ namespace Agrovator.PitchSimulator.Tests.PlayMode
         internal PitchBoardView Board;
         internal SentenceCardListView Cards;
         internal PitchFeedbackView Feedback;
+        internal JudgeReactionView Judge;
+        internal Image JudgeImage;
         internal Text QuestionText;
         internal Text HintText;
         internal Text PresentationText;
@@ -90,6 +92,16 @@ namespace Agrovator.PitchSimulator.Tests.PlayMode
 
     internal static class GuidedRigFactory
     {
+        /// <summary>
+        /// Short enough that a semantic reaction settles back within a handful of
+        /// test frames, long enough that it survives the synchronous assertions
+        /// that follow a selection without yielding.
+        /// </summary>
+        internal const float JudgeSemanticHoldSeconds = 0.2f;
+
+        private static readonly Dictionary<JudgeReaction, Sprite> JudgeSprites =
+            new Dictionary<JudgeReaction, Sprite>();
+
         internal static readonly string[] BriefingLineKeys =
         {
             "guided.title",
@@ -148,11 +160,12 @@ namespace Agrovator.PitchSimulator.Tests.PlayMode
 
         internal static GuidedPitchSessionController CreateController(
             GuidedContentFixture fixture,
-            ILmsBridge bridge)
+            ILmsBridge bridge,
+            bool reducedMotion = false)
         {
             return new GuidedPitchSessionController(
                 fixture.Content,
-                new AccessibilitySettings(TimerMode.Normal, false, 0.8f, 0.8f, "en"),
+                new AccessibilitySettings(TimerMode.Normal, reducedMotion, 0.8f, 0.8f, "en"),
                 bridge,
                 () => new DateTimeOffset(2026, 7, 15, 8, 0, 0, TimeSpan.Zero),
                 "guided-test");
@@ -244,6 +257,13 @@ namespace Agrovator.PitchSimulator.Tests.PlayMode
             rig.PresentButton = CreateButton("Present Button", guidedTransform);
             rig.ContinueButton = CreateButton("Continue Button", guidedTransform);
 
+            var judgeRoot = Panel("Judge Aya", guidedTransform);
+            judgeRoot.AddComponent<CanvasRenderer>();
+            rig.JudgeImage = judgeRoot.AddComponent<Image>();
+            rig.Judge = judgeRoot.AddComponent<JudgeReactionView>();
+            rig.Judge.Configure(rig.JudgeImage, CreateJudgeSpriteSet(), 5f, 0.12f, 0.18f,
+                JudgeSemanticHoldSeconds);
+
             var feedbackRoot = Panel("Feedback", guidedTransform);
             rig.Feedback = feedbackRoot.AddComponent<PitchFeedbackView>();
             rig.Feedback.Configure(Enumerable.Range(0, 3).Select(index =>
@@ -268,7 +288,8 @@ namespace Agrovator.PitchSimulator.Tests.PlayMode
                 rig.PresentButton,
                 rig.StrengthenButtons,
                 rig.StrengthenLabels,
-                rig.CardsScroll);
+                rig.CardsScroll,
+                rig.Judge);
 
             rig.ResultsPanel = Panel("Results", canvasTransform);
             rig.Results = rig.ResultsPanel.AddComponent<GuidedPitchResultsPresenter>();
@@ -360,6 +381,37 @@ namespace Agrovator.PitchSimulator.Tests.PlayMode
         internal static string ReadProjectFile(params string[] segments)
         {
             return File.ReadAllText(segments.Aggregate(Application.dataPath, Path.Combine));
+        }
+
+        /// <summary>
+        /// One distinct throwaway sprite per reaction, so a test can prove the
+        /// portrait Image actually swapped rather than trusting the view's own
+        /// enum. Cached and DontSave so repeated rigs do not leak textures.
+        /// </summary>
+        internal static Sprite JudgeSprite(JudgeReaction reaction)
+        {
+            if (JudgeSprites.TryGetValue(reaction, out var cached) && cached != null)
+            {
+                return cached;
+            }
+
+            var texture = new Texture2D(4, 4) { hideFlags = HideFlags.HideAndDontSave };
+            var sprite = Sprite.Create(texture, new Rect(0f, 0f, 4f, 4f), new Vector2(0.5f, 0.5f));
+            sprite.name = reaction.ToString();
+            sprite.hideFlags = HideFlags.HideAndDontSave;
+            JudgeSprites[reaction] = sprite;
+            return sprite;
+        }
+
+        private static JudgeReactionSpriteSet CreateJudgeSpriteSet()
+        {
+            var set = new JudgeReactionSpriteSet();
+            foreach (JudgeReaction reaction in Enum.GetValues(typeof(JudgeReaction)))
+            {
+                set.Set(reaction, JudgeSprite(reaction));
+            }
+
+            return set;
         }
 
         private static ModeSelectionCard CreateModeCard(LearnerMode mode, Transform parent)
