@@ -105,6 +105,11 @@ namespace Agrovator.PitchSimulator.UI
         private const float DefaultTalkFrameSeconds = 0.18f;
         private const float DefaultSemanticHoldSeconds = 0.9f;
 
+        /// <summary>
+        /// The face Aya holds when she is not reacting to anything.
+        /// </summary>
+        private const JudgeReaction RestingReaction = JudgeReaction.Encouraging;
+
         [SerializeField] private Image portraitImage;
         [SerializeField] private JudgeReactionSpriteSet sprites = new JudgeReactionSpriteSet();
         [SerializeField, Min(1f)] private float blinkIntervalSeconds = DefaultBlinkIntervalSeconds;
@@ -178,12 +183,19 @@ namespace Agrovator.PitchSimulator.UI
             this.talkFrameSeconds = Mathf.Max(0.001f, talkFrameSeconds);
             this.semanticHoldSeconds = Mathf.Max(0.001f, semanticHoldSeconds);
             elapsed = 0f;
-            Apply(JudgeReaction.Idle);
+            Apply(RestingReaction);
         }
 
         private void Awake()
         {
-            Apply(JudgeReaction.Idle);
+            // Awake can run after a presenter has already rendered, because a
+            // screen is refreshed before its panel is activated. Landing on the
+            // resting face keeps that ordering harmless; landing on anything else
+            // would be frozen in place by the semantic latch.
+            if (!semanticLatched && !questionTextVisible)
+            {
+                Apply(RestingReaction);
+            }
         }
 
         private void Update()
@@ -203,8 +215,8 @@ namespace Agrovator.PitchSimulator.UI
                     elapsed = 0f;
                     // The settled face is now what is latched, so the same cue
                     // arriving again is a new reaction to show, not a repeat to skip.
-                    latchedSemanticReaction = JudgeReaction.Encouraging;
-                    Apply(JudgeReaction.Encouraging);
+                    latchedSemanticReaction = RestingReaction;
+                    Apply(RestingReaction);
                 }
                 return;
             }

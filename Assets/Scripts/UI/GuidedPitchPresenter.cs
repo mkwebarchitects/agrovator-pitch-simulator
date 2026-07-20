@@ -339,6 +339,13 @@ namespace Agrovator.PitchSimulator.UI
         /// visual verification. Reduced motion drops the settle animation and pins
         /// the reaction static.
         /// </para>
+        /// <para>
+        /// Invariant: once a reaction has settled, a further Refresh carrying the
+        /// same unchanged cue replays it. Nothing refreshes a feedback screen today
+        /// (Continue clears the cue, Tab and Settings do not refresh), so this is
+        /// unreachable — but wiring any new asynchronous event to Refresh would
+        /// make Aya's face restart every hold, and needs a cue-changed guard here.
+        /// </para>
         /// </summary>
         private void RenderJudge(GuidedPitchSessionSnapshot snapshot)
         {

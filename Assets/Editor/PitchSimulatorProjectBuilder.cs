@@ -327,26 +327,36 @@ namespace Agrovator.PitchSimulator.Editor
                 return false;
             }
 
+            // A renamed field must fail loudly here rather than throw an opaque
+            // null reference from inside the idempotence guard.
             var serialized = new SerializedObject(view);
-            if (serialized.FindProperty("portraitImage").objectReferenceValue != (UnityEngine.Object)image ||
-                !Mathf.Approximately(serialized.FindProperty("blinkIntervalSeconds").floatValue,
+            if (RequireProperty(serialized, "portraitImage").objectReferenceValue !=
+                    (UnityEngine.Object)image ||
+                !Mathf.Approximately(RequireProperty(serialized, "blinkIntervalSeconds").floatValue,
                     GuidedPitchSceneBuilder.JudgeBlinkIntervalSeconds) ||
-                !Mathf.Approximately(serialized.FindProperty("blinkDurationSeconds").floatValue,
+                !Mathf.Approximately(RequireProperty(serialized, "blinkDurationSeconds").floatValue,
                     GuidedPitchSceneBuilder.JudgeBlinkDurationSeconds) ||
-                !Mathf.Approximately(serialized.FindProperty("talkFrameSeconds").floatValue,
+                !Mathf.Approximately(RequireProperty(serialized, "talkFrameSeconds").floatValue,
                     GuidedPitchSceneBuilder.JudgeTalkFrameSeconds) ||
-                !Mathf.Approximately(serialized.FindProperty("semanticHoldSeconds").floatValue,
+                !Mathf.Approximately(RequireProperty(serialized, "semanticHoldSeconds").floatValue,
                     GuidedPitchSceneBuilder.JudgeSemanticHoldSeconds))
             {
                 return false;
             }
 
-            var sprites = serialized.FindProperty("sprites");
+            var sprites = RequireProperty(serialized, "sprites");
             foreach (JudgeReaction reaction in Enum.GetValues(typeof(JudgeReaction)))
             {
                 var field = char.ToLowerInvariant(reaction.ToString()[0]) +
                     reaction.ToString().Substring(1);
-                var assigned = sprites.FindPropertyRelative(field).objectReferenceValue as Sprite;
+                var property = sprites.FindPropertyRelative(field);
+                if (property == null)
+                {
+                    throw new InvalidOperationException(
+                        $"JudgeReactionSpriteSet has no field '{field}' for reaction {reaction}.");
+                }
+
+                var assigned = property.objectReferenceValue as Sprite;
                 if (assigned == null ||
                     !string.Equals(assigned.name, reaction.ToString(), StringComparison.Ordinal))
                 {
@@ -357,6 +367,18 @@ namespace Agrovator.PitchSimulator.Editor
             return image.sprite != null &&
                 string.Equals(image.sprite.name, nameof(JudgeReaction.Encouraging),
                     StringComparison.Ordinal);
+        }
+
+        private static SerializedProperty RequireProperty(SerializedObject target, string name)
+        {
+            var property = target.FindProperty(name);
+            if (property == null)
+            {
+                throw new InvalidOperationException(
+                    $"{target.targetObject.GetType().Name} has no serialized field '{name}'.");
+            }
+
+            return property;
         }
 
         private static bool HasCurrentWebIntegrationContract(Scene scene)

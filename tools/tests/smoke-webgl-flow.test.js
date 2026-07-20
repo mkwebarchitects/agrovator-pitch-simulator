@@ -283,9 +283,14 @@ test("guided paths own exactly the required executable evidence captures", () =>
     assert.ok(baseline[0].end < reactions[0].start,
       "the resting baseline must be sampled before the first reaction");
   }
-  const helper = extractFunction(source, "captureJudgeReaction");
-  assert.match(canonicalCode(helper), /if \(reacting === restingHash\) \{ throw new Error/,
-    "captureJudgeReaction must throw when the portrait is unchanged");
+  const helper = canonicalCode(extractFunction(source, "captureJudgeReaction"));
+  // Both rejections are load-bearing. Dropping the resting check would let a
+  // settled-back portrait pass whenever it is compared only against the
+  // preceding reaction, which is a silent loss of the whole visual proof.
+  assert.match(helper, /if \(reacting === previous\.resting\) \{ throw new Error/,
+    "captureJudgeReaction must throw when Aya has settled back to her resting face");
+  assert.match(helper, /if \(reacting === previous\.reaction\) \{ throw new Error/,
+    "captureJudgeReaction must throw when the portrait did not change at all");
   assert.equal(findCalls(primary, "setTimeout", { awaited: false }).length, 0);
   assert.equal(findCalls(secondary, "setTimeout", { awaited: false }).length, 0);
   assert.equal(findCalls(primary, "page.locator", { awaited: false }).length, 0);

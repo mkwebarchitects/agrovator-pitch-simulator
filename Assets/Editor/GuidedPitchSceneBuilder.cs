@@ -308,12 +308,10 @@ namespace Agrovator.PitchSimulator.Editor
             {
                 spriteSet.Set(reaction, ResolveAyaSprite(ayaSprites, reaction));
             }
+            // Configure applies the resting portrait itself, which is also what
+            // the saved scene must show before any presenter runs.
             judgeView.Configure(judgeImage, spriteSet, JudgeBlinkIntervalSeconds,
                 JudgeBlinkDurationSeconds, JudgeTalkFrameSeconds, JudgeSemanticHoldSeconds);
-            // Configure applies the Idle frame as its last step, so restore the
-            // resting portrait afterwards: until a presenter runs, the saved scene
-            // is what a learner and an editor both see.
-            judgeImage.sprite = ResolveAyaSprite(ayaSprites, JudgeReaction.Encouraging);
 
             var card = new GameObject("Dialogue Card", typeof(RectTransform), typeof(Image),
                 typeof(VerticalLayoutGroup), typeof(LayoutElement));

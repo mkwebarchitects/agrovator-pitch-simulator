@@ -88,6 +88,35 @@ namespace Agrovator.PitchSimulator.Tests.PlayMode
         }
 
         /// <summary>
+        /// The guided panel is saved inactive, and the router refreshes presenters
+        /// before it activates the panel. Awake therefore runs after the resting
+        /// face has already been applied, so it must not drop Aya onto a different
+        /// portrait that the latch then refuses to correct.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator View_KeepsTheRestingFace_WhenAwakeRunsAfterTheFirstRender()
+        {
+            var panel = Track(new GameObject("Guided Panel"));
+            panel.SetActive(false);
+            var root = new GameObject("Judge", typeof(RectTransform), typeof(Image),
+                typeof(JudgeReactionView));
+            root.transform.SetParent(panel.transform, false);
+            var image = root.GetComponent<Image>();
+            var view = root.GetComponent<JudgeReactionView>();
+            var sprites = CreateCompleteSpriteSet();
+            view.Configure(image, sprites, 5f, 0.12f, 0.18f, semanticHoldSeconds: 2.5f);
+
+            view.Render("Encouraging", questionTextVisible: false, showSemanticReaction: true,
+                reducedMotion: false);
+            panel.SetActive(true);
+            yield return null;
+
+            Assert.That(image.sprite, Is.SameAs(sprites.Resolve(JudgeReaction.Encouraging)),
+                "Activating the panel must not drop Aya onto the Idle frame.");
+            Assert.That(view.CurrentReaction, Is.EqualTo(JudgeReaction.Encouraging));
+        }
+
+        /// <summary>
         /// Settling to Encouraging must also release the latch that records which
         /// reaction is showing. Otherwise the same cue arriving twice in a row is
         /// silently swallowed as a repeat of a reaction that is no longer on screen.

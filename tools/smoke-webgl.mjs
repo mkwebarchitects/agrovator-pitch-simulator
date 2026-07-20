@@ -258,13 +258,19 @@ async function judgePortraitHash(page, canvas) {
   return hash(await page.screenshot({ type: "png", clip }));
 }
 
-async function captureJudgeReaction(page, canvas, options, restingHash, filename) {
+// Rejecting BOTH the resting face and the preceding reaction matters: comparing
+// only against the preceding one would pass when the hold has already expired
+// and Aya has settled back, which is the exact silent failure this guards.
+async function captureJudgeReaction(page, canvas, options, previous, filename) {
   const reacting = await judgePortraitHash(page, canvas);
-  if (reacting === restingHash) {
+  if (reacting === previous.resting) {
+    throw new Error(`Judge Aya settled back before ${filename}; the capture shows her resting face.`);
+  }
+  if (reacting === previous.reaction) {
     throw new Error(`Judge Aya did not react before ${filename}; her portrait is unchanged.`);
   }
   await captureCanvas(canvas, options, filename);
-  return reacting;
+  return { resting: previous.resting, reaction: reacting };
 }
 
 async function regionHashes(page, canvas) {
@@ -445,7 +451,7 @@ async function runPrimaryKeyboardPath(definition, page, frame, canvas, options) 
   await captureCanvas(canvas, options, "chrome-primary-build.png");
   // Judge Aya rests on every question, so her resting portrait is the baseline
   // each reaction below must differ from.
-  const chromeResting = await judgePortraitHash(page, canvas);
+  const chromeResting = { resting: await judgePortraitHash(page, canvas), reaction: null };
   await keyboardStableStep(page, canvas, "Tab", GuidedGate.focus, options, "problem developing option");
   await keyboardStableStep(page, canvas, "Enter", GuidedGate.transition, options, "problem feedback");
   const chromeDeveloping = await captureJudgeReaction(page, canvas, options, chromeResting,
@@ -497,7 +503,7 @@ async function runSecondaryPointerPath(definition, page, frame, canvas, options)
   await pointerStableStep(page, canvas, 0.70, 0.76, GuidedGate.transition, options, "learn");
   await pointerStableStep(page, canvas, 0.50, 0.86, GuidedGate.transition, options, "build");
   await captureCanvas(canvas, options, "edge-secondary-build.png");
-  const edgeResting = await judgePortraitHash(page, canvas);
+  const edgeResting = { resting: await judgePortraitHash(page, canvas), reaction: null };
   await pointerStableStep(page, canvas, 0.50, 0.70, GuidedGate.transition, options, "problem feedback");
   const edgeFirst = await captureJudgeReaction(page, canvas, options, edgeResting,
     "edge-secondary-reaction-first.png");
