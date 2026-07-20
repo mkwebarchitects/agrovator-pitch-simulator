@@ -5106,6 +5106,20 @@ async function createWasm() {
       }, window.location.origin);
     }
 
+  function _PitchSimulatorDevicePixelRatioTimes100() {
+      return Math.max(100, Math.round((window.devicePixelRatio || 1) * 100));
+    }
+
+  function _PitchSimulatorViewportHeight() {
+      var canvas = document.getElementById("unity-canvas");
+      return Math.max(1, Math.round(canvas ? canvas.clientHeight : window.innerHeight));
+    }
+
+  function _PitchSimulatorViewportWidth() {
+      var canvas = document.getElementById("unity-canvas");
+      return Math.max(1, Math.round(canvas ? canvas.clientWidth : window.innerWidth));
+    }
+
   var ___assert_fail = (condition, filename, line, func) =>
       abort(`Assertion failed: ${UTF8ToString(condition)}, at: ` + [filename ? UTF8ToString(filename) : 'unknown filename', line, func ? UTF8ToString(func) : 'unknown function']);
 
@@ -17698,6 +17712,12 @@ var wasmImports = {
   PitchSimulatorBridge_GetLaunchConfigJson: _PitchSimulatorBridge_GetLaunchConfigJson,
   /** @export */
   PitchSimulatorBridge_SubmitCompletion: _PitchSimulatorBridge_SubmitCompletion,
+  /** @export */
+  PitchSimulatorDevicePixelRatioTimes100: _PitchSimulatorDevicePixelRatioTimes100,
+  /** @export */
+  PitchSimulatorViewportHeight: _PitchSimulatorViewportHeight,
+  /** @export */
+  PitchSimulatorViewportWidth: _PitchSimulatorViewportWidth,
   /** @export */
   __assert_fail: ___assert_fail,
   /** @export */

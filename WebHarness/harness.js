@@ -33,7 +33,7 @@
     ReducedMotion: false,
     MusicVolume: 0.6,
     SfxVolume: 0.7,
-    ContentVersion: 1,
+    ContentVersion: 2,
     LaunchReference: "lref_localHarness1234"
   });
 
