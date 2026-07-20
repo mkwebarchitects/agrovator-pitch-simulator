@@ -119,7 +119,7 @@ NavMeshSettings:
     debug:
       m_Flags: 0
   m_NavMeshData: {fileID: 0}
---- !u!1 &1517041690
+--- !u!1 &942586761
 GameObject:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -127,10 +127,10 @@ GameObject:
   m_PrefabAsset: {fileID: 0}
   serializedVersion: 6
   m_Component:
-  - component: {fileID: 1517041691}
-  - component: {fileID: 1517041694}
-  - component: {fileID: 1517041693}
-  - component: {fileID: 1517041692}
+  - component: {fileID: 942586762}
+  - component: {fileID: 942586765}
+  - component: {fileID: 942586764}
+  - component: {fileID: 942586763}
   m_Layer: 0
   m_Name: Bootstrapper
   m_TagString: Untagged
@@ -138,28 +138,28 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!4 &1517041691
+--- !u!4 &942586762
 Transform:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1517041690}
+  m_GameObject: {fileID: 942586761}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
-  m_Father: {fileID: 1847548253}
+  m_Father: {fileID: 1375041555}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!82 &1517041692
+--- !u!82 &942586763
 AudioSource:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1517041690}
+  m_GameObject: {fileID: 942586761}
   m_Enabled: 1
   serializedVersion: 4
   OutputAudioMixerGroup: {fileID: 0}
@@ -250,13 +250,13 @@ AudioSource:
     m_PreInfinity: 2
     m_PostInfinity: 2
     m_RotationOrder: 4
---- !u!82 &1517041693
+--- !u!82 &942586764
 AudioSource:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1517041690}
+  m_GameObject: {fileID: 942586761}
   m_Enabled: 1
   serializedVersion: 4
   OutputAudioMixerGroup: {fileID: 0}
@@ -347,13 +347,13 @@ AudioSource:
     m_PreInfinity: 2
     m_PostInfinity: 2
     m_RotationOrder: 4
---- !u!114 &1517041694
+--- !u!114 &942586765
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1517041690}
+  m_GameObject: {fileID: 942586761}
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 1ae150a4b30be7740a78b650f1c83509, type: 3}
@@ -362,8 +362,8 @@ MonoBehaviour:
   guidedPitchContentJson: {fileID: 4900000, guid: 07bbb68d99b325549a9a4904cfadd53e, type: 3}
   englishCatalogJson: {fileID: 4900000, guid: 261b862b212d47c4c96402c37d225ee0, type: 3}
   malayCatalogJson: {fileID: 4900000, guid: 494959a8320a0524c9169b19ea4453a7, type: 3}
-  musicSource: {fileID: 1517041693}
-  sfxSource: {fileID: 1517041692}
+  musicSource: {fileID: 942586764}
+  sfxSource: {fileID: 942586763}
   audioCueBindings:
   - cue: 0
     clip: {fileID: 0}
@@ -383,7 +383,7 @@ MonoBehaviour:
     clip: {fileID: 0}
   - cue: 8
     clip: {fileID: 0}
---- !u!1 &1847548252
+--- !u!1 &1375041553
 GameObject:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -391,7 +391,8 @@ GameObject:
   m_PrefabAsset: {fileID: 0}
   serializedVersion: 6
   m_Component:
-  - component: {fileID: 1847548253}
+  - component: {fileID: 1375041555}
+  - component: {fileID: 1375041554}
   m_Layer: 0
   m_Name: Generated Bootstrap
   m_TagString: Untagged
@@ -399,24 +400,37 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!4 &1847548253
+--- !u!114 &1375041554
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1375041553}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: dfc08b8368e1cee489a8f904557eda16, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Agrovator.PitchSimulator.UI::Agrovator.PitchSimulator.UI.GeneratedSceneStamp
+  generatorVersion: 1
+--- !u!4 &1375041555
 Transform:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1847548252}
+  m_GameObject: {fileID: 1375041553}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
-  - {fileID: 1517041691}
+  - {fileID: 942586762}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0
   m_Roots:
-  - {fileID: 1847548253}
+  - {fileID: 1375041555}

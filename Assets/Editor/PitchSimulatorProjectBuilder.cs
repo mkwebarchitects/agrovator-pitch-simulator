@@ -14,6 +14,14 @@ namespace Agrovator.PitchSimulator.Editor
 {
     public static class PitchSimulatorProjectBuilder
     {
+        /// <summary>
+        /// Bump whenever a builder change must reach the saved scenes. Every
+        /// owned root records this value and every contract check compares it
+        /// first, so a builder change can no longer silently no-op behind the
+        /// hand-maintained property whitelists below.
+        /// </summary>
+        public const int GeneratorVersion = 1;
+
         private const string BootstrapPath = "Assets/Scenes/Bootstrap.unity";
         private const string GamePath = "Assets/Scenes/Game.unity";
         private const string WebTestPath = "Assets/Scenes/WebIntegrationTest.unity";
@@ -219,12 +227,28 @@ namespace Agrovator.PitchSimulator.Editor
 
             var root = new GameObject(rootName);
             SceneManager.MoveGameObjectToScene(root, scene);
+            var stamp = new SerializedObject(root.AddComponent<GeneratedSceneStamp>());
+            stamp.FindProperty("generatorVersion").intValue = GeneratorVersion;
+            stamp.ApplyModifiedPropertiesWithoutUndo();
             return root;
+        }
+
+        /// <summary>
+        /// Compared before every property whitelist below. A bumped
+        /// <see cref="GeneratorVersion"/> forces every owned scene to
+        /// regenerate even when the whitelist happens not to inspect whatever
+        /// the builder change touched.
+        /// </summary>
+        private static bool HasCurrentGeneratorVersion(GameObject root)
+        {
+            var stamp = root.GetComponent<GeneratedSceneStamp>();
+            return stamp != null && stamp.GeneratorVersion == GeneratorVersion;
         }
 
         private static bool HasCurrentBootstrapContract(Scene scene)
         {
-            if (!TryGetSingleOwnedRoot(scene, "Generated Bootstrap", out var root))
+            if (!TryGetSingleOwnedRoot(scene, "Generated Bootstrap", out var root) ||
+                !HasCurrentGeneratorVersion(root))
             {
                 return false;
             }
@@ -248,7 +272,8 @@ namespace Agrovator.PitchSimulator.Editor
 
         private static bool HasCurrentGameContract(Scene scene)
         {
-            if (!TryGetSingleOwnedRoot(scene, "Generated UI", out var root))
+            if (!TryGetSingleOwnedRoot(scene, "Generated UI", out var root) ||
+                !HasCurrentGeneratorVersion(root))
             {
                 return false;
             }
@@ -383,7 +408,8 @@ namespace Agrovator.PitchSimulator.Editor
 
         private static bool HasCurrentWebIntegrationContract(Scene scene)
         {
-            if (!TryGetSingleOwnedRoot(scene, "Generated Web Integration Test", out var root))
+            if (!TryGetSingleOwnedRoot(scene, "Generated Web Integration Test", out var root) ||
+                !HasCurrentGeneratorVersion(root))
             {
                 return false;
             }

@@ -44,6 +44,10 @@ namespace Agrovator.PitchSimulator.Tests.EditMode.UI
             GamePath,
             "Assets/Scenes/WebIntegrationTest.unity",
         };
+        private static readonly string[] OwnedRootNames =
+        {
+            "Generated Bootstrap", "Generated UI", "Generated Web Integration Test",
+        };
 
         [Test]
         public void BatchBuild_Twice_PreservesUnownedRootAndKeepsGuidedContractSingular()
@@ -115,6 +119,118 @@ namespace Agrovator.PitchSimulator.Tests.EditMode.UI
                     File.WriteAllBytes(pair.Key, pair.Value);
                 }
                 AssetDatabase.Refresh(ImportAssetOptions.ForceSynchronousImport | ImportAssetOptions.ForceUpdate);
+            }
+        }
+
+        /// <summary>
+        /// The per-scene contract predicates are hand-maintained property
+        /// whitelists, so any builder change they do not happen to inspect
+        /// silently no-ops and leaves a stale scene saved with no failing test.
+        /// The stamp makes regeneration depend on a single declared version
+        /// instead, and the property checks become a safety net behind it.
+        /// </summary>
+        [Test]
+        public void GeneratedScenes_StampGeneratorVersion_AndRegenerateOnlyWhenItChanges()
+        {
+            var originalSceneBytes = GeneratedScenePaths.ToDictionary(
+                path => path, File.ReadAllBytes, StringComparer.Ordinal);
+            try
+            {
+                PitchSimulatorProjectBuilder.BuildProjectFoundationBatch();
+                foreach (var path in GeneratedScenePaths)
+                {
+                    AssertStampedRoot(path, PitchSimulatorProjectBuilder.GeneratorVersion);
+                }
+
+                var identities = GeneratedScenePaths.ToDictionary(
+                    path => path, GetOwnedRootIdentity, StringComparer.Ordinal);
+                PitchSimulatorProjectBuilder.BuildProjectFoundationBatch();
+                foreach (var path in GeneratedScenePaths)
+                {
+                    Assert.That(GetOwnedRootIdentity(path), Is.EqualTo(identities[path]),
+                        path + " must not be regenerated while the stamped generator version " +
+                        "still matches the builder.");
+                }
+
+                foreach (var path in GeneratedScenePaths)
+                {
+                    WriteStampedVersion(path, PitchSimulatorProjectBuilder.GeneratorVersion - 1);
+                }
+
+                PitchSimulatorProjectBuilder.BuildProjectFoundationBatch();
+                foreach (var path in GeneratedScenePaths)
+                {
+                    Assert.That(GetOwnedRootIdentity(path), Is.Not.EqualTo(identities[path]),
+                        path + " must be regenerated when its stamped generator version differs " +
+                        "from the builder, regardless of the property whitelist.");
+                    AssertStampedRoot(path, PitchSimulatorProjectBuilder.GeneratorVersion);
+                }
+            }
+            finally
+            {
+                EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+                foreach (var pair in originalSceneBytes)
+                {
+                    File.WriteAllBytes(pair.Key, pair.Value);
+                }
+                AssetDatabase.Refresh(
+                    ImportAssetOptions.ForceSynchronousImport | ImportAssetOptions.ForceUpdate);
+            }
+        }
+
+        private static void AssertStampedRoot(string scenePath, int expectedVersion)
+        {
+            WithOwnedRoot(scenePath, root =>
+            {
+                var stamps = root.GetComponents<GeneratedSceneStamp>();
+                Assert.That(stamps, Has.Length.EqualTo(1),
+                    scenePath + " must carry exactly one generator stamp on its owned root.");
+                Assert.That(stamps[0].GeneratorVersion, Is.EqualTo(expectedVersion),
+                    scenePath + " must record the builder's current generator version.");
+            });
+        }
+
+        private static string GetOwnedRootIdentity(string scenePath)
+        {
+            string identity = null;
+            WithOwnedRoot(scenePath, root =>
+                identity = GlobalObjectId.GetGlobalObjectIdSlow(root).ToString());
+            return identity;
+        }
+
+        private static void WriteStampedVersion(string scenePath, int version)
+        {
+            var scene = EditorSceneManager.OpenScene(scenePath, OpenSceneMode.Additive);
+            try
+            {
+                var root = scene.GetRootGameObjects()
+                    .Single(candidate => candidate.GetComponent<GeneratedSceneStamp>() != null);
+                var serialized = new SerializedObject(root.GetComponent<GeneratedSceneStamp>());
+                serialized.FindProperty("generatorVersion").intValue = version;
+                serialized.ApplyModifiedPropertiesWithoutUndo();
+                EditorSceneManager.SaveScene(scene, scenePath);
+            }
+            finally
+            {
+                EditorSceneManager.CloseScene(scene, true);
+            }
+        }
+
+        private static void WithOwnedRoot(string scenePath, Action<GameObject> assert)
+        {
+            var scene = EditorSceneManager.OpenScene(scenePath, OpenSceneMode.Additive);
+            try
+            {
+                var roots = scene.GetRootGameObjects()
+                    .Where(root => OwnedRootNames.Contains(root.name))
+                    .ToArray();
+                Assert.That(roots, Has.Length.EqualTo(1),
+                    scenePath + " must contain exactly one generated root.");
+                assert(roots[0]);
+            }
+            finally
+            {
+                EditorSceneManager.CloseScene(scene, true);
             }
         }
 
