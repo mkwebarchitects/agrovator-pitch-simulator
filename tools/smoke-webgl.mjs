@@ -255,26 +255,6 @@ async function waitForCanvasChange(canvas, previousHash, timeoutMs, label) {
   throw new Error(`Canvas did not visibly change after ${label}.`);
 }
 
-async function waitForStableCanvasRegions(page, canvas, previous, timeoutMs, label) {
-  const deadline = Date.now() + timeoutMs;
-  let last = null;
-  let stableSamples = 0;
-  while (Date.now() < deadline) {
-    const current = await regionHashes(page, canvas);
-    const bothChanged = current.content !== previous.content && current.controls !== previous.controls;
-    if (bothChanged) {
-      const matchesLast = last && current.content === last.content && current.controls === last.controls;
-      stableSamples = matchesLast ? stableSamples + 1 : 1;
-      if (stableSamples >= 3) return current;
-    } else {
-      stableSamples = 0;
-    }
-    last = current;
-    await new Promise(resolveWait => setTimeout(resolveWait, 100));
-  }
-  throw new Error(`Canvas content and controls did not settle after ${label}.`);
-}
-
 async function canvasMetrics(page, frame, canvas, viewport) {
   await page.setViewportSize(viewport);
   await frame.waitForFunction(() => {
@@ -289,28 +269,6 @@ async function canvasMetrics(page, frame, canvas, viewport) {
     throw new Error(`Canvas ${bounds.width}x${bounds.height} exceeds iframe viewport ${inner.width}x${inner.height}.`);
   }
   return { viewport, iframeViewport: inner, bounds, aspect };
-}
-
-async function pressCanvasUntilContentChange(page, canvas, normalizedX, normalizedY,
-  previousContent, timeoutMs, label) {
-  // Unity's frame-polled WebGL input can miss a single press during relaunch stalls;
-  // retry held presses until the state-specific content region actually changes.
-  const deadline = Date.now() + timeoutMs;
-  while (Date.now() < deadline) {
-    const bounds = await canvas.boundingBox();
-    if (!bounds) throw new Error(`Unity canvas has no pointer bounds for ${label}.`);
-    await canvas.click({
-      position: { x: bounds.width * normalizedX, y: bounds.height * normalizedY },
-      delay: 120,
-    });
-    const settleDeadline = Math.min(deadline, Date.now() + 1500);
-    while (Date.now() < settleDeadline) {
-      const current = await contentRegionHash(page, canvas);
-      if (current !== previousContent) return current;
-      await new Promise(resolveWait => setTimeout(resolveWait, 100));
-    }
-  }
-  throw new Error(`Content region did not change after retried presses for ${label}.`);
 }
 
 async function verifyMissingConfigRecovery(page, options) {
@@ -329,14 +287,10 @@ async function verifyMissingConfigRecovery(page, options) {
   await page.waitForFunction(() => document.querySelector("#connection")?.textContent.includes("Launch configuration sent"), null,
     { timeout: options.timeoutMs });
   await waitForCanvasChange(canvas, waitingHash, options.timeoutMs, "Success plus Resend recovery");
-  const recoveredRegionsBefore = {
-    content: await contentRegionHash(page, canvas),
-    controls: await controlRegionHash(page, canvas),
-  };
-  await pressCanvasUntilContentChange(page, canvas, 0.5, 0.61,
-    recoveredRegionsBefore.content, options.timeoutMs, "recovered Title pointer Start");
-  await waitForStableCanvasRegions(page, canvas, recoveredRegionsBefore, options.timeoutMs,
-    "recovered Briefing");
+  // Reuse the proven settled keyboard step: compose, press the default-focused
+  // Start, and gate on Briefing content. A coordinate press against a
+  // mid-transition Title can land on Settings and strand the settle gate.
+  await keyboardStableStep(page, canvas, "Enter", GuidedGate.content, options, "recovered title start");
   return true;
 }
 

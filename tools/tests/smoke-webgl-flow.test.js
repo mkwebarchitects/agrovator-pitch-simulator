@@ -76,21 +76,18 @@ function assertReachableMissingConfigRecovery(value) {
     "missing-configuration recovery must be a reachable recorded step in the covered path");
 }
 
-function assertRetryingRecoveredStart(value) {
+function assertSettledKeyboardRecoveredStart(value) {
   const recovery = extractFunction(value, "verifyMissingConfigRecovery");
-  assert.match(canonicalCode(recovery),
-    /await pressCanvasUntilContentChange\(page, canvas, 0\.5, 0\.61, recoveredRegionsBefore\.content, options\.timeoutMs, "recovered Title pointer Start"\)/,
-    "recovered Start must retry frame-polled presses until Briefing content replaces Title content");
-  assert.doesNotMatch(canonicalCode(recovery),
-    /await waitForCanvasChange\(canvas, recoveredBefore/,
+  const recoveryCode = canonicalCode(recovery);
+  assert.match(recoveryCode,
+    /await keyboardStableStep\(page, canvas, "Enter", GuidedGate\.content, options, "recovered title start"\)/,
+    "the recovered Start must reuse the settled keyboard step that composes, presses the default-focused Start, and gates on Briefing content");
+  assert.doesNotMatch(recoveryCode, /canvas\.click\(/,
+    "coordinate presses on the recovered Title are forbidden; a mid-transition press can hit Settings");
+  assert.doesNotMatch(recoveryCode, /pressCanvasUntilContentChange\(/,
+    "the retired coordinate-retry helper must not return");
+  assert.doesNotMatch(recoveryCode, /await waitForCanvasChange\(canvas, recoveredBefore/,
     "the whole-canvas change gate alone cannot prove the recovered Start was observed");
-  const press = extractFunction(value, "pressCanvasUntilContentChange");
-  const pressCode = canonicalCode(press);
-  assert.match(pressCode, /canvas\.click\(/, "the retry helper must press the canvas");
-  assert.match(pressCode, /delay: 120/, "each retried press must hold 120ms for frame-polled input");
-  assert.match(pressCode, /contentRegionHash\(/,
-    "the retry helper must gate on the content region, not the whole-canvas hash");
-  assert.match(pressCode, /while \(/, "the helper must retry presses until the deadline");
 }
 
 function assertHiddenHarnessRecovery(value) {
@@ -192,20 +189,20 @@ test("missing-configuration recovery operates the hidden fullscreen harness cont
     "a visible selectOption mode switch must fail the hidden-control contract");
 });
 
-test("recovered Title Start retries frame-polled presses until Briefing content appears", () => {
-  assertRetryingRecoveredStart(source);
+test("recovered Title Start uses the settled keyboard step, never coordinate presses", () => {
+  assertSettledKeyboardRecoveredStart(source);
 
-  const retryCallPattern =
-    /await pressCanvasUntilContentChange\(page, canvas, 0\.5, 0\.61,\s*recoveredRegionsBefore\.content, options\.timeoutMs, "recovered Title pointer Start"\);/;
-  const singlePress = 'const recoveredBefore = await canvasHash(canvas);\n' +
+  const settledStep =
+    /await keyboardStableStep\(page, canvas, "Enter", GuidedGate\.content, options, "recovered title start"\);/;
+  const coordinatePress = 'const recoveredBefore = await canvasHash(canvas);\n' +
     '  await canvas.click({ position: { x: 320, y: 240 }, delay: 120 });\n' +
     '  await waitForCanvasChange(canvas, recoveredBefore, options.timeoutMs, ' +
     '"recovered Title pointer Start");';
-  const singlePressMutation = source.replace(retryCallPattern, singlePress);
-  assert.notEqual(singlePressMutation, source, "the single-press mutation must apply to the source");
-  assert.throws(() => assertRetryingRecoveredStart(singlePressMutation),
+  const coordinateMutation = source.replace(settledStep, coordinatePress);
+  assert.notEqual(coordinateMutation, source, "the coordinate-press mutation must apply to the source");
+  assert.throws(() => assertSettledKeyboardRecoveredStart(coordinateMutation),
     undefined,
-    "a single unretried press behind the whole-canvas gate must fail the contract");
+    "a coordinate press behind the whole-canvas gate must fail the contract");
 });
 
 test("guided actions require stable localized content and control changes after focus and hover", () => {
