@@ -227,7 +227,7 @@ namespace Agrovator.PitchSimulator.Editor
                 primaryAction.GetComponent<GuidedPitchFlowLayout>(),
                 environmentAspect);
             ApplyWideLayoutDefaults(board.GetComponent<GridLayoutGroup>(),
-                cards.GetComponent<GridLayoutGroup>(), phaseScroll);
+                cards.GetComponent<GridLayoutGroup>(), phaseScroll, environmentAspect);
             references.GuidedPresenter = presenter;
             return panel;
         }
@@ -846,8 +846,13 @@ namespace Agrovator.PitchSimulator.Editor
         }
 
         private static void ApplyWideLayoutDefaults(
-            GridLayoutGroup board, GridLayoutGroup cards, ScrollRect phaseScroll)
+            GridLayoutGroup board, GridLayoutGroup cards, ScrollRect phaseScroll,
+            AspectRatioFitter environment)
         {
+            // The committed scene is the wide layout, so bake the wide fill too.
+            // Leaving it letterboxed made the room snap from bands to full bleed on
+            // the first frame the responsive layout ran.
+            environment.aspectMode = AspectRatioFitter.AspectMode.EnvelopeParent;
             board.constraint = GridLayoutGroup.Constraint.FixedRowCount;
             board.constraintCount = 1;
             board.cellSize = new Vector2(224f, 140f);

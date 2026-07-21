@@ -25,7 +25,7 @@ namespace Agrovator.PitchSimulator.Editor
         /// regression did. Treat bumping this as part of changing anything
         /// this class or <see cref="GuidedPitchSceneBuilder"/> generates.
         /// </summary>
-        public const int GeneratorVersion = 2;
+        public const int GeneratorVersion = 3;
 
         private const string BootstrapPath = "Assets/Scenes/Bootstrap.unity";
         private const string GamePath = "Assets/Scenes/Game.unity";
@@ -327,7 +327,7 @@ namespace Agrovator.PitchSimulator.Editor
                 screens.SequenceEqual(expectedScreens) &&
                 environmentImage != null && environmentImage.sprite != null &&
                 environmentAspect != null &&
-                environmentAspect.aspectMode == AspectRatioFitter.AspectMode.FitInParent &&
+                environmentAspect.aspectMode == AspectRatioFitter.AspectMode.EnvelopeParent &&
                 Mathf.Approximately(environmentAspect.aspectRatio, 16f / 9f) &&
                 canvas.transform.Find("Guided Pitch")?.GetComponent<Image>()?.color ==
                     new Color32(0x0E, 0x17, 0x1F, 0xFF) &&

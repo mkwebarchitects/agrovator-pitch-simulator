@@ -707,8 +707,9 @@ namespace Agrovator.PitchSimulator.Tests.EditMode.UI
                 var outline = selectable.targetGraphic.GetComponent<Outline>();
                 Assert.That(outline, Is.Not.Null, selectable.name + " must render a focus outline.");
                 Assert.That(outline.effectColor, Is.EqualTo(FocusGold));
-                Assert.That(ContrastRatio(outline.effectColor, DeepNavy), Is.GreaterThanOrEqualTo(3f),
-                    selectable.name + " focus must contrast with the adjacent navy surface by 3:1.");
+                Assert.That(ContrastRatio(outline.effectColor, ResolveAdjacentSurface(selectable)),
+                    Is.GreaterThanOrEqualTo(3f),
+                    selectable.name + " focus must contrast with its adjacent surface by 3:1.");
             }
 
             var targetFailures = new List<string>();
@@ -891,6 +892,16 @@ namespace Agrovator.PitchSimulator.Tests.EditMode.UI
                 var guided = RequireChild(canvas, "Guided Pitch");
                 using (new ActiveScope(guided.gameObject))
                 {
+                    // Assert what the builder committed before any runtime Apply can
+                    // mask it. The committed scene is the wide layout, so it must
+                    // already carry the wide fill rather than relying on the first
+                    // responsive pass to correct it.
+                    Assert.That(
+                        RequireChild(guided, "Environment Frame")
+                            .GetComponent<AspectRatioFitter>().aspectMode,
+                        Is.EqualTo(AspectRatioFitter.AspectMode.EnvelopeParent),
+                        "The generated scene must bake the wide environment fill.");
+
                     ApplyResponsiveLayout(guided, size);
                     ForceGuidedLayout(canvas, guided);
                     var compact = guided.GetComponent<GuidedPitchResponsiveLayout>().IsCompact;
@@ -936,6 +947,37 @@ namespace Agrovator.PitchSimulator.Tests.EditMode.UI
                         Is.EqualTo(environmentRect.rect.height / image.sprite.rect.height).Within(0.001f),
                         size + " must scale the garden uniformly on both axes.");
                 }
+            }
+        }
+
+        // The environment fitter is the one responsive reference whose absence
+        // degrades silently: SetEnvironmentFill null-guards, so a scene missing it
+        // keeps laying out correctly and only loses the fill. Without this the null
+        // clause in ValidateContract would pass just as well if it were deleted.
+        [Test]
+        public void GeneratedResponsiveLayout_WithoutEnvironmentFitter_FailsItsContract()
+        {
+            try
+            {
+                var canvas = OpenGameCanvas(WideSize);
+                var responsive = canvas.GetComponentInChildren<GuidedPitchResponsiveLayout>(true);
+                Assert.That(responsive.ValidateContract(out _), Is.True,
+                    "The generated scene must satisfy the responsive contract before mutation.");
+
+                var serialized = new SerializedObject(responsive);
+                serialized.FindProperty("environmentFitter").objectReferenceValue = null;
+                serialized.ApplyModifiedPropertiesWithoutUndo();
+
+                Assert.That(responsive.ValidateContract(out var reason), Is.False,
+                    "A responsive layout with no environment fitter must fail its contract.");
+                Assert.That(reason, Is.EqualTo("responsive_layout_references_missing"));
+            }
+            finally
+            {
+                // Reload from disk to discard the mutation. Leaving the scene open
+                // and dirty let a later builder run adopt it as real state, and
+                // leaving an untitled empty scene active is its own trap.
+                EditorSceneManager.OpenScene(GamePath, OpenSceneMode.Single);
             }
         }
 
@@ -1561,6 +1603,11 @@ namespace Agrovator.PitchSimulator.Tests.EditMode.UI
                 failures.Add(label + " has no opaque backing.");
                 return;
             }
+            if (text.color.a < 1f)
+            {
+                failures.Add(label + " text must be opaque.");
+                return;
+            }
             var resolved = backing.color;
             if (resolved.a < 1f)
             {
@@ -1599,12 +1646,38 @@ namespace Agrovator.PitchSimulator.Tests.EditMode.UI
         private static Color Composite(Color over, Color under)
         {
             var alpha = over.a + under.a * (1f - over.a);
+            if (alpha <= 0f)
+            {
+                return under;
+            }
             var blend = new Color(
                 (over.r * over.a + under.r * under.a * (1f - over.a)) / alpha,
                 (over.g * over.a + under.g * under.a * (1f - over.a)) / alpha,
                 (over.b * over.a + under.b * under.a * (1f - over.a)) / alpha,
                 alpha);
             return blend;
+        }
+
+        // A focus ring is drawn around a control, so the surface it has to stand out
+        // against is the nearest backing above the control, not the control's own
+        // fill. Resolving it per control rather than assuming one shared constant
+        // matters now that the guided frame is translucent: measuring against a
+        // nominal colour would keep reporting a surface no learner ever sees.
+        private static Color ResolveAdjacentSurface(Component control)
+        {
+            for (var parent = control.transform.parent; parent != null; parent = parent.parent)
+            {
+                var image = parent.GetComponent<Image>();
+                if (image == null || image.color.a <= 0f)
+                {
+                    continue;
+                }
+                return image.color.a < 1f
+                    ? Composite(image.color, WorstCaseRoomColor())
+                    : image.color;
+            }
+
+            return DeepNavy;
         }
 
         private static Color worstCaseRoom;
