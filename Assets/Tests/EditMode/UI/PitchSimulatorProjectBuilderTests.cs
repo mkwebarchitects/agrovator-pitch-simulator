@@ -1139,6 +1139,44 @@ namespace Agrovator.PitchSimulator.Tests.EditMode.UI
             }
         }
 
+        // Presentation item 6. The four-part concept is the whole point of the game
+        // and it vanishes on a landscape phone: every rail label collapses to a
+        // zero-height rect, so the rail reads as coloured bars and icons with no
+        // words. Kept in code as the reproduction so the fix has a failing
+        // assertion to satisfy rather than a screenshot to eyeball. The rect is
+        // asserted rather than the glyphs because generated labels carry no text
+        // until the catalog is applied at runtime.
+        [Test]
+        [Ignore("Presentation item 6 is not built. Captured RED 2026-07-21: at 834x329 " +
+            "all four rail labels measured 128.5x0.0px, so no line box exists to draw into.")]
+        public void GeneratedRail_KeepsItsPartLabelsReadableOnALandscapePhone()
+        {
+            var compact = new Vector2(834f, 329f);
+            var canvas = OpenGameCanvas(compact);
+            var guided = RequireChild(canvas, "Guided Pitch");
+            using (new ActiveScope(guided.gameObject))
+            {
+                ApplyResponsiveLayout(guided, compact);
+                ForceGuidedLayout(canvas, guided);
+
+                var failures = new List<string>();
+                foreach (var part in PitchParts.Ordered)
+                {
+                    var slot = RequireChild(guided, $"Content Frame/Progress Rail/{part} Slot");
+                    var label = RequireText(slot, "Label");
+                    var rect = label.rectTransform.rect;
+                    if (rect.height < label.fontSize)
+                    {
+                        failures.Add(
+                            $"{part} rail label has no room for its own text: " +
+                            $"{rect.width:F1}x{rect.height:F1}px for a {label.fontSize}pt line.");
+                    }
+                }
+
+                Assert.That(failures, Is.Empty, string.Join(Environment.NewLine, failures));
+            }
+        }
+
         private sealed class GuidedFixtureData
         {
             public LocalizationCatalog Catalog;
