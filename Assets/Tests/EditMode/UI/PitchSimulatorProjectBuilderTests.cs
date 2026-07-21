@@ -803,8 +803,10 @@ namespace Agrovator.PitchSimulator.Tests.EditMode.UI
             Assert.That(contrastFailures, Is.Empty, string.Join(Environment.NewLine, contrastFailures));
 
             var environmentImage = RequireChild(guided, "Environment Frame").GetComponent<Image>();
-            Assert.That(environmentImage.sprite.texture.filterMode, Is.EqualTo(FilterMode.Point),
-                "The pitch room must stay point filtered.");
+            Assert.That(environmentImage.sprite.texture.filterMode, Is.EqualTo(FilterMode.Bilinear),
+                "The pitch room is a full-resolution illustration shown at roughly 1:1, not " +
+                "low-resolution pixel art. Point filtering gains it nothing and visibly chews " +
+                "its edges at any non-integer scale. The sprite sheets stay point filtered.");
             var judgeObject = RequireChild(guided, "Content Frame/Aya Row/Judge Aya");
             var judgeImage = judgeObject.GetComponent<Image>();
             Assert.That(judgeImage.sprite, Is.Not.Null);

@@ -23,20 +23,25 @@ namespace Agrovator.PitchSimulator.Tests.EditMode.UI
             "Getting Started", "Listening", "Curious", "Interested", "Convinced",
         };
 
-        [TestCase("Assets/Art/Characters/judge-aya-sheet.png", 1408, 160, 11)]
-        [TestCase("Assets/Art/Environment/pitch-room.png", 1280, 720, 1)]
-        [TestCase("Assets/Art/UI/dialogue-panel.png", 768, 384, 1)]
-        [TestCase("Assets/Art/UI/confidence-icons.png", 480, 96, 5)]
+        // Filter mode is per asset, not one policy for the folder. The sheets are
+        // genuine low-resolution pixel art and must sample exactly; pitch-room.png
+        // is a 1280x720 illustration shown at roughly 1:1, where Point buys nothing
+        // and chews its edges at any non-integer scale.
+        [TestCase("Assets/Art/Characters/judge-aya-sheet.png", 1408, 160, 11, FilterMode.Point)]
+        [TestCase("Assets/Art/Environment/pitch-room.png", 1280, 720, 1, FilterMode.Bilinear)]
+        [TestCase("Assets/Art/UI/dialogue-panel.png", 768, 384, 1, FilterMode.Point)]
+        [TestCase("Assets/Art/UI/confidence-icons.png", 480, 96, 5, FilterMode.Point)]
         public void PixelArt_UsesCrispDeterministicImportSettings(
             string path,
             int expectedWidth,
             int expectedHeight,
-            int expectedSpriteCount)
+            int expectedSpriteCount,
+            FilterMode expectedFilterMode)
         {
             var importer = AssetImporter.GetAtPath(path) as TextureImporter;
             Assert.That(importer, Is.Not.Null, path);
             Assert.That(importer.textureType, Is.EqualTo(TextureImporterType.Sprite));
-            Assert.That(importer.filterMode, Is.EqualTo(FilterMode.Point));
+            Assert.That(importer.filterMode, Is.EqualTo(expectedFilterMode), path);
             Assert.That(importer.mipmapEnabled, Is.False);
             Assert.That(importer.textureCompression, Is.EqualTo(TextureImporterCompression.Uncompressed));
             Assert.That(importer.wrapMode, Is.EqualTo(TextureWrapMode.Clamp));

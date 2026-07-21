@@ -23,6 +23,16 @@ namespace Agrovator.PitchSimulator.UI.Editor
             "Getting Started", "Listening", "Curious", "Interested", "Convinced",
         };
 
+        // Bump whenever OnPreprocessTexture changes what it writes. Unity only
+        // reruns a postprocessor over already-imported assets when this changes,
+        // so skipping the bump leaves the committed .meta files stale against the
+        // policy below - the same trap PitchSimulatorProjectBuilder.GeneratorVersion
+        // guards for generated scenes.
+        public override uint GetVersion()
+        {
+            return 2;
+        }
+
         private void OnPreprocessTexture()
         {
             if (!IsManaged(assetPath))
@@ -33,7 +43,13 @@ namespace Agrovator.PitchSimulator.UI.Editor
             var importer = (TextureImporter)assetImporter;
             importer.textureType = TextureImporterType.Sprite;
             importer.spritePixelsPerUnit = 32f;
-            importer.filterMode = FilterMode.Point;
+            // pitch-room.png is a 1280x720 illustration displayed at roughly 1:1,
+            // not low-resolution pixel art. Point sampling gains it nothing there
+            // and drops or duplicates source pixels at any non-integer scale. The
+            // genuine sprite sheets keep exact sampling.
+            importer.filterMode = assetPath == EnvironmentPath
+                ? FilterMode.Bilinear
+                : FilterMode.Point;
             importer.mipmapEnabled = false;
             importer.textureCompression = TextureImporterCompression.Uncompressed;
             importer.wrapMode = TextureWrapMode.Clamp;
