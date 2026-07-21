@@ -51,6 +51,13 @@ namespace Agrovator.PitchSimulator.Editor
         private static readonly Color ScreenDim = new Color(0.055f, 0.09f, 0.12f, 1f);
         private static readonly Color DeepNavy = new Color32(0x0E, 0x17, 0x1F, 0xFF);
         private static readonly Color CardNavy = new Color32(0x16, 0x24, 0x2F, 0xFF);
+        // The guided frame is see-through so the pitch room reads as a place behind
+        // it rather than a sliver at the edges. 0.82 is the most transparent value
+        // that still clears every contrast assertion when composited over the room's
+        // brightest pixel, which is the whiteboard. The inner cards stay opaque:
+        // they carry the sentence text and must not sit on a moving backdrop.
+        internal static readonly Color TranslucentPanel = new Color(
+            DeepNavy.r, DeepNavy.g, DeepNavy.b, 0.82f);
         private static readonly Color LightText = new Color32(0xFF, 0xF8, 0xE8, 0xFF);
         private static readonly Color Ink = new Color32(0x0E, 0x17, 0x1F, 0xFF);
         private static readonly Color Cream = new Color32(0xF4, 0xEA, 0xD5, 0xFF);
@@ -169,6 +176,7 @@ namespace Agrovator.PitchSimulator.Editor
             environmentAspect.aspectRatio = 16f / 9f;
 
             var frame = CreateFrame(panel.transform, FrameWidth, FrameHeight, 8, 8, 8f);
+            frame.GetComponent<Image>().color = TranslucentPanel;
 
             var rail = CreateProgressRail(frame.transform);
             var ayaRow = CreateAyaRow(frame.transform, ayaSprites, out var questionText,
@@ -216,7 +224,8 @@ namespace Agrovator.PitchSimulator.Editor
                 phaseScroll,
                 modeSelectionPanel.GetComponent<GuidedPitchFlowLayout>(),
                 strengthenButtons[0].transform.parent.GetComponent<GuidedPitchFlowLayout>(),
-                primaryAction.GetComponent<GuidedPitchFlowLayout>());
+                primaryAction.GetComponent<GuidedPitchFlowLayout>(),
+                environmentAspect);
             ApplyWideLayoutDefaults(board.GetComponent<GridLayoutGroup>(),
                 cards.GetComponent<GridLayoutGroup>(), phaseScroll);
             references.GuidedPresenter = presenter;

@@ -31,6 +31,9 @@ namespace Agrovator.PitchSimulator.Tests.EditMode.UI
             new Vector2(720f, 960f),
         };
         private static readonly Color DeepNavy = new Color32(0x0E, 0x17, 0x1F, 0xFF);
+        // Kept in step with GuidedPitchSceneBuilder.TranslucentPanel.
+        private static readonly Color TranslucentPanel = new Color(
+            DeepNavy.r, DeepNavy.g, DeepNavy.b, 0.82f);
         private static readonly Color Cream = new Color32(0xF4, 0xEA, 0xD5, 0xFF);
         private static readonly Color FocusGold = new Color32(0xFF, 0xD1, 0x66, 0xFF);
         private static readonly string[] PhaseSectionNames =
@@ -254,8 +257,10 @@ namespace Agrovator.PitchSimulator.Tests.EditMode.UI
                 var frame = RequireChild(guided, "Content Frame");
                 var frameRect = frame.GetComponent<RectTransform>();
                 var frameImage = frame.GetComponent<Image>();
-                Assert.That(frameImage.color, Is.EqualTo(DeepNavy),
-                    "The guided panel must be opaque deep navy.");
+                Assert.That(frameImage.color, Is.EqualTo(TranslucentPanel),
+                    "The guided panel must be deep navy at the approved translucency so the " +
+                    "pitch room reads through it as a place. Its contrast is asserted against " +
+                    "the panel composited over the room's brightest pixel, not its nominal colour.");
                 Assert.That(frameRect.rect.width, Is.InRange(960f, 1000f));
                 Assert.That(frameRect.rect.height, Is.LessThanOrEqualTo(680f));
                 var guidedRect = guided.GetComponent<RectTransform>();
@@ -770,9 +775,12 @@ namespace Agrovator.PitchSimulator.Tests.EditMode.UI
             CheckContrast("continue label", RequireText(continueButton, "Label"),
                 continueButton.GetComponent<Image>(), 4.5f, contrastFailures);
             var railSlot = RequireChild(guided, "Content Frame/Progress Rail/Problem Slot");
-            CheckContrast("rail label", RequireText(railSlot, "Label"), frameImage, 4.5f, contrastFailures);
+            // These two sit directly on the translucent guided frame, so the room
+            // is their real backdrop. Measured against its brightest pixel.
+            CheckContrast("rail label", RequireText(railSlot, "Label"), frameImage, 4.5f,
+                contrastFailures, WorstCaseRoomColor());
             CheckContrast("presentation", RequireText(guided, ContentRoot + "/Present Pitch/Presentation"),
-                frameImage, 4.5f, contrastFailures);
+                frameImage, 4.5f, contrastFailures, WorstCaseRoomColor());
 
             var results = RequireChild(canvas, "Results");
             var resultsFrame = RequireChild(results, "Content Frame").GetComponent<Image>();
@@ -787,15 +795,19 @@ namespace Agrovator.PitchSimulator.Tests.EditMode.UI
             CheckContrast("submit label", RequireText(submit, "Label"),
                 submit.GetComponent<Image>(), 4.5f, contrastFailures);
 
+            // The content frame may be translucent so the room reads through it, so
+            // these outlines are seen against the frame composited over the room's
+            // worst case, not against the frame's nominal colour.
+            var effectiveFrame = Composite(frameImage.color, WorstCaseRoomColor());
             var focusOutline = sentenceCard.Find("Focus Outline").GetComponent<Image>();
             Assert.That(focusOutline.color, Is.EqualTo(FocusGold));
-            var focusChange = ContrastRatio(focusOutline.color, frameImage.color);
+            var focusChange = ContrastRatio(focusOutline.color, effectiveFrame);
             if (focusChange < 3f)
             {
                 contrastFailures.Add($"Focus outline change contrast was {focusChange:F2}:1; expected 3:1.");
             }
             var revisionOutline = boardSlot.Find("Revision Outline").GetComponent<Image>();
-            var revisionContrast = ContrastRatio(revisionOutline.color, frameImage.color);
+            var revisionContrast = ContrastRatio(revisionOutline.color, effectiveFrame);
             if (revisionContrast < 3f)
             {
                 contrastFailures.Add($"Revision outline contrast was {revisionContrast:F2}:1; expected 3:1.");
@@ -869,21 +881,30 @@ namespace Agrovator.PitchSimulator.Tests.EditMode.UI
         [Test]
         public void GeneratedEnvironment_FitsCenteredSixteenByNineWithoutStretchingInLandscapeAndPortrait()
         {
+            // Wide stages fill the viewport so the room reads as a place instead of
+            // sitting in dead navy bands. Compact stages keep the letterbox: at
+            // portrait the 16:9 room has to crop over half its width to fill, which
+            // throws away the windows, shelving and plant beds that carry the scene.
             foreach (var size in new[] { WideSize, new Vector2(720f, 960f) })
             {
                 var canvas = OpenGameCanvas(size);
                 var guided = RequireChild(canvas, "Guided Pitch");
                 using (new ActiveScope(guided.gameObject))
                 {
+                    ApplyResponsiveLayout(guided, size);
                     ForceGuidedLayout(canvas, guided);
+                    var compact = guided.GetComponent<GuidedPitchResponsiveLayout>().IsCompact;
                     var environment = RequireChild(guided, "Environment Frame");
                     var image = environment.GetComponent<Image>();
                     var fitter = environment.GetComponent<AspectRatioFitter>();
                     Assert.That(fitter, Is.Not.Null,
-                        "The original garden must use an aspect-preserving fit-to-frame fitter.");
-                    Assert.That(fitter.aspectMode, Is.EqualTo(AspectRatioFitter.AspectMode.FitInParent));
+                        "The original garden must use an aspect-preserving fitter.");
+                    Assert.That(fitter.aspectMode, Is.EqualTo(compact
+                            ? AspectRatioFitter.AspectMode.FitInParent
+                            : AspectRatioFitter.AspectMode.EnvelopeParent),
+                        size + " must letterbox only when compact.");
                     Assert.That(guided.GetComponent<Image>().color, Is.EqualTo(DeepNavy),
-                        "Unused viewport space must render as deep-navy letterboxing.");
+                        "Any space the garden does not cover must render as deep navy.");
 
                     const float sourceAspect = 16f / 9f;
                     Assert.That(fitter.aspectRatio, Is.EqualTo(sourceAspect).Within(0.0001f));
@@ -892,10 +913,25 @@ namespace Agrovator.PitchSimulator.Tests.EditMode.UI
                     Assert.That(environmentRect.rect.width / environmentRect.rect.height,
                         Is.EqualTo(sourceAspect).Within(0.001f),
                         size + " must preserve the original garden aspect ratio.");
-                    Assert.That(environmentRect.rect.width, Is.LessThanOrEqualTo(guidedRect.rect.width + 0.5f));
-                    Assert.That(environmentRect.rect.height, Is.LessThanOrEqualTo(guidedRect.rect.height + 0.5f));
+                    if (compact)
+                    {
+                        Assert.That(environmentRect.rect.width,
+                            Is.LessThanOrEqualTo(guidedRect.rect.width + 0.5f));
+                        Assert.That(environmentRect.rect.height,
+                            Is.LessThanOrEqualTo(guidedRect.rect.height + 0.5f));
+                    }
+                    else
+                    {
+                        Assert.That(environmentRect.rect.width,
+                            Is.GreaterThanOrEqualTo(guidedRect.rect.width - 0.5f),
+                            size + " must cover the viewport width, leaving no dead band.");
+                        Assert.That(environmentRect.rect.height,
+                            Is.GreaterThanOrEqualTo(guidedRect.rect.height - 0.5f),
+                            size + " must cover the viewport height, leaving no dead band.");
+                    }
+
                     Assert.That(environmentRect.anchoredPosition.sqrMagnitude, Is.LessThanOrEqualTo(0.25f),
-                        size + " must center the garden inside its letterbox frame.");
+                        size + " must center the garden.");
                     Assert.That(environmentRect.rect.width / image.sprite.rect.width,
                         Is.EqualTo(environmentRect.rect.height / image.sprite.rect.height).Within(0.001f),
                         size + " must scale the garden uniformly on both axes.");
@@ -1512,31 +1548,98 @@ namespace Agrovator.PitchSimulator.Tests.EditMode.UI
             }
         }
 
+        // A translucent backing is only acceptable where the caller declares what
+        // sits behind it, so the ratio is measured against what a learner actually
+        // sees. Without a declared backdrop a see-through backing is still a
+        // failure rather than a silently optimistic measurement.
         private static void CheckContrast(
-            string label, Text text, Image backing, float minimum, ICollection<string> failures)
+            string label, Text text, Image backing, float minimum, ICollection<string> failures,
+            Color? backdrop = null)
         {
             if (backing == null)
             {
                 failures.Add(label + " has no opaque backing.");
                 return;
             }
-            if (backing.color.a < 1f)
+            var resolved = backing.color;
+            if (resolved.a < 1f)
             {
-                failures.Add(label + " backing must be opaque.");
+                if (!backdrop.HasValue)
+                {
+                    failures.Add(label + " backing is translucent with no declared backdrop.");
+                    return;
+                }
+                resolved = Composite(resolved, backdrop.Value);
             }
-            var ratio = ContrastRatio(text.color, backing.color);
+            var ratio = ContrastRatio(text.color, resolved);
             if (ratio < minimum)
             {
                 failures.Add($"{label} contrast was {ratio:F2}:1; expected {minimum:F1}:1.");
             }
         }
 
+        // Relative luminance is defined for an opaque colour. Passing a translucent
+        // one silently computes the contrast of a surface nobody ever sees, which
+        // would let a see-through panel keep passing these assertions while real
+        // contrast fell away. Composite it over its backdrop first.
         private static float ContrastRatio(Color first, Color second)
         {
+            Assert.That(first.a, Is.EqualTo(1f).Within(0.0001f),
+                "Composite the foreground over its backdrop before measuring contrast.");
+            Assert.That(second.a, Is.EqualTo(1f).Within(0.0001f),
+                "Composite the backdrop over what sits behind it before measuring contrast.");
             var firstLuminance = RelativeLuminance(first);
             var secondLuminance = RelativeLuminance(second);
             return (Mathf.Max(firstLuminance, secondLuminance) + 0.05f) /
                 (Mathf.Min(firstLuminance, secondLuminance) + 0.05f);
+        }
+
+        // Standard source-over. Returns an opaque colour whenever the backdrop is
+        // opaque, so an already-opaque layer composites to itself unchanged.
+        private static Color Composite(Color over, Color under)
+        {
+            var alpha = over.a + under.a * (1f - over.a);
+            var blend = new Color(
+                (over.r * over.a + under.r * under.a * (1f - over.a)) / alpha,
+                (over.g * over.a + under.g * under.a * (1f - over.a)) / alpha,
+                (over.b * over.a + under.b * under.a * (1f - over.a)) / alpha,
+                alpha);
+            return blend;
+        }
+
+        private static Color worstCaseRoom;
+
+        // The pitch room is an illustration, so a panel laid over it has no single
+        // backdrop. Light text loses the most contrast over the brightest thing
+        // behind it - the whiteboard - so measure against that pixel and the result
+        // holds everywhere else. Sampling the whole image rather than the panel's
+        // own rect is deliberately conservative and survives layout changes.
+        private static Color WorstCaseRoomColor()
+        {
+            if (worstCaseRoom.a > 0f)
+            {
+                return worstCaseRoom;
+            }
+
+            var texture = new Texture2D(2, 2);
+            Assert.That(
+                texture.LoadImage(File.ReadAllBytes("Assets/Art/Environment/pitch-room.png")),
+                Is.True, "The pitch room art must decode for backdrop sampling.");
+            var brightest = Color.black;
+            var highest = -1f;
+            foreach (var pixel in texture.GetPixels())
+            {
+                var luminance = RelativeLuminance(pixel);
+                if (luminance > highest)
+                {
+                    highest = luminance;
+                    brightest = pixel;
+                }
+            }
+
+            UnityEngine.Object.DestroyImmediate(texture);
+            worstCaseRoom = new Color(brightest.r, brightest.g, brightest.b, 1f);
+            return worstCaseRoom;
         }
 
         private static float RelativeLuminance(Color color)

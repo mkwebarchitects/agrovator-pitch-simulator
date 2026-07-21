@@ -18,6 +18,7 @@ namespace Agrovator.PitchSimulator.UI
         [SerializeField] private GuidedPitchFlowLayout modeSelectionControls;
         [SerializeField] private GuidedPitchFlowLayout improveActionControls;
         [SerializeField] private GuidedPitchFlowLayout primaryActionControls;
+        [SerializeField] private AspectRatioFitter environmentFitter;
 
         private bool? appliedCompact;
         private Vector2? appliedViewportSize;
@@ -44,7 +45,8 @@ namespace Agrovator.PitchSimulator.UI
             ScrollRect scroll,
             GuidedPitchFlowLayout modes,
             GuidedPitchFlowLayout improve,
-            GuidedPitchFlowLayout primary)
+            GuidedPitchFlowLayout primary,
+            AspectRatioFitter environment)
         {
             Configure(board, sentenceCards, scroll);
             viewportCanvas = liveCanvas ?? throw new ArgumentNullException(nameof(liveCanvas));
@@ -52,6 +54,7 @@ namespace Agrovator.PitchSimulator.UI
             modeSelectionControls = modes ?? throw new ArgumentNullException(nameof(modes));
             improveActionControls = improve ?? throw new ArgumentNullException(nameof(improve));
             primaryActionControls = primary ?? throw new ArgumentNullException(nameof(primary));
+            environmentFitter = environment ?? throw new ArgumentNullException(nameof(environment));
         }
 
         /// <summary>
@@ -123,6 +126,10 @@ namespace Agrovator.PitchSimulator.UI
                 sentenceCardGrid.constraintCount = 1;
                 sentenceCardGrid.cellSize = new Vector2(Mathf.Max(280f, viewportSize.x - 64f), TargetHeight);
                 compactScroll.enabled = true;
+                // Filling a portrait stage would crop over half the room's width
+                // away, taking the windows, shelving and plant beds with it, so a
+                // compact stage letterboxes and keeps the composition intact.
+                SetEnvironmentFill(false);
                 SetControlLayout(modeSelectionControls, true);
                 SetControlLayout(improveActionControls, true);
                 SetControlLayout(primaryActionControls, true);
@@ -136,6 +143,9 @@ namespace Agrovator.PitchSimulator.UI
                 sentenceCardGrid.constraintCount = 1;
                 sentenceCardGrid.cellSize = new Vector2(288f, TargetHeight);
                 compactScroll.enabled = false;
+                // A wide stage is close enough to 16:9 that filling it costs little
+                // crop and removes the dead bands the room used to sit between.
+                SetEnvironmentFill(true);
                 SetControlLayout(modeSelectionControls, false);
                 SetControlLayout(improveActionControls, false);
                 SetControlLayout(primaryActionControls, false);
@@ -149,7 +159,7 @@ namespace Agrovator.PitchSimulator.UI
             if (viewportCanvas == null || viewport == null || boardGrid == null ||
                 sentenceCardGrid == null || compactScroll == null ||
                 modeSelectionControls == null || improveActionControls == null ||
-                primaryActionControls == null)
+                primaryActionControls == null || environmentFitter == null)
             {
                 reason = "responsive_layout_references_missing";
                 return false;
@@ -211,6 +221,17 @@ namespace Agrovator.PitchSimulator.UI
                     1f);
             }
             return viewportMetricsReader();
+        }
+
+        private void SetEnvironmentFill(bool fill)
+        {
+            if (environmentFitter == null)
+            {
+                return;
+            }
+            environmentFitter.aspectMode = fill
+                ? AspectRatioFitter.AspectMode.EnvelopeParent
+                : AspectRatioFitter.AspectMode.FitInParent;
         }
 
         private static void SetControlLayout(GuidedPitchFlowLayout layout, bool compact)

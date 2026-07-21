@@ -25,7 +25,7 @@ namespace Agrovator.PitchSimulator.Editor
         /// regression did. Treat bumping this as part of changing anything
         /// this class or <see cref="GuidedPitchSceneBuilder"/> generates.
         /// </summary>
-        public const int GeneratorVersion = 1;
+        public const int GeneratorVersion = 2;
 
         private const string BootstrapPath = "Assets/Scenes/Bootstrap.unity";
         private const string GamePath = "Assets/Scenes/Game.unity";
