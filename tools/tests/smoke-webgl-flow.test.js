@@ -242,14 +242,42 @@ test("viewport verification settles changed compact Unity content and controls b
   assert.match(canonicalCode(settle.text),
     /^await waitForStableRegionChange\(page, canvas, beforeComposition, \{ content: viewportChanged, controls: viewportChanged \}, 10_000, "responsive Unity composition"\)$/);
 
+  // Both orientations are required. Checking portrait alone would prove the gate
+  // while leaving the compact layout it gates - stacked board, single-column
+  // cards, enabled scroll - unrendered anywhere in the suite, which is exactly
+  // what happened when the rotate prompt first shipped.
   for (const pathName of ["runPrimaryKeyboardPath", "runSecondaryPointerPath"]) {
     const guidedPath = extractFunction(source, pathName);
-    const mobileVerify = findCalls(guidedPath, "verifyCanvasContract")
+    const portraitVerify = findCalls(guidedPath, "verifyRotatePrompt")
       .find(call => /width:\s*390,\s*height:\s*844/.test(call.text));
+    const portraitCapture = findCalls(guidedPath, "captureCanvas")
+      .find(call => /mobile-portrait\.png/.test(call.text));
+    assert.ok(portraitVerify && portraitCapture && portraitVerify.end < portraitCapture.start,
+      `${pathName} must prove the rotate prompt covers a portrait handheld`);
+
+    const mobileVerify = findCalls(guidedPath, "verifyPlayableStage")
+      .find(call => /width:\s*844,\s*height:\s*390/.test(call.text));
     const mobileCapture = findCalls(guidedPath, "captureCanvas")
       .find(call => /mobile-compact\.png/.test(call.text));
     assert.ok(mobileVerify && mobileCapture && mobileVerify.end < mobileCapture.start,
       `${pathName} compact capture must follow Unity composition settlement`);
+    assert.ok(portraitCapture.start < mobileCapture.start,
+      `${pathName} must check portrait before turning the stage sideways`);
+  }
+});
+
+// The two verifiers must stay opposites. If either stopped asserting, the suite
+// would keep passing while proving nothing about which state is on screen.
+test("orientation verifiers assert opposite canvas uniformity", () => {
+  const prompt = extractFunction(source, "verifyRotatePrompt");
+  const playable = extractFunction(source, "verifyPlayableStage");
+  assert.match(canonicalCode(prompt), /if \(new Set\(corners\)\.size !== 1\)/,
+    "verifyRotatePrompt must require a uniform canvas");
+  assert.match(canonicalCode(playable), /if \(new Set\(corners\)\.size === 1\)/,
+    "verifyPlayableStage must reject a uniform canvas");
+  for (const body of [prompt, playable]) {
+    assert.match(canonicalCode(body), /throw new Error\(/,
+      "each orientation verifier must fail loudly rather than return a flag");
   }
 });
 
@@ -257,14 +285,16 @@ test("guided paths own exactly the required executable evidence captures", () =>
   const primary = extractFunction(source, "runPrimaryKeyboardPath");
   const secondary = extractFunction(source, "runSecondaryPointerPath");
   assert.deepEqual(findCalls(primary, "captureCanvas").map(lastQuotedValue), [
-    "chrome-primary-mode.png", "chrome-mobile-compact.png", "chrome-primary-build.png",
+    "chrome-primary-mode.png", "chrome-mobile-portrait.png", "chrome-mobile-compact.png",
+    "chrome-primary-build.png",
     "chrome-primary-improve.png", "chrome-primary-present.png", "chrome-primary-results.png",
   ]);
   assert.deepEqual(findCalls(secondary, "captureCanvas").map(lastQuotedValue), [
-    "edge-secondary-mode.png", "edge-mobile-compact.png", "edge-secondary-build.png",
+    "edge-secondary-mode.png", "edge-mobile-portrait.png", "edge-mobile-compact.png",
+    "edge-secondary-build.png",
     "edge-secondary-present.png", "edge-secondary-results.png",
   ]);
-  assert.equal(findCalls(source, "captureCanvas").length, 12);
+  assert.equal(findCalls(source, "captureCanvas").length, 14);
 
   // Reaction evidence sits at feedback moments, because every capture above
   // lands on a question where Judge Aya rests. It must go through the verifying

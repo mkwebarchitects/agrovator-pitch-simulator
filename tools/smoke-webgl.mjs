@@ -273,6 +273,53 @@ async function captureJudgeReaction(page, canvas, options, previous, filename) {
   return { resting: previous.resting, reaction: reacting };
 }
 
+// The rotate prompt is a flat opaque field, so four widely separated corner
+// patches hash identically. Gameplay never does - the room art, rail and cards
+// differ corner to corner. Hashing alone could only prove "the canvas changed";
+// this proves which of the two states is on screen, in both directions.
+async function cornerPatchHashes(page, canvas) {
+  const bounds = await canvas.boundingBox();
+  if (!bounds) throw new Error("Unity canvas has no bounds for corner sampling.");
+  const patch = { width: bounds.width * 0.12, height: bounds.height * 0.06 };
+  const inset = { x: bounds.width * 0.05, y: bounds.height * 0.05 };
+  const corners = [
+    { x: bounds.x + inset.x, y: bounds.y + inset.y },
+    { x: bounds.x + bounds.width - inset.x - patch.width, y: bounds.y + inset.y },
+    { x: bounds.x + inset.x, y: bounds.y + bounds.height - inset.y - patch.height },
+    {
+      x: bounds.x + bounds.width - inset.x - patch.width,
+      y: bounds.y + bounds.height - inset.y - patch.height,
+    },
+  ];
+  const hashes = [];
+  for (const corner of corners) {
+    hashes.push(hash(await page.screenshot({ type: "png", clip: { ...corner, ...patch } })));
+  }
+  return hashes;
+}
+
+async function verifyRotatePrompt(page, frame, canvas, viewport) {
+  const metrics = await verifyCanvasContract(page, frame, canvas, viewport);
+  const corners = await cornerPatchHashes(page, canvas);
+  if (new Set(corners).size !== 1) {
+    throw new Error(
+      `Held upright at ${viewport.width}x${viewport.height} the rotate prompt must cover ` +
+      `the whole canvas, but its corners differ (${new Set(corners).size} distinct).`);
+  }
+  return { ...metrics, rotatePromptCovering: true };
+}
+
+async function verifyPlayableStage(page, frame, canvas, viewport) {
+  const metrics = await verifyCanvasContract(page, frame, canvas, viewport);
+  const corners = await cornerPatchHashes(page, canvas);
+  if (new Set(corners).size === 1) {
+    throw new Error(
+      `Turned sideways at ${viewport.width}x${viewport.height} the stage must be playable, ` +
+      "but the canvas is a flat field - the rotate prompt is still covering it.");
+  }
+  return { ...metrics, rotatePromptCovering: false };
+}
+
 async function regionHashes(page, canvas) {
   return {
     content: await contentRegionHash(page, canvas),
@@ -442,7 +489,12 @@ async function runPrimaryKeyboardPath(definition, page, frame, canvas, options) 
   await waitForStableRegionComposition(page, canvas, options.timeoutMs, "mode");
   await captureCanvas(canvas, options, "chrome-primary-mode.png");
 
-  const mobile = await verifyCanvasContract(page, frame, canvas, { width: 390, height: 844 });
+  // Portrait proves the gate, landscape proves the compact layout behind it.
+  // Checking only portrait would leave the stacked board, single-column cards and
+  // enabled scroll unrendered anywhere in the suite.
+  const mobilePortrait = await verifyRotatePrompt(page, frame, canvas, { width: 390, height: 844 });
+  await captureCanvas(canvas, options, "chrome-mobile-portrait.png");
+  const mobile = await verifyPlayableStage(page, frame, canvas, { width: 844, height: 390 });
   await captureCanvas(canvas, options, "chrome-mobile-compact.png");
   const desktop = await verifyCanvasContract(page, frame, canvas, { width: 1440, height: 1000 });
 
@@ -485,7 +537,7 @@ async function runPrimaryKeyboardPath(definition, page, frame, canvas, options) 
   const completion = await waitForSubmission(page, "success", options, "successful result");
   await keyboardStableStep(page, canvas, "Enter", GuidedGate.transition, options, "retry");
   await keyboardStableStep(page, canvas, "Enter", GuidedGate.transition, options, "fresh mode selection");
-  return { ...pathContract, completion, mobile, desktop };
+  return { ...pathContract, completion, mobilePortrait, mobile, desktop };
 }
 
 async function runSecondaryPointerPath(definition, page, frame, canvas, options) {
@@ -496,7 +548,10 @@ async function runSecondaryPointerPath(definition, page, frame, canvas, options)
   await waitForStableRegionComposition(page, canvas, options.timeoutMs, "mode");
   await captureCanvas(canvas, options, "edge-secondary-mode.png");
 
-  const mobile = await verifyCanvasContract(page, frame, canvas, { width: 390, height: 844 });
+  // Portrait proves the gate, landscape proves the compact layout behind it.
+  const mobilePortrait = await verifyRotatePrompt(page, frame, canvas, { width: 390, height: 844 });
+  await captureCanvas(canvas, options, "edge-mobile-portrait.png");
+  const mobile = await verifyPlayableStage(page, frame, canvas, { width: 844, height: 390 });
   await captureCanvas(canvas, options, "edge-mobile-compact.png");
   const desktop = await verifyCanvasContract(page, frame, canvas, { width: 1440, height: 1000 });
 
@@ -533,7 +588,7 @@ async function runSecondaryPointerPath(definition, page, frame, canvas, options)
   const completion = await waitForSubmission(page, "success", options, "successful result");
   await pointerStableStep(page, canvas, 0.64, 0.82, GuidedGate.transition, options, "retry");
   await pointerStableStep(page, canvas, 0.50, 0.60, GuidedGate.transition, options, "fresh mode selection");
-  return { ...pathContract, completion, mobile, desktop };
+  return { ...pathContract, completion, mobilePortrait, mobile, desktop };
 }
 
 async function verifyCanvasContract(page, frame, canvas, viewport) {
@@ -623,6 +678,7 @@ async function runBrowser(playwright, definition, server, options) {
     version: null,
     desktop: null,
     mobile: null,
+    mobilePortrait: null,
     consoleErrors: [],
     pageErrors: [],
     warnings: [],
@@ -684,6 +740,7 @@ async function runBrowser(playwright, definition, server, options) {
     }
     result.desktop = pathResult.desktop;
     result.mobile = pathResult.mobile;
+    result.mobilePortrait = pathResult.mobilePortrait;
     result.completionSummary = pathResult.completion;
     result.modes.failure = true;
     result.modes.success = true;
