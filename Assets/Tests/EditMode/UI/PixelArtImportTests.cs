@@ -51,6 +51,39 @@ namespace Agrovator.PitchSimulator.Tests.EditMode.UI
             Assert.That(sprites, Has.Length.EqualTo(expectedSpriteCount));
         }
 
+        // The default-platform assertion above is not what ships. A WebGL build
+        // resolves each texture through its WebGL platform entry, so assert the
+        // format Unity will actually bake rather than the default-platform flag.
+        [TestCase("Assets/Art/Characters/judge-aya-sheet.png")]
+        [TestCase("Assets/Art/Environment/pitch-room.png")]
+        [TestCase("Assets/Art/UI/dialogue-panel.png")]
+        [TestCase("Assets/Art/UI/confidence-icons.png")]
+        public void PixelArt_ShipsUncompressedOnWebGLAndStandalone(string path)
+        {
+            var importer = (TextureImporter)AssetImporter.GetAtPath(path);
+            foreach (var platform in new[] { "WebGL", "Standalone" })
+            {
+                var settings = importer.GetPlatformTextureSettings(platform);
+
+                // A non-overridden entry inherits the default platform, so its
+                // stored textureCompression value is inert. Only an *enabled*
+                // override can reintroduce block compression.
+                if (settings.overridden)
+                {
+                    Assert.That(settings.textureCompression,
+                        Is.EqualTo(TextureImporterCompression.Uncompressed),
+                        $"{path} overrides {platform} with block compression.");
+                    Assert.That(settings.crunchedCompression, Is.False, $"{path} / {platform}");
+                }
+
+                var format = importer.GetAutomaticFormat(platform);
+                Assert.That(format,
+                    Is.EqualTo(TextureImporterFormat.RGBA32).Or.EqualTo(TextureImporterFormat.RGB24),
+                    $"{path} bakes to {format} on {platform}; flat-colour art with hard " +
+                    "edges must stay uncompressed or it fringes.");
+            }
+        }
+
         [Test]
         public void MultiSpriteSheets_HaveExactNamedEqualCells()
         {
