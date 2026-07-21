@@ -147,6 +147,29 @@ namespace Agrovator.PitchSimulator.Tests.EditMode.Accessibility
             }));
         }
 
+        // The guided builder lays four parts side by side, which a phone held
+        // upright cannot show, so the learner is asked to turn the device. The copy
+        // avoids "landscape" and "portrait": Primary learners are the audience and
+        // the instruction has to be actionable without jargon.
+        [Test]
+        public void EnglishCatalog_ContainsRotateToPlayCopyInPlainLanguage()
+        {
+            var catalog = LoadAuthoredCatalogs();
+
+            Assert.That(catalog.Resolve("en", "ui.rotate.title"),
+                Is.EqualTo("Turn your device sideways"));
+            Assert.That(catalog.Resolve("en", "ui.rotate.body"),
+                Is.EqualTo("This game needs a wider screen. Turn your device to keep playing."));
+
+            foreach (var key in new[] { "ui.rotate.title", "ui.rotate.body" })
+            {
+                var value = catalog.Resolve("en", key);
+                Assert.That(value.ToLowerInvariant(), Does.Not.Contain("landscape"), key);
+                Assert.That(value.ToLowerInvariant(), Does.Not.Contain("portrait"), key);
+                Assert.That(value.ToLowerInvariant(), Does.Not.Contain("orientation"), key);
+            }
+        }
+
         [Test]
         public void Resolve_MissingLocaleFallsBackToEnglish()
         {

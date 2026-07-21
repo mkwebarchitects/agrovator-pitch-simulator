@@ -320,6 +320,8 @@
     { "key": "guided.results.strengthened.many", "value": "You strengthened {count} parts of this pitch." },
     { "key": "guided.results.part.strengthened", "value": "Strengthened after feedback" },
     { "key": "guided.results.part.revised", "value": "Revised after feedback" },
-    { "key": "guided.results.resubmit", "value": "Resubmit results" }
+    { "key": "guided.results.resubmit", "value": "Resubmit results" },
+    { "key": "ui.rotate.title", "value": "Turn your device sideways" },
+    { "key": "ui.rotate.body", "value": "This game needs a wider screen. Turn your device to keep playing." }
   ]
 }
