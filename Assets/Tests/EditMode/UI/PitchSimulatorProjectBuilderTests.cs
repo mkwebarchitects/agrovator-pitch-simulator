@@ -1050,6 +1050,38 @@ namespace Agrovator.PitchSimulator.Tests.EditMode.UI
             Assert.That(overlay.IsPrompting, Is.False);
         }
 
+        // The prompt is a dead end a learner is stuck on until they act, so it earns
+        // the same character as the rest of the game rather than reading as an error.
+        // Judge Aya already exists, so this costs no new art.
+        [Test]
+        public void GeneratedRotatePrompt_IsPresentedWithJudgeAyaAndReadableHierarchy()
+        {
+            var canvas = OpenGameCanvas(WideSize);
+            var panel = RequireChild(canvas, "Rotate To Play/Panel");
+
+            var aya = RequireChild(panel, "Content Frame/Judge Aya").GetComponent<Image>();
+            Assert.That(aya.sprite, Is.Not.Null, "The prompt must show Judge Aya.");
+            Assert.That(aya.sprite.texture.name, Is.EqualTo("judge-aya-sheet"));
+            Assert.That(aya.preserveAspect, Is.True, "Aya must never be stretched.");
+
+            var title = RequireText(panel, "Content Frame/Title");
+            var body = RequireText(panel, "Content Frame/Body");
+            Assert.That(title.fontSize, Is.GreaterThanOrEqualTo(40),
+                "The instruction is the only thing on screen and must not read as fine print.");
+            Assert.That(title.fontSize, Is.GreaterThan(body.fontSize),
+                "The title must outrank the body.");
+            Assert.That(title.alignment, Is.EqualTo(TextAnchor.MiddleCenter));
+            Assert.That(body.alignment, Is.EqualTo(TextAnchor.MiddleCenter));
+
+            // A learner turning a phone reads this at arm's length, so the copy has
+            // to survive the same contrast bar as everything else.
+            var backing = panel.GetComponent<Image>();
+            var contrastFailures = new List<string>();
+            CheckContrast("rotate title", title, backing, 4.5f, contrastFailures);
+            CheckContrast("rotate body", body, backing, 4.5f, contrastFailures);
+            Assert.That(contrastFailures, Is.Empty, string.Join(Environment.NewLine, contrastFailures));
+        }
+
         // Baked English is what the generated scene ships; the catalog replaces it at
         // launch. Pinning both halves stops the scene drifting from the copy tests.
         [Test]

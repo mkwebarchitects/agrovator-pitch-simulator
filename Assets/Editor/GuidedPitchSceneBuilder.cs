@@ -93,7 +93,7 @@ namespace Agrovator.PitchSimulator.Editor
             var fallback = CreateSafeFallbackScreen(canvas, references);
             // Built last so it is the canvas's last child and draws over whichever
             // screen is current. It is not a screen and the router never owns it.
-            CreateRotatePrompt(canvas, references);
+            CreateRotatePrompt(canvas, ayaSprites, references);
 
             var router = canvas.gameObject.AddComponent<GuidedPitchScreenRouter>();
             router.Configure(
@@ -850,7 +850,7 @@ namespace Agrovator.PitchSimulator.Editor
         }
 
         private static void CreateRotatePrompt(
-            Transform canvas, GuidedPitchSceneReferences references)
+            Transform canvas, Sprite[] ayaSprites, GuidedPitchSceneReferences references)
         {
             // The host stays enabled so it can poll the viewport every frame; only
             // the panel beneath it is toggled, which is what the learner sees.
@@ -866,9 +866,34 @@ namespace Agrovator.PitchSimulator.Editor
             backing.color = DeepNavy;
             backing.raycastTarget = true;
 
-            var frame = CreateFrame(panel.transform, 640f, 240f, 24, 20, 12f);
-            var title = CreateText("Title", frame.transform, 30, FontStyle.Bold, LightText);
-            var body = CreateText("Body", frame.transform, 20, FontStyle.Normal, LightText);
+            var frame = CreateFrame(panel.transform, 660f, 460f, 24, 24, 20f);
+
+            // Aya carries the instruction so a blocked screen still reads as part of
+            // the game rather than an error page. She already exists, so this costs
+            // no new art and no licensing question.
+            var aya = new GameObject("Judge Aya", typeof(RectTransform), typeof(Image),
+                typeof(LayoutElement));
+            aya.transform.SetParent(frame.transform, false);
+            var ayaImage = aya.GetComponent<Image>();
+            ayaImage.sprite = ResolveAyaSprite(ayaSprites, JudgeReaction.Encouraging);
+            ayaImage.preserveAspect = true;
+            ayaImage.raycastTarget = false;
+            var ayaLayout = aya.GetComponent<LayoutElement>();
+            ayaLayout.preferredWidth = 176f;
+            ayaLayout.preferredHeight = 220f;
+            ayaLayout.flexibleWidth = 0f;
+            ayaLayout.flexibleHeight = 0f;
+
+            // This is the only thing on screen and is read at arm's length while the
+            // learner turns the device, so it is sized as a headline, not a caption.
+            var title = CreateText("Title", frame.transform, 44, FontStyle.Bold, FocusGold);
+            title.alignment = TextAnchor.MiddleCenter;
+            title.gameObject.AddComponent<LayoutElement>().preferredHeight = 56f;
+
+            var body = CreateText("Body", frame.transform, 24, FontStyle.Normal, LightText);
+            body.alignment = TextAnchor.MiddleCenter;
+            body.gameObject.AddComponent<LayoutElement>().preferredHeight = 72f;
+
             title.text = RotateToPlayOverlay.EnglishTitle;
             body.text = RotateToPlayOverlay.EnglishBody;
 
