@@ -38,6 +38,7 @@ namespace Agrovator.PitchSimulator.Editor
     /// </summary>
     internal static class GuidedPitchSceneBuilder
     {
+        internal const string PartIconSheetPath = "Assets/Art/UI/part-icons.png";
         private const float FrameWidth = 980f;
         private const float FrameHeight = 672f;
         // Internal so the project builder's idempotence guard can compare a saved
@@ -261,8 +262,7 @@ namespace Agrovator.PitchSimulator.Editor
                 var accentLayout = accent.gameObject.AddComponent<LayoutElement>();
                 accentLayout.preferredWidth = 8f;
                 accentLayout.preferredHeight = 28f;
-                var icon = CreateText("Icon", slot.transform, 16, FontStyle.Bold, LightText);
-                icon.text = visual.IconGlyph;
+                var icon = CreatePartIcon(slot.transform, visual.Part, 22f);
                 var iconLayout = icon.gameObject.AddComponent<LayoutElement>();
                 iconLayout.preferredWidth = 18f;
                 var label = CreateText("Label", slot.transform, 14, FontStyle.Bold, LightText,
@@ -413,8 +413,7 @@ namespace Agrovator.PitchSimulator.Editor
 
                 var header = CreateRow("Header", slot.transform, 6f, 22f);
                 header.GetComponent<HorizontalLayoutGroup>().childAlignment = TextAnchor.MiddleLeft;
-                var icon = CreateText("Icon", header.transform, 14, FontStyle.Bold, LightText);
-                icon.text = visual.IconGlyph;
+                var icon = CreatePartIcon(header.transform, visual.Part, 20f);
                 var iconLayout = icon.gameObject.AddComponent<LayoutElement>();
                 iconLayout.preferredWidth = 16f;
                 var label = CreateText("Label", header.transform, 13, FontStyle.Bold, LightText,
@@ -651,9 +650,7 @@ namespace Agrovator.PitchSimulator.Editor
                 var chipLayout = chip.gameObject.AddComponent<LayoutElement>();
                 chipLayout.preferredWidth = 28f;
                 chipLayout.preferredHeight = 28f;
-                var icon = CreateText("Icon", chip.transform, 16, FontStyle.Bold, Ink);
-                Stretch(icon.GetComponent<RectTransform>());
-                icon.text = visual.IconGlyph;
+                var icon = CreatePartIcon(chip.transform, visual.Part, 24f);
 
                 var label = CreateText("Label", buttonObject.transform, 15, FontStyle.Bold, LightText,
                     TextAnchor.MiddleLeft);
@@ -796,8 +793,7 @@ namespace Agrovator.PitchSimulator.Editor
 
             var header = CreateRow("Header", card.transform, 8f, 22f);
             header.GetComponent<HorizontalLayoutGroup>().childAlignment = TextAnchor.MiddleLeft;
-            var icon = CreateText("Icon", header.transform, 14, FontStyle.Bold, LightText);
-            icon.text = visual.IconGlyph;
+            var icon = CreatePartIcon(header.transform, visual.Part, 20f);
             icon.gameObject.AddComponent<LayoutElement>().preferredWidth = 18f;
             var label = CreateText("Label", header.transform, 14, FontStyle.Bold, LightText,
                 TextAnchor.MiddleLeft);
@@ -921,6 +917,41 @@ namespace Agrovator.PitchSimulator.Editor
             cards.spacing = new Vector2(8f, 8f);
             cards.childAlignment = TextAnchor.MiddleCenter;
             phaseScroll.enabled = false;
+        }
+
+        // The four parts carry real icons rather than the ASCII placeholders they
+        // shipped with. A part's icon never changes at runtime, so the sprite is
+        // serialized here once and no view assigns it.
+        private static Image CreatePartIcon(Transform parent, PitchPart part, float size)
+        {
+            var icon = new GameObject("Icon", typeof(RectTransform), typeof(Image),
+                typeof(LayoutElement));
+            icon.transform.SetParent(parent, false);
+            var image = icon.GetComponent<Image>();
+            image.sprite = ResolvePartIcon(part);
+            image.preserveAspect = true;
+            image.raycastTarget = false;
+            var layout = icon.GetComponent<LayoutElement>();
+            layout.preferredWidth = size;
+            layout.preferredHeight = size;
+            layout.flexibleWidth = 0f;
+            layout.flexibleHeight = 0f;
+            return image;
+        }
+
+        private static Sprite ResolvePartIcon(PitchPart part)
+        {
+            var sprites = AssetDatabase.LoadAllAssetsAtPath(PartIconSheetPath)
+                .OfType<Sprite>()
+                .ToArray();
+            var name = part.ToString();
+            var sprite = sprites.FirstOrDefault(candidate => candidate.name == name);
+            if (sprite == null)
+            {
+                throw new InvalidOperationException(
+                    $"The part icon sheet has no '{name}' cell.");
+            }
+            return sprite;
         }
 
         private static GameObject CreateScreen(string name, Transform canvas)

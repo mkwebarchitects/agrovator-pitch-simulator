@@ -12,19 +12,19 @@ namespace Agrovator.PitchSimulator.UI
         [SerializeField] private PitchPart part;
         [SerializeField] private GameObject root;
         [SerializeField] private Text labelText;
-        [SerializeField] private Text iconText;
+        [SerializeField] private Image iconImage;
         [SerializeField] private Image accentImage;
         [SerializeField] private Text sentenceText;
         [SerializeField] private Text emptyPromptText;
         [SerializeField] private Image revisionOutline;
 
-        public PitchBoardSlot(PitchPart part, GameObject root, Text labelText, Text iconText,
+        public PitchBoardSlot(PitchPart part, GameObject root, Text labelText, Image iconImage,
             Image accentImage, Text sentenceText, Text emptyPromptText, Image revisionOutline)
         {
             this.part = part;
             this.root = root;
             this.labelText = labelText;
-            this.iconText = iconText;
+            this.iconImage = iconImage;
             this.accentImage = accentImage;
             this.sentenceText = sentenceText;
             this.emptyPromptText = emptyPromptText;
@@ -34,20 +34,19 @@ namespace Agrovator.PitchSimulator.UI
         public PitchPart Part => part;
         public GameObject Root => root;
         public Text LabelText => labelText;
-        public Text IconText => iconText;
+        public Image IconImage => iconImage;
         public Image AccentImage => accentImage;
         public Text SentenceText => sentenceText;
         public Text EmptyPromptText => emptyPromptText;
         public bool IsRevisionSelected { get; private set; }
 
-        internal bool IsValid => root != null && labelText != null && iconText != null &&
+        internal bool IsValid => root != null && labelText != null && iconImage != null &&
             accentImage != null && sentenceText != null && emptyPromptText != null;
 
         internal void Render(PitchPartVisual visual, PitchSectionSnapshot section,
             bool revisionSelected, Func<string, string> localize)
         {
             labelText.text = localize(visual.LabelKey);
-            iconText.text = visual.IconGlyph;
             accentImage.color = visual.Colour;
             var populated = section.IsPopulated;
             sentenceText.text = populated ? localize(section.CurrentResponseId) : string.Empty;

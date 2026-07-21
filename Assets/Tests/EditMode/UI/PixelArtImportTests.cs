@@ -18,6 +18,11 @@ namespace Agrovator.PitchSimulator.Tests.EditMode.UI
             "Concerned", "Impressed", "Encouraging", "Celebrating",
         };
 
+        private static readonly string[] PartIconNames =
+        {
+            "Problem", "Evidence", "Solution", "Value",
+        };
+
         private static readonly string[] ConfidenceNames =
         {
             "Getting Started", "Listening", "Curious", "Interested", "Convinced",
@@ -31,6 +36,7 @@ namespace Agrovator.PitchSimulator.Tests.EditMode.UI
         [TestCase("Assets/Art/Environment/pitch-room.png", 1280, 720, 1, FilterMode.Bilinear)]
         [TestCase("Assets/Art/UI/dialogue-panel.png", 768, 384, 1, FilterMode.Point)]
         [TestCase("Assets/Art/UI/confidence-icons.png", 480, 96, 5, FilterMode.Point)]
+        [TestCase("Assets/Art/UI/part-icons.png", 384, 96, 4, FilterMode.Point)]
         public void PixelArt_UsesCrispDeterministicImportSettings(
             string path,
             int expectedWidth,
@@ -63,6 +69,7 @@ namespace Agrovator.PitchSimulator.Tests.EditMode.UI
         [TestCase("Assets/Art/Environment/pitch-room.png")]
         [TestCase("Assets/Art/UI/dialogue-panel.png")]
         [TestCase("Assets/Art/UI/confidence-icons.png")]
+        [TestCase("Assets/Art/UI/part-icons.png")]
         public void PixelArt_ShipsUncompressedOnWebGLAndStandalone(string path)
         {
             var importer = (TextureImporter)AssetImporter.GetAtPath(path);
@@ -94,6 +101,7 @@ namespace Agrovator.PitchSimulator.Tests.EditMode.UI
         {
             AssertSheet("Assets/Art/Characters/judge-aya-sheet.png", JudgeNames, 128f, 160f);
             AssertSheet("Assets/Art/UI/confidence-icons.png", ConfidenceNames, 96f, 96f);
+            AssertSheet("Assets/Art/UI/part-icons.png", PartIconNames, 96f, 96f);
         }
 
         [Test]

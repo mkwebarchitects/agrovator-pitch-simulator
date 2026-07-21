@@ -7,17 +7,15 @@ namespace Agrovator.PitchSimulator.UI
 {
     public readonly struct PitchPartVisual
     {
-        public PitchPartVisual(PitchPart part, string iconGlyph, Color colour, string labelKey, string emptyPromptKey)
+        public PitchPartVisual(PitchPart part, Color colour, string labelKey, string emptyPromptKey)
         {
             Part = part;
-            IconGlyph = iconGlyph;
             Colour = colour;
             LabelKey = labelKey;
             EmptyPromptKey = emptyPromptKey;
         }
 
         public PitchPart Part { get; }
-        public string IconGlyph { get; }
         public Color Colour { get; }
         public string LabelKey { get; }
         public string EmptyPromptKey { get; }
@@ -33,10 +31,10 @@ namespace Agrovator.PitchSimulator.UI
 
         private static readonly PitchPartVisual[] Visuals =
         {
-            Create(PitchPart.Problem, "!", "#F28C6F", "problem"),
-            Create(PitchPart.Evidence, "?", "#67B7D1", "evidence"),
-            Create(PitchPart.Solution, ">", "#7BC47F", "solution"),
-            Create(PitchPart.Value, "*", "#E5B95C", "value"),
+            Create(PitchPart.Problem, "#F28C6F", "problem"),
+            Create(PitchPart.Evidence, "#67B7D1", "evidence"),
+            Create(PitchPart.Solution, "#7BC47F", "solution"),
+            Create(PitchPart.Value, "#E5B95C", "value"),
         };
 
         public static PitchPartVisual Get(PitchPart part)
@@ -106,11 +104,10 @@ namespace Agrovator.PitchSimulator.UI
             return (lighter + 0.05f) / (darker + 0.05f);
         }
 
-        private static PitchPartVisual Create(PitchPart part, string glyph, string colour, string keyPart)
+        private static PitchPartVisual Create(PitchPart part, string colour, string keyPart)
         {
             return new PitchPartVisual(
                 part,
-                glyph,
                 Parse(colour),
                 $"guided.part.{keyPart}.label",
                 $"guided.board.add.{keyPart}");

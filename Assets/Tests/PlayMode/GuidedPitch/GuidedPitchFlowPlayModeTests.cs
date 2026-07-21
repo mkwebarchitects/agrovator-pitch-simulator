@@ -298,7 +298,7 @@ namespace Agrovator.PitchSimulator.Tests.PlayMode
                 var view = cardRoot.AddComponent<PitchResultPartView>();
                 view.Configure(part,
                     CreateText("Label", cardRoot.transform),
-                    CreateText("Icon", cardRoot.transform),
+                    CreateImage("Icon", cardRoot.transform),
                     CreateImage("Accent", cardRoot.transform),
                     CreateText("Sentence", cardRoot.transform),
                     CreateText("Status", cardRoot.transform),
@@ -433,7 +433,7 @@ namespace Agrovator.PitchSimulator.Tests.PlayMode
                 var slotRoot = Panel(part + " Rail Slot", root.transform);
                 return new PitchProgressRailSlot(part, slotRoot,
                     CreateText("Label", slotRoot.transform),
-                    CreateText("Icon", slotRoot.transform),
+                    CreateImage("Icon", slotRoot.transform),
                     CreateImage("Accent", slotRoot.transform),
                     Panel("Current", slotRoot.transform));
             }).ToArray());
@@ -449,7 +449,7 @@ namespace Agrovator.PitchSimulator.Tests.PlayMode
                 var slotRoot = Panel(part + " Board Slot", root.transform);
                 return new PitchBoardSlot(part, slotRoot,
                     CreateText("Label", slotRoot.transform),
-                    CreateText("Icon", slotRoot.transform),
+                    CreateImage("Icon", slotRoot.transform),
                     CreateImage("Accent", slotRoot.transform),
                     CreateText("Sentence", slotRoot.transform),
                     CreateText("Empty Prompt", slotRoot.transform),

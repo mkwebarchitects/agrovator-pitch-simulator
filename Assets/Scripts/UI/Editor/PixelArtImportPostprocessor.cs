@@ -11,11 +11,19 @@ namespace Agrovator.PitchSimulator.UI.Editor
         internal const string EnvironmentPath = "Assets/Art/Environment/pitch-room.png";
         internal const string DialoguePanelPath = "Assets/Art/UI/dialogue-panel.png";
         internal const string ConfidencePath = "Assets/Art/UI/confidence-icons.png";
+        internal const string PartIconPath = "Assets/Art/UI/part-icons.png";
 
         private static readonly string[] JudgeNames =
         {
             "Idle", "Blink", "Talk", "Think", "Smile", "Interested", "Confused",
             "Concerned", "Impressed", "Encouraging", "Celebrating",
+        };
+
+        // Cell names match PitchPart so the builder can resolve an icon by part
+        // rather than by index, which no rename can silently reorder.
+        private static readonly string[] PartIconNames =
+        {
+            "Problem", "Evidence", "Solution", "Value",
         };
 
         private static readonly string[] ConfidenceNames =
@@ -30,7 +38,7 @@ namespace Agrovator.PitchSimulator.UI.Editor
         // guards for generated scenes.
         public override uint GetVersion()
         {
-            return 2;
+            return 3;
         }
 
         private void OnPreprocessTexture()
@@ -66,6 +74,11 @@ namespace Agrovator.PitchSimulator.UI.Editor
                 importer.spriteImportMode = SpriteImportMode.Multiple;
                 ConfigureEqualCells(importer, 480, 96, ConfidenceNames);
             }
+            else if (assetPath == PartIconPath)
+            {
+                importer.spriteImportMode = SpriteImportMode.Multiple;
+                ConfigureEqualCells(importer, 384, 96, PartIconNames);
+            }
             else
             {
                 importer.spriteImportMode = SpriteImportMode.Single;
@@ -78,7 +91,8 @@ namespace Agrovator.PitchSimulator.UI.Editor
         private static bool IsManaged(string path)
         {
             return path == JudgePath || path == EnvironmentPath ||
-                path == DialoguePanelPath || path == ConfidencePath;
+                path == DialoguePanelPath || path == ConfidencePath ||
+                path == PartIconPath;
         }
 
         private static void ConfigureEqualCells(

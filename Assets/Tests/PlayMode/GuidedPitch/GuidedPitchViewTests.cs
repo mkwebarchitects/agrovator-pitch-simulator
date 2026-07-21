@@ -33,10 +33,10 @@ namespace Agrovator.PitchSimulator.Tests.PlayMode
         [Test]
         public void PartVisuals_KeepTheApprovedGlyphAndColourPairing()
         {
-            AssertVisual(PitchPart.Problem, "!", "#F28C6F");
-            AssertVisual(PitchPart.Evidence, "?", "#67B7D1");
-            AssertVisual(PitchPart.Solution, ">", "#7BC47F");
-            AssertVisual(PitchPart.Value, "*", "#E5B95C");
+            AssertVisual(PitchPart.Problem, "#F28C6F");
+            AssertVisual(PitchPart.Evidence, "#67B7D1");
+            AssertVisual(PitchPart.Solution, "#7BC47F");
+            AssertVisual(PitchPart.Value, "#E5B95C");
             Assert.Throws<ArgumentOutOfRangeException>(() => PitchPartVisuals.Get((PitchPart)99));
         }
 
@@ -63,8 +63,8 @@ namespace Agrovator.PitchSimulator.Tests.PlayMode
             foreach (var part in PitchParts.Ordered)
             {
                 var expected = PitchPartVisuals.Get(part);
-                Assert.That(rail.Slots[(int)part].IconText.text, Is.EqualTo(expected.IconGlyph));
-                Assert.That(board.Slots[(int)part].IconText.text, Is.EqualTo(expected.IconGlyph));
+                Assert.That(rail.Slots[(int)part].IconImage, Is.Not.Null);
+                Assert.That(board.Slots[(int)part].IconImage, Is.Not.Null);
                 Assert.That(rail.Slots[(int)part].AccentImage.color, Is.EqualTo(expected.Colour));
                 Assert.That(board.Slots[(int)part].AccentImage.color, Is.EqualTo(expected.Colour));
             }
@@ -353,11 +353,10 @@ namespace Agrovator.PitchSimulator.Tests.PlayMode
                 Is.GreaterThanOrEqualTo(3f));
         }
 
-        private static void AssertVisual(PitchPart part, string glyph, string htmlColour)
+        private static void AssertVisual(PitchPart part, string htmlColour)
         {
             var visual = PitchPartVisuals.Get(part);
             Assert.That(visual.Part, Is.EqualTo(part));
-            Assert.That(visual.IconGlyph, Is.EqualTo(glyph));
             Assert.That(ColorUtility.ToHtmlStringRGB(visual.Colour), Is.EqualTo(htmlColour.Substring(1)));
         }
 
@@ -369,7 +368,7 @@ namespace Agrovator.PitchSimulator.Tests.PlayMode
             {
                 var slotRoot = Root(part + " Rail Slot", root.transform);
                 return new PitchProgressRailSlot(part, slotRoot, Text("Label", slotRoot.transform),
-                    Text("Icon", slotRoot.transform), Image("Accent", slotRoot.transform),
+                    Image("Icon", slotRoot.transform), Image("Accent", slotRoot.transform),
                     Root("Current", slotRoot.transform));
             }).ToArray();
             view.Configure(slots);
@@ -384,7 +383,7 @@ namespace Agrovator.PitchSimulator.Tests.PlayMode
             {
                 var slotRoot = Root(part + " Board Slot", root.transform);
                 return new PitchBoardSlot(part, slotRoot, Text("Label", slotRoot.transform),
-                    Text("Icon", slotRoot.transform), Image("Accent", slotRoot.transform),
+                    Image("Icon", slotRoot.transform), Image("Accent", slotRoot.transform),
                     Text("Sentence", slotRoot.transform), Text("Empty Prompt", slotRoot.transform),
                     Image("Revision", slotRoot.transform));
             }).ToArray();

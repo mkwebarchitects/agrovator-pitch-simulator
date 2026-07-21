@@ -12,17 +12,17 @@ namespace Agrovator.PitchSimulator.UI
         [SerializeField] private PitchPart part;
         [SerializeField] private GameObject root;
         [SerializeField] private Text labelText;
-        [SerializeField] private Text iconText;
+        [SerializeField] private Image iconImage;
         [SerializeField] private Image accentImage;
         [SerializeField] private GameObject currentMarker;
 
-        public PitchProgressRailSlot(PitchPart part, GameObject root, Text labelText, Text iconText,
+        public PitchProgressRailSlot(PitchPart part, GameObject root, Text labelText, Image iconImage,
             Image accentImage, GameObject currentMarker)
         {
             this.part = part;
             this.root = root;
             this.labelText = labelText;
-            this.iconText = iconText;
+            this.iconImage = iconImage;
             this.accentImage = accentImage;
             this.currentMarker = currentMarker;
         }
@@ -30,7 +30,7 @@ namespace Agrovator.PitchSimulator.UI
         public PitchPart Part => part;
         public GameObject Root => root;
         public Text LabelText => labelText;
-        public Text IconText => iconText;
+        public Image IconImage => iconImage;
         public Image AccentImage => accentImage;
         public string Label => labelText == null ? string.Empty : labelText.text;
         public bool IsCurrent { get; private set; }
@@ -40,7 +40,6 @@ namespace Agrovator.PitchSimulator.UI
         internal void Render(PitchPartVisual visual, bool current, bool complete, Func<string, string> localize)
         {
             labelText.text = localize(visual.LabelKey);
-            iconText.text = visual.IconGlyph;
             accentImage.color = visual.Colour;
             IsCurrent = current;
             IsComplete = complete;
@@ -48,7 +47,7 @@ namespace Agrovator.PitchSimulator.UI
             if (root != null) root.SetActive(true);
         }
 
-        internal bool IsValid => root != null && labelText != null && iconText != null && accentImage != null;
+        internal bool IsValid => root != null && labelText != null && iconImage != null && accentImage != null;
     }
 
     public sealed class PitchProgressRailView : MonoBehaviour

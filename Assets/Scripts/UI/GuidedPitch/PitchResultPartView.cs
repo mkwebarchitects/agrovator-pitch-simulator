@@ -15,7 +15,7 @@ namespace Agrovator.PitchSimulator.UI
     {
         [SerializeField] private PitchPart part;
         [SerializeField] private Text labelText;
-        [SerializeField] private Text iconText;
+        [SerializeField] private Image iconImage;
         [SerializeField] private Image accentImage;
         [SerializeField] private Text sentenceText;
         [SerializeField] private Text statusText;
@@ -23,22 +23,22 @@ namespace Agrovator.PitchSimulator.UI
 
         public PitchPart Part => part;
         public Text LabelText => labelText;
-        public Text IconText => iconText;
+        public Image IconImage => iconImage;
         public Image AccentImage => accentImage;
         public Text SentenceText => sentenceText;
         public Text StatusText => statusText;
         public Text RevisionNoteText => revisionNoteText;
 
-        internal bool IsValid => labelText != null && iconText != null && accentImage != null &&
+        internal bool IsValid => labelText != null && iconImage != null && accentImage != null &&
             sentenceText != null && statusText != null && revisionNoteText != null;
 
-        public void Configure(PitchPart cardPart, Text label, Text icon, Image accent,
+        public void Configure(PitchPart cardPart, Text label, Image icon, Image accent,
             Text sentence, Text status, Text revisionNote)
         {
             PitchPartVisuals.Get(cardPart);
             part = cardPart;
             labelText = label;
-            iconText = icon;
+            iconImage = icon;
             accentImage = accent;
             sentenceText = sentence;
             statusText = status;
@@ -66,7 +66,6 @@ namespace Agrovator.PitchSimulator.UI
 
             var visual = PitchPartVisuals.Get(part);
             labelText.text = localize(visual.LabelKey);
-            iconText.text = visual.IconGlyph;
             accentImage.color = visual.Colour;
             sentenceText.text = localize(section.CurrentResponseId);
             statusText.text = localize(PitchPartVisuals.MasteryLabelKey(section.CurrentMastery.Value));

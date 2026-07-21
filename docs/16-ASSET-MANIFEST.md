@@ -16,6 +16,7 @@ The six branch-wide trailing spaces in `Assets/Scripts/UI/GuidedPitch.meta` and 
 | `Assets/Art/Characters/judge-aya-sheet.png` | `Assets/Art/manifest.json` and `CREDITS.md`; original OpenAI-generated project output | `1408x160`, `254,633` bytes, SHA-256 `D720AC61FB9E38145559237C73E19CABA86785B36E7DF338D296F97B57CFA417` |
 | `Assets/Art/Environment/pitch-room.png` | Same art provenance records | `1280x720`, `1,097,279` bytes, SHA-256 `D03AABFC4B7EA04695A02C8CFDB88FC3CBD65BDDCA5D4DECEAFC0050C9F5902D` |
 | `Assets/Art/UI/confidence-icons.png` | Same art provenance records; retained legacy asset | `480x96`, `28,133` bytes, SHA-256 `6A4C255CD283D077E9D79D8AFC56DFA1CB6191E1CD9FCA4C908D8B4DA0331BA0` |
+| `Assets/Art/UI/part-icons.png` | First-party original | `384x96`, four named `96x96` cells (`Problem`, `Evidence`, `Solution`, `Value`); authored 2026-07-21 for this project in the existing part palette; no third-party source, so no redistribution restriction |
 | `Assets/Art/UI/dialogue-panel.png` | Same art provenance records | `768x384`, `205,025` bytes, SHA-256 `5F9EA03D59C7869E74921060F8F0515DD30508B49C0FE65574497F7312ECA834` |
 | `Assets/Art/manifest.json` | Machine-readable first-party provenance | Records prompts, processing, dimensions, source/date, `thirdPartyDerivatives: false`, and an output-terms statement |
 | `Assets/Art/CREDITS.md` | Human-readable art provenance | Describes project source; does not replace a repository licence |

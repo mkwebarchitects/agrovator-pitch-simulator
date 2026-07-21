@@ -91,7 +91,7 @@ namespace Agrovator.PitchSimulator.Tests.PlayMode
             {
                 var visual = PitchPartVisuals.Get(part);
                 var view = partViews[(int)part];
-                Assert.That(view.IconText.text, Is.EqualTo(visual.IconGlyph), part.ToString());
+                Assert.That(view.IconImage, Is.Not.Null, part.ToString());
                 Assert.That(view.AccentImage.color, Is.EqualTo(visual.Colour), part.ToString());
                 Assert.That(view.LabelText.text,
                     Is.EqualTo(fixture.Catalog.Resolve("en", visual.LabelKey)), part.ToString());
