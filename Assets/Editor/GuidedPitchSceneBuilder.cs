@@ -65,6 +65,10 @@ namespace Agrovator.PitchSimulator.Editor
         private static readonly Color Cream = new Color32(0xF4, 0xEA, 0xD5, 0xFF);
         private static readonly Color FocusGold = new Color32(0xFF, 0xD1, 0x66, 0xFF);
         private static readonly Color ActionTeal = new Color(0.08f, 0.42f, 0.34f, 1f);
+        // Internal so the results contract can assert the meter stays legible in
+        // both states rather than trusting two colours chosen by eye.
+        internal static readonly Color MeterFilled = new Color32(0xFF, 0xD1, 0x66, 0xFF);
+        internal static readonly Color MeterEmpty = new Color32(0x67, 0x6F, 0x77, 0xFF);
         private static readonly string[] BriefingLineKeys =
         {
             "guided.title",
@@ -686,7 +690,10 @@ namespace Agrovator.PitchSimulator.Editor
         {
             var panel = CreateScreen("Results", canvas);
             var presenter = panel.AddComponent<GuidedPitchResultsPresenter>();
-            var frame = CreateFrame(panel.transform, FrameWidth, FrameHeight, 16, 12, 8f);
+            // Vertical padding trimmed 12 to 4 to pay for the readiness row. The
+            // scroll viewport height does not move the fixed submission status, so
+            // the height the row needs has to come out of the frame itself.
+            var frame = CreateFrame(panel.transform, FrameWidth, FrameHeight, 16, 4, 8f);
 
             var heading = CreateText("Heading", frame.transform, 26, FontStyle.Bold, LightText);
             heading.gameObject.AddComponent<LayoutElement>().preferredHeight = 36f;
@@ -695,6 +702,8 @@ namespace Agrovator.PitchSimulator.Editor
                 typeof(ScrollRect), typeof(LayoutElement));
             scrollObject.transform.SetParent(frame.transform, false);
             var scrollLayout = scrollObject.GetComponent<LayoutElement>();
+            // Trimmed slightly when the readiness row grew; the row shares its
+            // height with the meter so the cost is one line, not two.
             scrollLayout.preferredHeight = 460f;
             scrollLayout.flexibleHeight = 1f;
 
@@ -731,8 +740,18 @@ namespace Agrovator.PitchSimulator.Editor
                 partViews[(int)part] = CreateResultPartCard(contentObject.transform, part);
             }
 
-            var readiness = CreateText("Readiness", contentObject.transform, 15, FontStyle.Bold,
-                LightText, TextAnchor.MiddleLeft);
+            // The score of the whole session, sized like a result rather than a
+            // caption, with a meter that gives it a shape readable at a glance.
+            // Score and meter share one row. Stacking them cost a full row of
+            // height and pushed the final pitch under the fixed submission status,
+            // which GeneratedResults_SecondaryPitchClearsMaskAndFixedActions caught.
+            var readinessRow = CreateRow("Readiness Row", contentObject.transform, 12f, 34f);
+            var readiness = CreateText("Readiness", readinessRow.transform, 24, FontStyle.Bold,
+                FocusGold, TextAnchor.MiddleLeft);
+            var readinessLayout = readiness.gameObject.AddComponent<LayoutElement>();
+            readinessLayout.preferredWidth = 330f;
+            readinessLayout.flexibleWidth = 0f;
+            var meterSegments = CreateReadinessMeter(readinessRow.transform);
             var improvement = CreateText("Improvement", contentObject.transform, 13,
                 FontStyle.Normal, LightText, TextAnchor.MiddleLeft);
             var finalPitchHeading = CreateText("Final Pitch Heading", contentObject.transform, 15,
@@ -755,6 +774,7 @@ namespace Agrovator.PitchSimulator.Editor
             SetReference(presenter, "headingText", heading);
             SetReferenceArray(presenter, "partViews", partViews);
             SetReference(presenter, "readinessText", readiness);
+            SetReferenceArray(presenter, "readinessSegments", meterSegments);
             SetReference(presenter, "improvementText", improvement);
             SetReference(presenter, "transferText", transfer);
             SetReference(presenter, "finalPitchHeadingText", finalPitchHeading);
@@ -896,6 +916,25 @@ namespace Agrovator.PitchSimulator.Editor
             var overlay = host.GetComponent<RotateToPlayOverlay>();
             overlay.Configure(panel, title, body);
             references.RotatePrompt = overlay;
+        }
+
+        // One segment per pitch part, so the meter reads as the four parts the
+        // learner just built rather than an arbitrary bar. Filled state is applied
+        // by the presenter from the assessment; nothing here animates, so the
+        // display is identical with and without reduced motion.
+        private static Image[] CreateReadinessMeter(Transform parent)
+        {
+            var meter = CreateRow("Readiness Meter", parent, 6f, 16f);
+            var segments = new Image[4];
+            for (var index = 0; index < segments.Length; index++)
+            {
+                var segment = CreateImage("Segment " + (index + 1), meter.transform, MeterEmpty);
+                var layout = segment.gameObject.AddComponent<LayoutElement>();
+                layout.preferredHeight = 16f;
+                layout.flexibleWidth = 1f;
+                segments[index] = segment;
+            }
+            return segments;
         }
 
         private static void ApplyWideLayoutDefaults(

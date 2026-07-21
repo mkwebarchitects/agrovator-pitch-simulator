@@ -31,6 +31,12 @@ namespace Agrovator.PitchSimulator.Tests.EditMode.UI
             new Vector2(720f, 960f),
         };
         private static readonly Color DeepNavy = new Color32(0x0E, 0x17, 0x1F, 0xFF);
+        // Kept in step with MeterFilled/MeterEmpty. The
+        // builder assembly exposes them as internal and there is no
+        // InternalsVisibleTo, so a mirror is the only option short of widening
+        // production visibility for a test.
+        private static readonly Color MeterFilled = new Color32(0xFF, 0xD1, 0x66, 0xFF);
+        private static readonly Color MeterEmpty = new Color32(0x67, 0x6F, 0x77, 0xFF);
         // Kept in step with GuidedPitchSceneBuilder.TranslucentPanel.
         private static readonly Color TranslucentPanel = new Color(
             DeepNavy.r, DeepNavy.g, DeepNavy.b, 0.82f);
@@ -615,7 +621,7 @@ namespace Agrovator.PitchSimulator.Tests.EditMode.UI
                 Assert.That(viewport.GetComponent<RectMask2D>(), Is.Not.Null,
                     "The Results assertion must use the generated clipping mask.");
                 var content = scroll.content;
-                SetActiveText(RequireText(content, "Readiness"), "Pitch Readiness: 100%");
+                SetActiveText(RequireText(content, "Readiness Row/Readiness"), "Pitch Readiness: 100%");
                 SetActiveText(RequireText(content, "Improvement"),
                     "You strengthened 1 part of this pitch.");
                 SetActiveText(RequireText(content, "Final Pitch Heading"), "Your final pitch");
@@ -1095,6 +1101,44 @@ namespace Agrovator.PitchSimulator.Tests.EditMode.UI
                 Is.EqualTo("This game needs a wider screen. Turn your device to keep playing."));
         }
 
+        // Completing every part is the moment the whole game builds to, and it was
+        // being reported as 15pt text wedged under the cards. The meter gives the
+        // score a shape a learner can read at a glance.
+        [Test]
+        public void GeneratedResults_RewardCompletionWithASegmentedReadinessMeter()
+        {
+            var canvas = OpenGameCanvas(WideSize);
+            var content = RequireChild(canvas, "Results/Content Frame/Results Scroll/Viewport/Content");
+
+            var readiness = RequireText(content, "Readiness Row/Readiness");
+            Assert.That(readiness.fontSize, Is.GreaterThanOrEqualTo(24),
+                "The result of the whole session must not read as body copy.");
+
+            var meter = RequireChild(content, "Readiness Row/Readiness Meter");
+            var segments = meter.Cast<Transform>()
+                .Select(segment => segment.GetComponent<Image>())
+                .ToArray();
+            Assert.That(segments, Has.Length.EqualTo(4),
+                "One segment per pitch part, so the meter reads as the four parts.");
+            Assert.That(segments, Has.All.Not.Null);
+
+            // Every segment must clear 3:1 against the panel in both states, or the
+            // meter would encode the score in a difference nobody can see.
+            var backing = Composite(
+                RequireChild(canvas, "Results/Content Frame").GetComponent<Image>().color,
+                WorstCaseRoomColor());
+            foreach (var segment in segments)
+            {
+                Assert.That(ContrastRatio(MeterFilled, backing),
+                    Is.GreaterThanOrEqualTo(3f), "filled segment");
+                Assert.That(ContrastRatio(MeterEmpty, backing),
+                    Is.GreaterThanOrEqualTo(3f), "empty segment");
+                Assert.That(ContrastRatio(MeterFilled,
+                    MeterEmpty), Is.GreaterThanOrEqualTo(3f),
+                    "filled and empty segments must be tellable apart");
+            }
+        }
+
         private sealed class GuidedFixtureData
         {
             public LocalizationCatalog Catalog;
@@ -1318,7 +1362,7 @@ namespace Agrovator.PitchSimulator.Tests.EditMode.UI
                     SetActiveText(view.RevisionNoteText, fixture.Resolve("guided.results.part.revised"));
                 }
                 var content = RequireChild(results, "Content Frame/Results Scroll/Viewport/Content");
-                SetActiveText(RequireText(content, "Readiness"),
+                SetActiveText(RequireText(content, "Readiness Row/Readiness"),
                     fixture.Resolve("guided.pitch_readiness") + ": 100%");
                 SetActiveText(RequireText(content, "Improvement"),
                     fixture.Resolve("guided.results.strengthened.many").Replace("{count}", "4"));
@@ -1344,7 +1388,7 @@ namespace Agrovator.PitchSimulator.Tests.EditMode.UI
                     AssertFullyRendered(view.StatusText, "result status " + view.Part, size, failures);
                     AssertFullyRendered(view.RevisionNoteText, "result note " + view.Part, size, failures);
                 }
-                AssertFullyRendered(RequireText(content, "Readiness"), "readiness", size, failures);
+                AssertFullyRendered(RequireText(content, "Readiness Row/Readiness"), "readiness", size, failures);
                 AssertFullyRendered(RequireText(content, "Improvement"), "improvement", size, failures);
                 AssertFullyRendered(RequireText(content, "Final Pitch"), "final pitch", size, failures);
                 AssertFullyRendered(RequireText(content, "Transfer Prompt"), "transfer", size, failures);

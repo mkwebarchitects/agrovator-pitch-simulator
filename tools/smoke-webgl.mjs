@@ -581,12 +581,12 @@ async function runSecondaryPointerPath(definition, page, frame, canvas, options)
   await captureCanvas(canvas, options, "edge-secondary-results.png");
 
   await setHarnessMode(page, "failure");
-  await pointerStableStep(page, canvas, 0.36, 0.82, GuidedGate.controls, options, "submission failure");
+  await pointerStableStep(page, canvas, 0.36, 0.86, GuidedGate.controls, options, "submission failure");
   await waitForSubmission(page, "failure", options, "failed result");
   await setHarnessMode(page, "success");
-  await pointerStableStep(page, canvas, 0.36, 0.82, GuidedGate.controls, options, "submission success");
+  await pointerStableStep(page, canvas, 0.36, 0.86, GuidedGate.controls, options, "submission success");
   const completion = await waitForSubmission(page, "success", options, "successful result");
-  await pointerStableStep(page, canvas, 0.64, 0.82, GuidedGate.transition, options, "retry");
+  await pointerStableStep(page, canvas, 0.64, 0.86, GuidedGate.transition, options, "retry");
   await pointerStableStep(page, canvas, 0.50, 0.60, GuidedGate.transition, options, "fresh mode selection");
   return { ...pathContract, completion, mobilePortrait, mobile, desktop };
 }

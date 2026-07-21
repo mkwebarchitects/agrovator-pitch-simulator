@@ -22,6 +22,11 @@ namespace Agrovator.PitchSimulator.UI
         [SerializeField] private Text headingText;
         [SerializeField] private PitchResultPartView[] partViews = new PitchResultPartView[PartCount];
         [SerializeField] private Text readinessText;
+        [SerializeField] private Image[] readinessSegments = Array.Empty<Image>();
+
+        // Kept in step with GuidedPitchSceneBuilder.MeterFilled/MeterEmpty.
+        private static readonly Color MeterFilled = new Color32(0xFF, 0xD1, 0x66, 0xFF);
+        private static readonly Color MeterEmpty = new Color32(0x67, 0x6F, 0x77, 0xFF);
         [SerializeField] private Text improvementText;
         [SerializeField] private Text transferText;
         [SerializeField] private Text finalPitchHeadingText;
@@ -131,6 +136,7 @@ namespace Agrovator.PitchSimulator.UI
                     "{0}: {1}%",
                     localize("guided.pitch_readiness"),
                     snapshot.Assessment.PitchReadiness);
+                RenderReadinessMeter(snapshot.Assessment.PitchReadiness);
                 SetImprovement(snapshot.Assessment.ImprovedPartCount);
                 finalPitchText.text = ComposeFinalPitch(snapshot);
                 hasRenderedResult = true;
@@ -186,6 +192,27 @@ namespace Agrovator.PitchSimulator.UI
             if (retryButton != null) retryButton.onClick.RemoveListener(HandleRetry);
         }
 
+        /// <summary>
+        /// Fills whole segments only, so the meter never implies a precision the
+        /// readiness score does not carry. Applied instantly: there is no animation
+        /// to gate, so the meter is identical with and without reduced motion.
+        /// </summary>
+        private void RenderReadinessMeter(int readiness)
+        {
+            if (readinessSegments == null || readinessSegments.Length == 0)
+            {
+                return;
+            }
+
+            var clamped = Mathf.Clamp(readiness, 0, 100);
+            var filled = Mathf.RoundToInt(clamped / 100f * readinessSegments.Length);
+            for (var index = 0; index < readinessSegments.Length; index++)
+            {
+                if (readinessSegments[index] == null) continue;
+                readinessSegments[index].color = index < filled ? MeterFilled : MeterEmpty;
+            }
+        }
+
         private void SetImprovement(int improvedPartCount)
         {
             if (improvedPartCount <= 0)
@@ -215,6 +242,7 @@ namespace Agrovator.PitchSimulator.UI
             }
 
             readinessText.text = string.Empty;
+            RenderReadinessMeter(0);
             improvementText.text = string.Empty;
             improvementText.gameObject.SetActive(false);
             finalPitchText.text = string.Empty;
