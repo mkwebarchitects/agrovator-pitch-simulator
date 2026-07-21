@@ -23,6 +23,7 @@ namespace Agrovator.PitchSimulator.Editor
         public GuidedPitchResultsPresenter ResultsPresenter;
         public SettingsPresenter SettingsPresenter;
         public SafeFallbackPresenter SafeFallbackPresenter;
+        public RotateToPlayOverlay RotatePrompt;
         public Selectable TitleDefault;
         public Selectable BriefingDefault;
         public Selectable SettingsDefault;
@@ -90,6 +91,9 @@ namespace Agrovator.PitchSimulator.Editor
             var results = CreateResultsScreen(canvas, references);
             var settings = CreateSettingsScreen(canvas, references);
             var fallback = CreateSafeFallbackScreen(canvas, references);
+            // Built last so it is the canvas's last child and draws over whichever
+            // screen is current. It is not a screen and the router never owns it.
+            CreateRotatePrompt(canvas, references);
 
             var router = canvas.gameObject.AddComponent<GuidedPitchScreenRouter>();
             router.Configure(
@@ -843,6 +847,34 @@ namespace Agrovator.PitchSimulator.Editor
             presenter.Configure(message);
             references.SafeFallbackPresenter = presenter;
             return panel;
+        }
+
+        private static void CreateRotatePrompt(
+            Transform canvas, GuidedPitchSceneReferences references)
+        {
+            // The host stays enabled so it can poll the viewport every frame; only
+            // the panel beneath it is toggled, which is what the learner sees.
+            var host = new GameObject("Rotate To Play", typeof(RectTransform),
+                typeof(RotateToPlayOverlay));
+            host.transform.SetParent(canvas, false);
+            Stretch(host.GetComponent<RectTransform>());
+
+            var panel = CreateScreen("Panel", host.transform);
+            // Opaque, and a raycast target, so the prompt both covers the game and
+            // swallows taps aimed at the controls underneath it.
+            var backing = panel.GetComponent<Image>();
+            backing.color = DeepNavy;
+            backing.raycastTarget = true;
+
+            var frame = CreateFrame(panel.transform, 640f, 240f, 24, 20, 12f);
+            var title = CreateText("Title", frame.transform, 30, FontStyle.Bold, LightText);
+            var body = CreateText("Body", frame.transform, 20, FontStyle.Normal, LightText);
+            title.text = RotateToPlayOverlay.EnglishTitle;
+            body.text = RotateToPlayOverlay.EnglishBody;
+
+            var overlay = host.GetComponent<RotateToPlayOverlay>();
+            overlay.Configure(panel, title, body);
+            references.RotatePrompt = overlay;
         }
 
         private static void ApplyWideLayoutDefaults(

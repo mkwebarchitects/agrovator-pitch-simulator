@@ -61,6 +61,56 @@ namespace Agrovator.PitchSimulator.Tests.EditMode.UI
         }
 
         [Test]
+        public void ApplyLocalization_ReplacesTheBakedEnglishWithTheLaunchLocale()
+        {
+            var title = NewText("Title", RotateToPlayOverlay.EnglishTitle);
+            var body = NewText("Body", RotateToPlayOverlay.EnglishBody);
+            overlay.Configure(panel, title, body);
+
+            overlay.ApplyLocalization(key => key == RotateToPlayOverlay.TitleKey
+                ? "Pusingkan peranti anda"
+                : "Permainan ini perlukan skrin lebih lebar.");
+
+            Assert.That(title.text, Is.EqualTo("Pusingkan peranti anda"));
+            Assert.That(body.text, Is.EqualTo("Permainan ini perlukan skrin lebih lebar."));
+        }
+
+        // A missing key resolves to a visible [[missing:...]] token. Showing that
+        // would strand the learner on the one screen whose whole job is to tell them
+        // what to do, so the readable English has to survive.
+        [Test]
+        public void ApplyLocalization_KeepsEnglishWhenAKeyIsMissing()
+        {
+            var title = NewText("Title", RotateToPlayOverlay.EnglishTitle);
+            var body = NewText("Body", RotateToPlayOverlay.EnglishBody);
+            overlay.Configure(panel, title, body);
+
+            overlay.ApplyLocalization(key => "[[missing:" + key + "]]");
+
+            Assert.That(title.text, Is.EqualTo(RotateToPlayOverlay.EnglishTitle));
+            Assert.That(body.text, Is.EqualTo(RotateToPlayOverlay.EnglishBody));
+        }
+
+        [Test]
+        public void ApplyLocalization_WithoutAResolverLeavesTheEnglishStanding()
+        {
+            var title = NewText("Title", RotateToPlayOverlay.EnglishTitle);
+            overlay.Configure(panel, title, null);
+
+            Assert.DoesNotThrow(() => overlay.ApplyLocalization(null));
+            Assert.That(title.text, Is.EqualTo(RotateToPlayOverlay.EnglishTitle));
+        }
+
+        private UnityEngine.UI.Text NewText(string name, string value)
+        {
+            var text = new GameObject(name, typeof(UnityEngine.UI.Text))
+                .GetComponent<UnityEngine.UI.Text>();
+            text.transform.SetParent(panel.transform, false);
+            text.text = value;
+            return text;
+        }
+
+        [Test]
         public void ValidateContract_FailsWithoutItsPanel()
         {
             var bare = new GameObject("Bare", typeof(RotateToPlayOverlay));

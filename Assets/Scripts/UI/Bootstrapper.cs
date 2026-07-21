@@ -244,14 +244,23 @@ namespace Agrovator.PitchSimulator.UI
             ConfigureAudio(launch);
             router = sceneRouter;
             router.Initialize(controller, localize, HandleTitleUserGesture);
+            // The rotate prompt is not a screen the router owns, so it takes the
+            // launch locale directly. It lives on the same canvas as the router.
+            sceneRouter.GetComponentInChildren<RotateToPlayOverlay>(true)
+                ?.ApplyLocalization(localize);
             IsInitialized = true;
             return true;
         }
 
         private void EnterSafeFallback(GuidedPitchScreenRouter sceneRouter, LocalizationCatalog catalog)
         {
-            sceneRouter.ShowSafeFallback(
-                catalog == null ? (Func<string, string>)null : key => catalog.Resolve("en", key));
+            var localize = catalog == null
+                ? (Func<string, string>)null
+                : key => catalog.Resolve("en", key);
+            sceneRouter.ShowSafeFallback(localize);
+            // A learner on a phone still needs the turn instruction while recovering.
+            sceneRouter.GetComponentInChildren<RotateToPlayOverlay>(true)
+                ?.ApplyLocalization(localize);
         }
 
         private void ConfigureAudio(LmsLaunchConfig launch)

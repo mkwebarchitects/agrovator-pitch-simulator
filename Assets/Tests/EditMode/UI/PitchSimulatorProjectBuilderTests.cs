@@ -1014,6 +1014,55 @@ namespace Agrovator.PitchSimulator.Tests.EditMode.UI
             }
         }
 
+        // The prompt is not a screen: the router never shows or hides it, and it has
+        // to sit above whatever screen is current, so it is the canvas's last child.
+        [Test]
+        public void GeneratedRotatePrompt_SitsAboveEveryScreenAndStartsHidden()
+        {
+            var canvas = OpenGameCanvas(WideSize);
+            var names = canvas.Cast<Transform>().Select(child => child.name).ToArray();
+            Assert.That(names.Last(), Is.EqualTo("Rotate To Play"),
+                "The rotate prompt must be the canvas's last child or a screen draws over it.");
+
+            var prompt = RequireChild(canvas, "Rotate To Play");
+            Assert.That(prompt.gameObject.activeSelf, Is.True,
+                "The prompt host stays enabled so it can poll the viewport.");
+
+            var panel = RequireChild(prompt, "Panel");
+            Assert.That(panel.gameObject.activeSelf, Is.False,
+                "The prompt itself must rest hidden so a playable stage never flashes it.");
+
+            var backing = panel.GetComponent<Image>();
+            Assert.That(backing, Is.Not.Null);
+            Assert.That(backing.color.a, Is.EqualTo(1f).Within(0.0001f),
+                "The prompt must fully cover the game beneath it.");
+            Assert.That(backing.raycastTarget, Is.True,
+                "The prompt must swallow taps aimed at the controls it is covering.");
+
+            var contrastFailures = new List<string>();
+            CheckContrast("rotate title", RequireText(panel, "Content Frame/Title"), backing, 4.5f, contrastFailures);
+            CheckContrast("rotate body", RequireText(panel, "Content Frame/Body"), backing, 4.5f, contrastFailures);
+            Assert.That(contrastFailures, Is.Empty, string.Join(Environment.NewLine, contrastFailures));
+
+            var overlay = prompt.GetComponent<RotateToPlayOverlay>();
+            Assert.That(overlay, Is.Not.Null, "The prompt must carry its bridge component.");
+            Assert.That(overlay.ValidateContract(out var reason), Is.True, reason);
+            Assert.That(overlay.IsPrompting, Is.False);
+        }
+
+        // Baked English is what the generated scene ships; the catalog replaces it at
+        // launch. Pinning both halves stops the scene drifting from the copy tests.
+        [Test]
+        public void GeneratedRotatePrompt_CarriesTheAuthoredEnglishCopy()
+        {
+            var canvas = OpenGameCanvas(WideSize);
+            var panel = RequireChild(canvas, "Rotate To Play/Panel");
+            Assert.That(RequireText(panel, "Content Frame/Title").text,
+                Is.EqualTo("Turn your device sideways"));
+            Assert.That(RequireText(panel, "Content Frame/Body").text,
+                Is.EqualTo("This game needs a wider screen. Turn your device to keep playing."));
+        }
+
         private sealed class GuidedFixtureData
         {
             public LocalizationCatalog Catalog;
@@ -1337,6 +1386,8 @@ namespace Agrovator.PitchSimulator.Tests.EditMode.UI
             Assert.That(canvas.Cast<Transform>().Select(child => child.name), Is.EqualTo(new[]
             {
                 "Title", "Briefing", "Guided Pitch", "Results", "Settings", "Safe Fallback",
+                // Not a screen. Last so it draws over whichever screen is current.
+                "Rotate To Play",
             }));
 
             var guided = canvas.Find("Guided Pitch");

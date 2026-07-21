@@ -25,7 +25,7 @@ namespace Agrovator.PitchSimulator.Editor
         /// regression did. Treat bumping this as part of changing anything
         /// this class or <see cref="GuidedPitchSceneBuilder"/> generates.
         /// </summary>
-        public const int GeneratorVersion = 3;
+        public const int GeneratorVersion = 4;
 
         private const string BootstrapPath = "Assets/Scenes/Bootstrap.unity";
         private const string GamePath = "Assets/Scenes/Game.unity";
@@ -320,6 +320,8 @@ namespace Agrovator.PitchSimulator.Editor
             var expectedScreens = new[]
             {
                 "Title", "Briefing", "Guided Pitch", "Results", "Settings", "Safe Fallback",
+                // Not a screen. Last so it draws over whichever screen is current.
+                "Rotate To Play",
             };
             return scaler != null && scaler.uiScaleMode == CanvasScaler.ScaleMode.ScaleWithScreenSize &&
                 scaler.referenceResolution == new Vector2(1280f, 720f) &&
