@@ -136,6 +136,6 @@
       }
     }
   ],
-  "SupportedLocales": ["en", "ms"],
+  "SupportedLocales": ["en"],
   "ContentChecksum": "guided-pitch-builder-v2-authored"
 }

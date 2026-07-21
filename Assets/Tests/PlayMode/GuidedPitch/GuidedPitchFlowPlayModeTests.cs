@@ -114,8 +114,7 @@ namespace Agrovator.PitchSimulator.Tests.PlayMode
         internal static GuidedContentFixture LoadAuthoredContent()
         {
             var catalog = LocalizationCatalog.Load(
-                ReadProjectFile("Content", "Localization", "en.json"),
-                ReadProjectFile("Content", "Localization", "ms.json"));
+                ReadProjectFile("Content", "Localization", "en.json"));
             var result = GuidedPitchContentLoader.Load(
                 ReadProjectFile("Content", "Scenarios", "guided-pitch-builder.en.json"),
                 catalog.GetKeys("en"));

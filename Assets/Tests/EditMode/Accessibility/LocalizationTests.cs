@@ -46,23 +46,16 @@ namespace Agrovator.PitchSimulator.Tests.EditMode.Accessibility
             Assert.That(catalog.GetTranslationStatus("en"), Is.EqualTo("reviewed"));
         }
 
+        // The game ships in English only. Any other launch locale must resolve to
+        // English rather than a missing token, because there is no second catalog
+        // to fall through to.
         [Test]
-        public void PendingMalayCatalog_HasExactEnglishKeyParity()
+        public void UnsupportedLocale_ResolvesEnglishRatherThanMissingTokens()
         {
             var catalog = LoadAuthoredCatalogs();
 
-            Assert.That(catalog.GetKeys("ms"), Is.EquivalentTo(catalog.GetKeys("en")));
-            Assert.That(catalog.GetTranslationStatus("ms"), Is.EqualTo("pending_human_review"));
-        }
-
-        [Test]
-        public void PendingMalayCatalog_UsesExactEnglishFallbackValuesForGuidedContent()
-        {
-            var catalog = LoadAuthoredCatalogs();
-            var guidedKeys = catalog.GetKeys("en").Where(key => key.StartsWith("guided.", StringComparison.Ordinal));
-
-            Assert.That(guidedKeys, Is.Not.Empty);
-            foreach (var key in guidedKeys)
+            Assert.That(catalog.GetKeys("en"), Is.Not.Empty);
+            foreach (var key in catalog.GetKeys("en"))
             {
                 Assert.That(catalog.Resolve("ms", key), Is.EqualTo(catalog.Resolve("en", key)), key);
             }
@@ -290,7 +283,7 @@ namespace Agrovator.PitchSimulator.Tests.EditMode.Accessibility
 
         private static LocalizationCatalog LoadAuthoredCatalogs()
         {
-            return LocalizationCatalog.Load(ReadCatalog("en"), ReadCatalog("ms"));
+            return LocalizationCatalog.Load(ReadCatalog("en"));
         }
 
         private static string ReadCatalog(string locale)

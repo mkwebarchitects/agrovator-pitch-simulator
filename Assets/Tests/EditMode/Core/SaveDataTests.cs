@@ -17,7 +17,7 @@ namespace Agrovator.PitchSimulator.Tests.EditMode.Core
                 ReducedMotion = true,
                 MusicVolume = 0.25f,
                 SfxVolume = 0.75f,
-                Locale = "ms",
+                Locale = "en",
             };
 
             var copy = SaveDataMigrator.DeserializeAndMigrate(SaveDataMigrator.Serialize(source));
@@ -27,7 +27,7 @@ namespace Agrovator.PitchSimulator.Tests.EditMode.Core
             Assert.That(copy.ReducedMotion, Is.True);
             Assert.That(copy.MusicVolume, Is.EqualTo(0.25f));
             Assert.That(copy.SfxVolume, Is.EqualTo(0.75f));
-            Assert.That(copy.Locale, Is.EqualTo("ms"));
+            Assert.That(copy.Locale, Is.EqualTo("en"));
         }
 
         [Test]

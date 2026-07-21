@@ -2,7 +2,7 @@
 
 ## Active content
 
-`Assets/Content/Scenarios/guided-pitch-builder.en.json` is the only guided content asset wired into Bootstrap. It has ID `smart-school-garden`, version `2`, an authored 10-minute estimate, locales `en` and `ms`, and checksum label `guided-pitch-builder-v2-authored`. The tracked `smart-school-garden.en.json` v1 dialogue graph is legacy content and is not the current Bootstrap reference.
+`Assets/Content/Scenarios/guided-pitch-builder.en.json` is the only guided content asset wired into Bootstrap. It has ID `smart-school-garden`, version `2`, an authored 10-minute estimate, locale `en`, and checksum label `guided-pitch-builder-v2-authored`. The tracked `smart-school-garden.en.json` v1 dialogue graph is legacy content and is not the current Bootstrap reference.
 
 Each mode has four ordered pitch parts with three options per part, followed by one three-option cost question. That produces `15` options per mode and `30` stable unique option IDs overall. Every group contains one `Clear`, one `Developing`, and one `NeedsPractice` choice. Every option has a localized sentence, three feedback keys, a typed reaction cue, and a retained legacy confidence delta.
 
@@ -25,7 +25,7 @@ The first four choices are diagnostic. Results assess each part's current choice
 - Keep one option at each mastery level in every group. Do not reveal mastery through placement, card length, or insulting language.
 - Keep Primary cards at 12-16 words and Secondary cards at 32 words or fewer.
 - Provide `worked`, `missing`, and `improve` feedback keys for every option.
-- Resolve every content/UI key in reviewed English and the pending-review Malay fallback catalog.
+- Resolve every content/UI key in the reviewed English catalog.
 - Do not add free text, personal details, audio capture, AI scoring, or direct learner-mode comparisons.
 
 ## Validation and evidence boundary

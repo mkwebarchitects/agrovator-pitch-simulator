@@ -46,13 +46,13 @@ Estimates are planning ranges in developer-days, not measured delivery time. Cod
 - **Estimate:** 3-6 developer-days.
 - **Ownership:** Codex validates graph; Claude supports copy review; humans own pedagogy.
 
-## Phase 5 — Complete English and Malay content
+## Phase 5 — Complete English content
 
 - **Objective:** ship reviewed, culturally appropriate learner copy.
-- **Tasks:** English editorial pass, qualified Malay translation/review, key-parity checks, in-context play.
+- **Tasks:** English editorial pass, key-resolution checks, in-context play.
 - **Dependencies:** Phase 4.
 - **Deliverables:** reviewed `en`/`ms` catalogs with approval evidence.
-- **Acceptance criteria:** no fallback appears in Malay; terminology and layout approved.
+- **Acceptance criteria:** terminology and layout approved.
 - **Risks:** translation ambiguity or text overflow.
 - **Estimate:** 2-5 developer-days plus translator time.
 - **Ownership:** Codex checks parity/layout; Claude may draft only; humans translate and approve.

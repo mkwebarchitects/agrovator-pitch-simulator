@@ -25,7 +25,7 @@ namespace Agrovator.PitchSimulator.Editor
         /// regression did. Treat bumping this as part of changing anything
         /// this class or <see cref="GuidedPitchSceneBuilder"/> generates.
         /// </summary>
-        public const int GeneratorVersion = 4;
+        public const int GeneratorVersion = 5;
 
         private const string BootstrapPath = "Assets/Scenes/Bootstrap.unity";
         private const string GamePath = "Assets/Scenes/Game.unity";
@@ -102,8 +102,6 @@ namespace Agrovator.PitchSimulator.Editor
                     AssetDatabase.LoadAssetAtPath<TextAsset>(GuidedContentPath));
                 SetReference(bootstrapper, "englishCatalogJson",
                     AssetDatabase.LoadAssetAtPath<TextAsset>("Assets/Content/Localization/en.json"));
-                SetReference(bootstrapper, "malayCatalogJson",
-                    AssetDatabase.LoadAssetAtPath<TextAsset>("Assets/Content/Localization/ms.json"));
                 EditorSceneManager.SaveScene(scene, BootstrapPath);
             }
             finally
@@ -267,11 +265,9 @@ namespace Agrovator.PitchSimulator.Editor
             var serialized = new SerializedObject(bootstrappers[0]);
             var content = serialized.FindProperty("guidedPitchContentJson")?.objectReferenceValue;
             var english = serialized.FindProperty("englishCatalogJson")?.objectReferenceValue;
-            var malay = serialized.FindProperty("malayCatalogJson")?.objectReferenceValue;
             var bindings = serialized.FindProperty("audioCueBindings");
             return AssetDatabase.GetAssetPath(content) == GuidedContentPath &&
                 AssetDatabase.GetAssetPath(english) == "Assets/Content/Localization/en.json" &&
-                AssetDatabase.GetAssetPath(malay) == "Assets/Content/Localization/ms.json" &&
                 bindings != null && bindings.arraySize == Enum.GetValues(typeof(AudioCue)).Length;
         }
 

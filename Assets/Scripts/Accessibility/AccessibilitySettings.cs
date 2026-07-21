@@ -5,7 +5,6 @@ namespace Agrovator.PitchSimulator.Accessibility
     public sealed class AccessibilitySettings
     {
         public const string EnglishLocale = "en";
-        public const string MalayLocale = "ms";
 
         public AccessibilitySettings(
             TimerMode timerMode,
@@ -78,7 +77,9 @@ namespace Agrovator.PitchSimulator.Accessibility
 
         private static string NormalizeLocale(string locale)
         {
-            return locale == MalayLocale ? MalayLocale : EnglishLocale;
+            // The game ships in English only, so every launch locale resolves to
+            // English rather than claiming a translation that does not exist.
+            return EnglishLocale;
         }
     }
 }

@@ -31,7 +31,6 @@ namespace Agrovator.PitchSimulator.UI
 
         [SerializeField] private TextAsset guidedPitchContentJson;
         [SerializeField] private TextAsset englishCatalogJson;
-        [SerializeField] private TextAsset malayCatalogJson;
         [SerializeField] private AudioSource musicSource;
         [SerializeField] private AudioSource sfxSource;
         [SerializeField] private AudioCueBinding[] audioCueBindings = Array.Empty<AudioCueBinding>();
@@ -140,7 +139,7 @@ namespace Agrovator.PitchSimulator.UI
         {
             content = null;
             catalog = null;
-            if (englishCatalogJson == null || malayCatalogJson == null)
+            if (englishCatalogJson == null)
             {
                 Debug.LogError(LocalizationInvalidCode, this);
                 return false;
@@ -148,7 +147,7 @@ namespace Agrovator.PitchSimulator.UI
 
             try
             {
-                catalog = LocalizationCatalog.Load(englishCatalogJson.text, malayCatalogJson.text);
+                catalog = LocalizationCatalog.Load(englishCatalogJson.text);
             }
             catch (FormatException)
             {

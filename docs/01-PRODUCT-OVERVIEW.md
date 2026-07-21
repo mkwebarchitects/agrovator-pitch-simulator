@@ -22,13 +22,13 @@ Both modes use the same framework, mechanics, garden theme, feedback structure, 
 - Four persistent parts and prompts: **Problem / Spot it**, **Evidence / Prove it**, **Solution / Solve it**, and **Value / Show why it matters**.
 - Diagnostic first choices, three-part coaching, optional revision, combined Present view, cost follow-up, Results, submission/resubmission, and Retry.
 - Six completion competency IDs: `problem`, `evidence`, `solution`, `audience`, `clear_explanation`, and `communication`. Time Management is excluded.
-- English/Malay `319/319` catalog entries with exact fallback parity; Malay remains `pending_human_review`.
+- English-only catalog with `321` entries; every key resolves in reviewed English. Malay was removed on 2026-07-21 - the game ships in one language and no longer claims a translation it does not have.
 - Wide/compact responsive layouts, DPR-aware crisp rendering, keyboard focus, pointer input, and safe localized recovery.
 
 ## Evidence boundary
 
 Fresh automated acceptance passed EditMode `370/370`, PlayMode `48/48`, Node `20/20`, a zero-warning/error WebGL build, Chrome Primary keyboard smoke, and Edge Secondary pointer smoke, including executed missing-configuration recovery in both covered browsers. Those checks demonstrate that the implementation follows the tested rules. They do not demonstrate classroom learning effectiveness.
 
-Primary and Secondary educators or representative learners must still review reading level, coaching tone, task length, and transfer usefulness. Qualified Malay review, Firefox/Safari, native touch, a real LMS, unrestricted fullscreen, legal approval, classroom evidence, and human accessibility review remain unclaimed.
+Primary and Secondary educators or representative learners must still review reading level, coaching tone, task length, and transfer usefulness. Firefox/Safari, native touch, a real LMS, unrestricted fullscreen, legal approval, classroom evidence, and human accessibility review remain unclaimed.
 
 Continue with [learner experience](02-LEARNER-EXPERIENCE.md), [architecture](05-TECHNICAL-ARCHITECTURE.md), or [acceptance status](18-VERTICAL-SLICE-ACCEPTANCE.md).

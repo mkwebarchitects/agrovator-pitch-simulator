@@ -12,7 +12,7 @@
 
 - `Agrovator.PitchSimulator.GuidedPitch`: engine-independent content DTO/load/validation, types, four-part draft, and assessment rules.
 - `Agrovator.PitchSimulator.Session`: `GuidedPitchSessionController`, immutable snapshots/events, phase commands, payload construction, reset, and submission callback ownership.
-- `Agrovator.PitchSimulator.Accessibility`: validated settings and the English/Malay catalog.
+- `Agrovator.PitchSimulator.Accessibility`: validated settings and the English catalog.
 - `Agrovator.PitchSimulator.LMS`: the unchanged DTO/serialization and mock/WebGL bridge boundary.
 - `Agrovator.PitchSimulator.Audio`: cue service and Unity adapters.
 - `Agrovator.PitchSimulator.UI`: thin routing, views, focus, results, recovery, responsive layout, and composition.

@@ -363,9 +363,10 @@ namespace Agrovator.PitchSimulator.GuidedPitch
             string[] locales,
             ICollection<GuidedPitchContentIssue> issues)
         {
-            if (locales == null || locales.Length != 2 ||
-                !string.Equals(locales[0], "en", StringComparison.Ordinal) ||
-                !string.Equals(locales[1], "ms", StringComparison.Ordinal))
+            // English is the only shipped locale. A second entry would claim a
+            // translation the game does not have.
+            if (locales == null || locales.Length != 1 ||
+                !string.Equals(locales[0], "en", StringComparison.Ordinal))
             {
                 issues.Add(Error("guided.supported_locales_invalid", "SupportedLocales"));
             }

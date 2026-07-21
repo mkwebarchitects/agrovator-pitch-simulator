@@ -58,7 +58,8 @@ namespace Agrovator.PitchSimulator.Tests.EditMode.GuidedPitch
             Assert.That(content.Version, Is.EqualTo(2));
             Assert.That(content.EstimatedDurationMinutes, Is.InRange(8, 10));
             Assert.That(content.ContentChecksum, Is.EqualTo("guided-pitch-builder-v2-authored"));
-            Assert.That(content.SupportedLocales, Is.EqualTo(new[] { "en", "ms" }));
+            Assert.That(content.SupportedLocales, Is.EqualTo(new[] { "en" }),
+                "The game ships in English only.");
             Assert.That(content.Modes.Keys, Is.EquivalentTo(new[] { LearnerMode.Primary, LearnerMode.Secondary }));
 
             foreach (var mode in content.Modes.Values)
@@ -359,7 +360,7 @@ namespace Agrovator.PitchSimulator.Tests.EditMode.GuidedPitch
 
         private static LocalizationCatalog LoadCatalog()
         {
-            return LocalizationCatalog.Load(ReadCatalog("en"), ReadCatalog("ms"));
+            return LocalizationCatalog.Load(ReadCatalog("en"));
         }
 
         private static Dictionary<string, string> EnglishValues()

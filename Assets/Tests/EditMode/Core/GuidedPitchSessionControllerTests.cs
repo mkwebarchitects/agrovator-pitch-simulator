@@ -602,7 +602,7 @@ namespace Agrovator.PitchSimulator.Tests.EditMode.Core
 
         private static GuidedPitchContent LoadContent()
         {
-            var catalog = LocalizationCatalog.Load(ReadCatalog("en"), ReadCatalog("ms"));
+            var catalog = LocalizationCatalog.Load(ReadCatalog("en"));
             var values = catalog.GetKeys("en").ToDictionary(
                 key => key,
                 key => catalog.Resolve("en", key),

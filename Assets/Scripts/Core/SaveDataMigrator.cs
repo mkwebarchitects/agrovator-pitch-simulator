@@ -14,7 +14,6 @@ namespace Agrovator.PitchSimulator.Core
         private const int NormalTimerMode = 0;
         private const int OffTimerMode = 2;
         private const string EnglishLocale = "en";
-        private const string MalayLocale = "ms";
 
         public static SaveData CreateDefault()
         {
@@ -177,8 +176,7 @@ namespace Agrovator.PitchSimulator.Core
                 throw new ArgumentException("Audio volume is invalid.", nameof(data));
             }
 
-            if (!string.Equals(data.Locale, EnglishLocale, StringComparison.Ordinal) &&
-                !string.Equals(data.Locale, MalayLocale, StringComparison.Ordinal))
+            if (!string.Equals(data.Locale, EnglishLocale, StringComparison.Ordinal))
             {
                 throw new ArgumentException("Locale is invalid.", nameof(data));
             }

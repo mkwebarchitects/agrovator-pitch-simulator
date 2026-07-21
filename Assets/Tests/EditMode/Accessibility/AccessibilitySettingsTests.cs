@@ -20,7 +20,8 @@ namespace Agrovator.PitchSimulator.Tests.EditMode.Accessibility
             Assert.That(settings.ReducedMotion, Is.True);
             Assert.That(settings.MusicVolume, Is.EqualTo(0.25f));
             Assert.That(settings.SfxVolume, Is.EqualTo(0.75f));
-            Assert.That(settings.Locale, Is.EqualTo("ms"));
+            // Every launch locale resolves to English; the game ships in one language.
+            Assert.That(settings.Locale, Is.EqualTo("en"));
         }
 
         [TestCase(-0.1f, 0f)]

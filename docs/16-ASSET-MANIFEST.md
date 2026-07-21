@@ -13,7 +13,6 @@ The six branch-wide trailing spaces in `Assets/Scripts/UI/GuidedPitch.meta` and 
 | `Assets/Content/Scenarios/guided-pitch-builder.en.json` | First-party guided content | Active Bootstrap reference; `smart-school-garden` v2, 10-minute estimate, `30` tested stable unique option IDs, EN/MS support |
 | `Assets/Content/Scenarios/smart-school-garden.en.json` | First-party legacy dialogue content | Retained v1 asset; not wired into the current Bootstrap guided composition |
 | `Assets/Content/Localization/en.json` | First-party reviewed source | `319` entries; exact content/UI keys validated |
-| `Assets/Content/Localization/ms.json` | First-party fallback | `319` exact key and guided-value peers; `pending_human_review`, not an approved Malay translation |
 | `Assets/Art/Characters/judge-aya-sheet.png` | `Assets/Art/manifest.json` and `CREDITS.md`; original OpenAI-generated project output | `1408x160`, `254,633` bytes, SHA-256 `D720AC61FB9E38145559237C73E19CABA86785B36E7DF338D296F97B57CFA417` |
 | `Assets/Art/Environment/pitch-room.png` | Same art provenance records | `1280x720`, `1,097,279` bytes, SHA-256 `D03AABFC4B7EA04695A02C8CFDB88FC3CBD65BDDCA5D4DECEAFC0050C9F5902D` |
 | `Assets/Art/UI/confidence-icons.png` | Same art provenance records; retained legacy asset | `480x96`, `28,133` bytes, SHA-256 `6A4C255CD283D077E9D79D8AFC56DFA1CB6191E1CD9FCA4C908D8B4DA0331BA0` |
@@ -35,7 +34,7 @@ The WebGL template and `WebHarness` use system fonts and no remote CDN, font, or
 
 - No tracked repository-wide `LICENSE*`, `COPYING*`, or `NOTICE*` exists. Human legal/release authority must resolve this before distribution.
 - The art records describe applicable OpenAI output terms but do not archive the terms version or generating-account authority evidence. Human creative/legal approval remains required.
-- Malay remains `pending_human_review`; final audio remains absent. Neither is a release-ready asset set.
+- Malay was removed on 2026-07-21; the game ships in English only. Final audio remains absent and is not a release-ready asset set.
 - A replacement asset must record source, creator, licence, permitted use, edit history, checksum where practical, review date, and accessibility/import/browser evidence.
 
 ## Required release record

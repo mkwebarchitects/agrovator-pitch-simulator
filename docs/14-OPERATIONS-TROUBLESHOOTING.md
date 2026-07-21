@@ -30,8 +30,10 @@ Confirm harness mode, request ID shape, and exact protocol version/message names
 
 Current clips are placeholders. With future clips, select Start first, verify mute/volumes, and check browser autoplay policy.
 
-### Malay shows English
+### A learner is sent a non-English locale
 
-This is intentional until qualified Malay review replaces fallback copy and changes catalog status.
+The game ships in English only. Any launch locale resolves to English rather than a
+missing token. Malay was removed on 2026-07-21 because a catalog of English strings
+labelled Malay claimed a translation that did not exist.
 
 Escalate with sanitized evidence only. See [deployment](10-WEB-DEPLOYMENT.md), [security](12-PRIVACY-SECURITY.md), and [QA](13-QA-PLAN.md).

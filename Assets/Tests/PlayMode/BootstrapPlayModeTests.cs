@@ -236,8 +236,7 @@ namespace Agrovator.PitchSimulator.Tests.PlayMode
         {
             var bootstrap = CreateBootstrapper(
                 GuidedRigFactory.ReadProjectFile("Content", "Scenarios", "guided-pitch-builder.en.json"),
-                GuidedRigFactory.ReadProjectFile("Content", "Localization", "en.json"),
-                GuidedRigFactory.ReadProjectFile("Content", "Localization", "ms.json"));
+                GuidedRigFactory.ReadProjectFile("Content", "Localization", "en.json"));
 
             Assert.That(bootstrap.TryLoadGuidedContent(out var content, out var catalog), Is.True);
             Assert.That(content, Is.Not.Null);
@@ -261,8 +260,7 @@ namespace Agrovator.PitchSimulator.Tests.PlayMode
         {
             var bootstrap = CreateBootstrapper(
                 null,
-                GuidedRigFactory.ReadProjectFile("Content", "Localization", "en.json"),
-                GuidedRigFactory.ReadProjectFile("Content", "Localization", "ms.json"));
+                GuidedRigFactory.ReadProjectFile("Content", "Localization", "en.json"));
 
             AssertBlockedOnSafeFallback(bootstrap, "guided_content_invalid");
         }
@@ -272,8 +270,7 @@ namespace Agrovator.PitchSimulator.Tests.PlayMode
         {
             var bootstrap = CreateBootstrapper(
                 "{\"Id\":\"smart-school-garden\",",
-                GuidedRigFactory.ReadProjectFile("Content", "Localization", "en.json"),
-                GuidedRigFactory.ReadProjectFile("Content", "Localization", "ms.json"));
+                GuidedRigFactory.ReadProjectFile("Content", "Localization", "en.json"));
 
             AssertBlockedOnSafeFallback(bootstrap, "guided_content_invalid");
         }
@@ -286,8 +283,7 @@ namespace Agrovator.PitchSimulator.Tests.PlayMode
                 .Replace("\"Modes\"", "\"Modez\"");
             var bootstrap = CreateBootstrapper(
                 brokenRoutes,
-                GuidedRigFactory.ReadProjectFile("Content", "Localization", "en.json"),
-                GuidedRigFactory.ReadProjectFile("Content", "Localization", "ms.json"));
+                GuidedRigFactory.ReadProjectFile("Content", "Localization", "en.json"));
 
             AssertBlockedOnSafeFallback(bootstrap, "guided_content_invalid");
         }
@@ -298,13 +294,9 @@ namespace Agrovator.PitchSimulator.Tests.PlayMode
             var sparseEnglish =
                 "{\"locale\":\"en\",\"translationStatus\":\"reviewed\",\"entries\":[" +
                 "{\"key\":\"ui.start\",\"value\":\"Start\"}]}";
-            var sparseMalay =
-                "{\"locale\":\"ms\",\"translationStatus\":\"pending_human_review\",\"entries\":[" +
-                "{\"key\":\"ui.start\",\"value\":\"Start\"}]}";
             var bootstrap = CreateBootstrapper(
                 GuidedRigFactory.ReadProjectFile("Content", "Scenarios", "guided-pitch-builder.en.json"),
-                sparseEnglish,
-                sparseMalay);
+                sparseEnglish);
 
             AssertBlockedOnSafeFallback(bootstrap, "guided_content_invalid");
         }
@@ -314,8 +306,7 @@ namespace Agrovator.PitchSimulator.Tests.PlayMode
         {
             var bootstrap = CreateBootstrapper(
                 GuidedRigFactory.ReadProjectFile("Content", "Scenarios", "guided-pitch-builder.en.json"),
-                "{not-a-catalog",
-                GuidedRigFactory.ReadProjectFile("Content", "Localization", "ms.json"));
+                "{not-a-catalog");
 
             AssertBlockedOnSafeFallback(bootstrap, "guided_localization_invalid");
         }
@@ -325,8 +316,7 @@ namespace Agrovator.PitchSimulator.Tests.PlayMode
         {
             var bootstrap = CreateBootstrapper(
                 GuidedRigFactory.ReadProjectFile("Content", "Scenarios", "guided-pitch-builder.en.json"),
-                GuidedRigFactory.ReadProjectFile("Content", "Localization", "en.json"),
-                GuidedRigFactory.ReadProjectFile("Content", "Localization", "ms.json"));
+                GuidedRigFactory.ReadProjectFile("Content", "Localization", "en.json"));
             Assert.That(bootstrap.TryLoadGuidedContent(out var content, out var catalog), Is.True);
             var badLaunch = GuidedRigFactory.CreateLaunch(content);
             badLaunch.ContentVersion = 1;
@@ -370,7 +360,7 @@ namespace Agrovator.PitchSimulator.Tests.PlayMode
             }
         }
 
-        private Bootstrapper CreateBootstrapper(string guidedJson, string englishJson, string malayJson)
+        private Bootstrapper CreateBootstrapper(string guidedJson, string englishJson)
         {
             var root = new GameObject("Bootstrap Rig");
             root.SetActive(false);
@@ -378,7 +368,6 @@ namespace Agrovator.PitchSimulator.Tests.PlayMode
             var bootstrap = root.AddComponent<Bootstrapper>();
             GuidedRigFactory.SetField(bootstrap, "guidedPitchContentJson", CreateAsset(guidedJson));
             GuidedRigFactory.SetField(bootstrap, "englishCatalogJson", CreateAsset(englishJson));
-            GuidedRigFactory.SetField(bootstrap, "malayCatalogJson", CreateAsset(malayJson));
             return bootstrap;
         }
 

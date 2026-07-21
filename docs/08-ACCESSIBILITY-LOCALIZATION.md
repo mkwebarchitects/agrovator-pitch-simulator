@@ -18,12 +18,12 @@ Automated length and exact-copy tests are implementation checks. They are not pr
 
 ## Localization status
 
-`Assets/Content/Localization/en.json` is the reviewed source catalog with `319` entries. `ms.json` also has `319`; the fresh localization fixture verifies exact ordinal key parity and exact guided fallback-value parity. Malay remains `pending_human_review`, so the current Malay catalog deliberately shows English fallback copy rather than claiming a completed translation.
+`Assets/Content/Localization/en.json` is the reviewed source catalog and the only one. Malay was removed on 2026-07-21: the game ships in English, and a catalog of English strings labelled Malay claimed a translation that did not exist.
 
-Supported locale codes are `en` and `ms`, with English fallback for an unsupported or missing localized value. Missing keys produce a visible deterministic token with escaped unsafe characters rather than hidden failure.
+The only supported locale code is `en`. Any other launch locale resolves to English, asserted by `UnsupportedLocale_ResolvesEnglishRatherThanMissingTokens`. Missing keys produce a visible deterministic token with escaped unsafe characters rather than hidden failure.
 
 ## Human verification required
 
-The eleven guided screenshots were inspected at original detail and automated layout/text tests cover wide/compact containment, long Primary/Secondary copy, focus, fixed actions, results scrolling, and DPR formulas. Human accessibility review is still required for keyboard-only use, zoom, comprehension, contrast in context, motion, assistive technology, screen readers, and cognitive load. Native touch, unrestricted fullscreen, final audio/hearing review, qualified Malay review, Firefox, and Safari remain unclaimed.
+The eleven guided screenshots were inspected at original detail and automated layout/text tests cover wide/compact containment, long Primary/Secondary copy, focus, fixed actions, results scrolling, and DPR formulas. Human accessibility review is still required for keyboard-only use, zoom, comprehension, contrast in context, motion, assistive technology, screen readers, and cognitive load. Native touch, unrestricted fullscreen, final audio/hearing review, Firefox, and Safari remain unclaimed.
 
 See [learner instructions](02-LEARNER-EXPERIENCE.md), [art/audio](09-ART-AUDIO.md), and [QA plan](13-QA-PLAN.md).

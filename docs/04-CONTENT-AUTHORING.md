@@ -12,7 +12,7 @@ Work only in this standalone repository. The active authoring file is `Assets/Co
 4. Keep every option ID stable and ordinal/case-sensitive. New semantics require a new reviewed ID and, when incompatible, a content-version decision.
 5. For every option, provide `TextKey`, `Mastery`, `LegacyConfidenceDelta`, `ReactionCue`, and `WorkedKey`/`MissingKey`/`ImproveKey`.
 6. Keep Primary sentence cards at 12-16 words. Use familiar observations, one idea per card, and direct coaching. Keep Secondary cards at 32 words or fewer and use measurements, qualified scope, audience relevance, and honest uncertainty where appropriate.
-7. Add every learner-facing key to `en.json` and `ms.json`. English is the reviewed source. Malay must retain exact fallback values and `pending_human_review` until qualified human approval.
+7. Add every learner-facing key to `en.json`. English is the only shipped locale.
 8. Run the canonical Unity suites and inspect the relevant fixture totals and complete logs. Do not replace the existing content/localization/reflection tests with an ad hoc parser.
 9. Ask Primary and Secondary educators or representative learners to review reading level, coaching tone, task length, and transfer usefulness.
 
@@ -28,8 +28,7 @@ Never add learner free text, names, email addresses, school identifiers, credent
 
 - Exactly one active Bootstrap-wired content-v2 asset.
 - Exactly `30` tested stable unique option IDs and two terminating mode routes.
-- Every content/UI key resolves; English and Malay remain exact key/value fallback peers.
-- Malay status remains honest.
+- Every content/UI key resolves in reviewed English.
 - The DTO shape, selected-ID history semantics, and legacy confidence meaning stay compatible.
 - Automated checks are recorded as implementation evidence, followed by the required human learning review.
 

@@ -29,7 +29,7 @@ Parse the Unity XML `test-run` root and inspect each complete log. Do not treat 
 | Active composition fixture | `BootstrapPlayModeTests` `9/9` |
 | Guided flow fixture | `GuidedPitchFlowPlayModeTests` `8/8` |
 
-The focused fixtures cover the exact two-mode routes, `30` stable unique option IDs, every content/localization key, 12-16/32-word rules, `319/319` English/Malay parity, Malay `pending_human_review`, one active v2 Bootstrap reference, DTO/reflection/privacy shape, both learner modes, four Build rounds, revision, Present, follow-up, Results, keyboard/focus, safe fallback, submission preservation, and Retry reset.
+The focused fixtures cover the exact two-mode routes, `30` stable unique option IDs, every content/localization key, 12-16/32-word rules, English catalog resolution, one active v2 Bootstrap reference, DTO/reflection/privacy shape, both learner modes, four Build rounds, revision, Present, follow-up, Results, keyboard/focus, safe fallback, submission preservation, and Retry reset.
 
 ## Fresh WebGL build and server
 
@@ -84,7 +84,7 @@ The review confirmed contained point-filtered garden art, opaque navy lesson sur
 ## Reconciliation and hygiene
 
 - Asset/meta: `142` logical files plus `40` logical directories (`182` entries) and `182` matching `.meta` files; zero missing and zero orphaned.
-- Content/localization: one active content-v2 asset, `30` exact stable unique options, every route/key resolved, `319/319` exact English/Malay key and guided fallback-value parity.
+- Content/localization: one active content-v2 asset, `30` exact stable unique options, every route/key resolved, English-only catalog resolution.
 - DTOs: launch `14` fields and completion `19` fields/types unchanged; source files have zero diff from the guided baseline.
 - Links: `48` tracked Markdown files, `78` relative links checked, zero broken.
 - Ignore rules: `Library`, `Temp`, `Logs`, `UserSettings`, `Build`, and `artifacts` are ignored. Generated ProjectSettings/editor noise was removed.
@@ -95,7 +95,7 @@ The review confirmed contained point-filtered garden art, opaque navy lesson sur
 
 Automated tests, browser smoke, and screenshots demonstrate implementation behavior. They do not demonstrate classroom learning effectiveness. Before such a claim, Primary and Secondary educators or representative learners must review reading level, coaching tone, task length, and transfer usefulness.
 
-Malay human review, Firefox/Safari, native touch, a real LMS, unrestricted fullscreen, legal approval, classroom use, and human accessibility/assistive-technology review remain unclaimed. The lexical source-contract extractor's treatment of calls inside constant-unreachable branches such as `if (false)` is a retained minor for final review triage; runtime smoke is the current behavioral backstop.
+Firefox/Safari, native touch, a real LMS, unrestricted fullscreen, legal approval, classroom use, and human accessibility/assistive-technology review remain unclaimed. The lexical source-contract extractor's treatment of calls inside constant-unreachable branches such as `if (false)` is a retained minor for final review triage; runtime smoke is the current behavioral backstop.
 
 Independent Task 9 and whole-branch reviews are post-commit gates and are not claimed in this implementation record.
 
