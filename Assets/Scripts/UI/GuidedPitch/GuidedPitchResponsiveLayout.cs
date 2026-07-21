@@ -6,7 +6,9 @@ namespace Agrovator.PitchSimulator.UI
 {
     public sealed class GuidedPitchResponsiveLayout : MonoBehaviour
     {
-        private const float CompactWidthThreshold = 960f;
+        // Shared with RotateToPlayRule so the stage that compacts is exactly the
+        // stage that can be gated for orientation.
+        private const float CompactWidthThreshold = RotateToPlayRule.HandheldWidthThreshold;
         private const float CompactAspectThreshold = 1.25f;
         private const float TargetHeight = 96f;
 

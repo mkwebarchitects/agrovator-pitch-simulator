@@ -151,12 +151,24 @@ namespace Agrovator.PitchSimulator.Tests.EditMode.UI
                     AssertStampedRoot(path, PitchSimulatorProjectBuilder.GeneratorVersion);
                 }
 
-                var identities = GeneratedScenePaths.ToDictionary(
-                    path => path, GetOwnedRootIdentity, StringComparer.Ordinal);
+                // Regeneration is observed by planting a child under the owned root
+                // and seeing whether it survives: the builder destroys the whole root
+                // when it rebuilds, so the sentinel is present exactly when the scene
+                // was left alone. This replaces comparing GlobalObjectId, which could
+                // not see a rebuild at all - Unity derives a scene object's file ID
+                // from hierarchy structure, so destroying a root and recreating it
+                // structurally unchanged reproduces the same id. That made the
+                // negative assertion vacuous and the positive one impossible, and it
+                // got worse the more deterministic the builder became.
+                foreach (var path in GeneratedScenePaths)
+                {
+                    PlantRegenerationSentinel(path);
+                }
+
                 PitchSimulatorProjectBuilder.BuildProjectFoundationBatch();
                 foreach (var path in GeneratedScenePaths)
                 {
-                    Assert.That(GetOwnedRootIdentity(path), Is.EqualTo(identities[path]),
+                    Assert.That(HasRegenerationSentinel(path), Is.True,
                         path + " must not be regenerated while the stamped generator version " +
                         "still matches the builder.");
                 }
@@ -169,7 +181,7 @@ namespace Agrovator.PitchSimulator.Tests.EditMode.UI
                 PitchSimulatorProjectBuilder.BuildProjectFoundationBatch();
                 foreach (var path in GeneratedScenePaths)
                 {
-                    Assert.That(GetOwnedRootIdentity(path), Is.Not.EqualTo(identities[path]),
+                    Assert.That(HasRegenerationSentinel(path), Is.False,
                         path + " must be regenerated when its stamped generator version differs " +
                         "from the builder, regardless of the property whitelist.");
                     AssertStampedRoot(path, PitchSimulatorProjectBuilder.GeneratorVersion);
@@ -199,12 +211,33 @@ namespace Agrovator.PitchSimulator.Tests.EditMode.UI
             });
         }
 
-        private static string GetOwnedRootIdentity(string scenePath)
+        private const string RegenerationSentinelName = "Regeneration Sentinel";
+
+        private static void PlantRegenerationSentinel(string scenePath)
         {
-            string identity = null;
+            var scene = EditorSceneManager.OpenScene(scenePath, OpenSceneMode.Additive);
+            try
+            {
+                var root = scene.GetRootGameObjects()
+                    .Single(candidate => OwnedRootNames.Contains(candidate.name));
+                Assert.That(root.transform.Find(RegenerationSentinelName), Is.Null,
+                    scenePath + " must not already carry a sentinel.");
+                new GameObject(RegenerationSentinelName).transform.SetParent(
+                    root.transform, false);
+                EditorSceneManager.SaveScene(scene, scenePath);
+            }
+            finally
+            {
+                EditorSceneManager.CloseScene(scene, true);
+            }
+        }
+
+        private static bool HasRegenerationSentinel(string scenePath)
+        {
+            var present = false;
             WithOwnedRoot(scenePath, root =>
-                identity = GlobalObjectId.GetGlobalObjectIdSlow(root).ToString());
-            return identity;
+                present = root.transform.Find(RegenerationSentinelName) != null);
+            return present;
         }
 
         private static void WriteStampedVersion(string scenePath, int version)
