@@ -583,7 +583,7 @@ namespace Agrovator.PitchSimulator.Tests.PlayMode
             Assert.That(rig.ModeSelectionPanel.activeSelf, Is.True);
             Assert.That(rig.ModeSelection.Cards.Count, Is.EqualTo(2));
             Assert.That(rig.ModeSelection.Cards.Select(card => card.TitleText.text),
-                Is.EqualTo(new[] { "Primary", "Secondary" }));
+                Is.EqualTo(new[] { "Primary school", "Secondary school" }));
             Assert.That(rig.ModeSelection.Cards.All(card => card.Button.interactable), Is.True);
             Assert.That(rig.ModeSelection.Cards.Select(card => card.Background.color).Distinct().Count(),
                 Is.EqualTo(1));
@@ -783,11 +783,12 @@ namespace Agrovator.PitchSimulator.Tests.PlayMode
             rig.StartButton.onClick.Invoke();
             rig.BriefingContinueButton.onClick.Invoke();
 
-            // Checkpoint 3: the two cards name the mode-specific part framings.
+            // Checkpoint 3: each card names its school audience and the mode-specific
+            // part framings.
             Assert.That(rig.ModeSelection.Cards[0].DescriptionText.text,
-                Is.EqualTo("Spot it, Prove it, Solve it, Show why it matters"));
+                Is.EqualTo("For primary school. Parts: Spot it, Prove it, Solve it, Show why it matters."));
             Assert.That(rig.ModeSelection.Cards[1].DescriptionText.text,
-                Is.EqualTo("Problem, Evidence, Solution, Value"));
+                Is.EqualTo("For secondary school. Parts: Problem, Evidence, Solution, Value."));
 
             rig.ModeSelection.Cards[1].Button.onClick.Invoke();
             Assert.That(rig.Router.ActivePhase, Is.EqualTo(GuidedPitchPhase.Learn));

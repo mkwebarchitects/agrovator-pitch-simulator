@@ -1174,7 +1174,12 @@ namespace Agrovator.PitchSimulator.Editor
                 ? DisplayFont()
                 : Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
             text.fontSize = fontSize;
-            text.fontStyle = style;
+            // Mystery Quest ships one regular weight. Asking for Bold makes Unity
+            // synthesise a faux-bold that renders thick and fuzzy - the "too bold"
+            // and "blurry" the display headings showed. The face already reads as
+            // characterful, so display text always renders at its true weight;
+            // italics still apply since callers use them for genuine emphasis.
+            text.fontStyle = display && style == FontStyle.Bold ? FontStyle.Normal : style;
             text.color = color;
             text.alignment = alignment;
             text.horizontalOverflow = HorizontalWrapMode.Wrap;
