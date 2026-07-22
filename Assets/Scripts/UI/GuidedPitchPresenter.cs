@@ -224,6 +224,12 @@ namespace Agrovator.PitchSimulator.UI
             if (showModeSelection)
             {
                 modeSelection.Render(localize);
+                // The rail and board are on screen during mode selection but were left
+                // unrendered, so their part labels were blank. Populate both - the rail
+                // with no current part, the board from the empty draft - so the four
+                // parts and their empty prompts preview from the very first screen.
+                rail.Render(null, snapshot.Draft, localize);
+                board.Render(snapshot.Draft, localize);
             }
 
             var guidedVisible = phase >= GuidedPitchPhase.Learn && phase <= GuidedPitchPhase.FollowUpFeedback;
@@ -236,7 +242,10 @@ namespace Agrovator.PitchSimulator.UI
                 learn.gameObject.SetActive(false);
                 cards.Clear();
                 feedback.Clear();
-                SetText(questionText, null);
+                // On Mode Selection the guided panel is on screen, so Aya's bubble
+                // would otherwise sit empty. Give her a resting line that reinforces
+                // the school-mode choice rather than showing a blank speech bubble.
+                SetText(questionText, showModeSelection ? localize("guided.mode.prompt") : null);
                 SetText(hintText, null);
                 SetText(presentationText, null);
                 continueButton.gameObject.SetActive(false);

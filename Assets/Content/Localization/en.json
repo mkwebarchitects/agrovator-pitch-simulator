@@ -306,6 +306,7 @@
     { "key": "guided.board.add.evidence", "value": "Add an evidence sentence" },
     { "key": "guided.board.add.solution", "value": "Add a solution sentence" },
     { "key": "guided.board.add.value", "value": "Add a value sentence" },
+    { "key": "guided.mode.prompt", "value": "Pick your school mode to start, then we will build your pitch one part at a time." },
     { "key": "guided.mode.primary.title", "value": "Primary school" },
     { "key": "guided.mode.primary.parts", "value": "For primary school. Parts: Spot it, Prove it, Solve it, Show why it matters." },
     { "key": "guided.mode.secondary.title", "value": "Secondary school" },
