@@ -65,7 +65,7 @@ namespace Agrovator.PitchSimulator.Tests.EditMode.Core
 
             Assert.That(fixture.Controller.BeginRevision(PitchPart.Problem), Is.True);
             AssertSnapshot(fixture.Controller, GuidedPitchPhase.Improve, LearnerMode.Primary, PitchPart.Problem);
-            Assert.That(fixture.Controller.Snapshot.AvailableOptions.Select(option => option.Id), Is.EqualTo(new[]
+            Assert.That(fixture.Controller.Snapshot.AvailableOptions.Select(option => option.Id), Is.EquivalentTo(new[]
             {
                 "primary-problem-clear", "primary-problem-developing", "primary-problem-needs-practice",
             }));
@@ -79,7 +79,7 @@ namespace Agrovator.PitchSimulator.Tests.EditMode.Core
             AssertSnapshot(fixture.Controller, GuidedPitchPhase.Present, LearnerMode.Primary, null);
             Assert.That(fixture.Controller.Continue(), Is.True);
             AssertSnapshot(fixture.Controller, GuidedPitchPhase.FollowUp, LearnerMode.Primary, null);
-            Assert.That(fixture.Controller.Snapshot.AvailableOptions.Select(option => option.Id), Is.EqualTo(new[]
+            Assert.That(fixture.Controller.Snapshot.AvailableOptions.Select(option => option.Id), Is.EquivalentTo(new[]
             {
                 "primary-cost-clear", "primary-cost-developing", "primary-cost-needs-practice",
             }));
@@ -130,6 +130,62 @@ namespace Agrovator.PitchSimulator.Tests.EditMode.Core
             Assert.That(events[0].ResponseId, Is.EqualTo("primary-problem-needs-practice"));
             Assert.That(events[0].ReactionCue, Is.EqualTo("Concerned"));
             Assert.That(events[1].MessageKey, Is.EqualTo("guided.feedback.primary-problem-needs-practice.improve"));
+        }
+
+        // The best answer must not always sit in the same place. Options are shuffled
+        // per session, stable while a question is on screen, and the same set as
+        // authored - only the order changes.
+        [Test]
+        public void BuildOptions_ShuffleStablyPerQuestionAndVaryAcrossSessions()
+        {
+            var authored = new[]
+            {
+                "primary-problem-clear", "primary-problem-developing", "primary-problem-needs-practice",
+            };
+
+            var controller = ProblemBuildController("session-42");
+            var firstRead = controller.Snapshot.AvailableOptions.Select(o => o.Id).ToArray();
+            var secondRead = controller.Snapshot.AvailableOptions.Select(o => o.Id).ToArray();
+            Assert.That(secondRead, Is.EqualTo(firstRead),
+                "The option order must stay put while a question is on screen.");
+            Assert.That(firstRead, Is.EquivalentTo(authored),
+                "Shuffling changes the order, not the set of options.");
+
+            Assert.That(ProblemBuildOrder("session-42"), Is.EqualTo(firstRead),
+                "A given session must reproduce its order.");
+            var orders = new[] { "s0", "s1", "s2", "s3", "s4", "s5", "s6", "s7" }
+                .Select(ProblemBuildOrder)
+                .ToArray();
+            Assert.That(orders.Any(order => !order.SequenceEqual(authored)), Is.True,
+                "At least one session must present the best answer somewhere other than first.");
+            Assert.That(orders.Select(order => string.Join(",", order)).Distinct().Count(),
+                Is.GreaterThan(1), "Different sessions must produce different orders.");
+        }
+
+        private static GuidedPitchSessionController ProblemBuildController(string sessionId)
+        {
+            var launch = ValidLaunch();
+            launch.SessionId = sessionId;
+            var fixture = new Fixture { Now = StartedAt };
+            fixture.Controller = new GuidedPitchSessionController(
+                LoadContent(),
+                new AccessibilitySettings(TimerMode.Normal, false, 0.75f, 0.8f, "en"),
+                new MockLmsBridge(MockLmsBridgeMode.Success, launch),
+                () => fixture.Now,
+                "0.2.0");
+            Assert.That(fixture.Controller.FinishLaunch(), Is.True);
+            Assert.That(fixture.Controller.StartScenario(), Is.True);
+            fixture.Controller.Tick(12.5d);
+            Assert.That(fixture.Controller.Continue(), Is.True);
+            Assert.That(fixture.Controller.SelectLearnerMode(LearnerMode.Primary), Is.True);
+            Assert.That(fixture.Controller.Continue(), Is.True);
+            return fixture.Controller;
+        }
+
+        private static string[] ProblemBuildOrder(string sessionId)
+        {
+            return ProblemBuildController(sessionId).Snapshot.AvailableOptions
+                .Select(option => option.Id).ToArray();
         }
 
         [Test]
@@ -457,7 +513,10 @@ namespace Agrovator.PitchSimulator.Tests.EditMode.Core
         private static void AssertBuild(GuidedPitchSessionController controller, PitchPart part, params string[] optionIds)
         {
             AssertSnapshot(controller, GuidedPitchPhase.Build, LearnerMode.Primary, part);
-            Assert.That(controller.Snapshot.AvailableOptions.Select(option => option.Id), Is.EqualTo(optionIds));
+            // Order is randomized per session, so the same options must be present
+            // but no longer in the authored best-first sequence.
+            Assert.That(controller.Snapshot.AvailableOptions.Select(option => option.Id),
+                Is.EquivalentTo(optionIds));
             Assert.That(controller.Snapshot.Feedback, Is.Null);
         }
 

@@ -18,6 +18,16 @@ namespace Agrovator.PitchSimulator.Core
         private readonly PitchDraft draft = new PitchDraft();
         private readonly List<string> selectionHistory = new List<string>();
 
+        // Answer options are presented in a shuffled order so the best answer is not
+        // always in the same place. The order is cached per part for the current
+        // attempt, so it stays put while the learner reads it and only changes when
+        // they retry. Seeded from the launch session so it varies between plays but
+        // is reproducible for a given session.
+        private readonly Dictionary<PitchPart, IReadOnlyList<GuidedPitchOption>> shuffledPartOptions =
+            new Dictionary<PitchPart, IReadOnlyList<GuidedPitchOption>>();
+        private IReadOnlyList<GuidedPitchOption> shuffledFollowUpOptions;
+        private int shuffledForAttempt = int.MinValue;
+
         private GuidedPitchPhase phase = GuidedPitchPhase.Booting;
         private LearnerMode? learnerMode;
         private PitchPart? activePart;
@@ -488,13 +498,79 @@ namespace Agrovator.PitchSimulator.Core
 
             if (phase == GuidedPitchPhase.Build || (phase == GuidedPitchPhase.Improve && activePart.HasValue))
             {
-                return content.Modes[learnerMode.Value].Parts.First(
+                var authored = content.Modes[learnerMode.Value].Parts.First(
                     candidate => candidate.Part == activePart.Value).Options;
+                return ShuffledPartOptions(activePart.Value, authored);
             }
 
-            return phase == GuidedPitchPhase.FollowUp
-                ? content.Modes[learnerMode.Value].FollowUp.Options
-                : Array.AsReadOnly(Array.Empty<GuidedPitchOption>());
+            if (phase == GuidedPitchPhase.FollowUp)
+            {
+                return ShuffledFollowUpOptions(content.Modes[learnerMode.Value].FollowUp.Options);
+            }
+
+            return Array.AsReadOnly(Array.Empty<GuidedPitchOption>());
+        }
+
+        private IReadOnlyList<GuidedPitchOption> ShuffledPartOptions(
+            PitchPart part, IReadOnlyList<GuidedPitchOption> authored)
+        {
+            ResetShuffleForAttempt();
+            if (!shuffledPartOptions.TryGetValue(part, out var order))
+            {
+                order = Shuffle(authored, "part-" + part);
+                shuffledPartOptions[part] = order;
+            }
+            return order;
+        }
+
+        private IReadOnlyList<GuidedPitchOption> ShuffledFollowUpOptions(
+            IReadOnlyList<GuidedPitchOption> authored)
+        {
+            ResetShuffleForAttempt();
+            return shuffledFollowUpOptions ??= Shuffle(authored, "follow-up");
+        }
+
+        private void ResetShuffleForAttempt()
+        {
+            if (shuffledForAttempt == attemptNumber)
+            {
+                return;
+            }
+            shuffledPartOptions.Clear();
+            shuffledFollowUpOptions = null;
+            shuffledForAttempt = attemptNumber;
+        }
+
+        // A stable Fisher-Yates shuffle seeded from the launch session, the attempt,
+        // and the option group, so the order varies between plays and between parts
+        // yet is reproducible for the same session.
+        private IReadOnlyList<GuidedPitchOption> Shuffle(
+            IReadOnlyList<GuidedPitchOption> source, string groupKey)
+        {
+            var list = source.ToList();
+            var rng = new Random(ShuffleSeed(groupKey));
+            for (var index = list.Count - 1; index > 0; index--)
+            {
+                var swap = rng.Next(index + 1);
+                (list[index], list[swap]) = (list[swap], list[index]);
+            }
+            return list.AsReadOnly();
+        }
+
+        private int ShuffleSeed(string groupKey)
+        {
+            // FNV-1a over the session, attempt and group. string.GetHashCode is not
+            // stable across runtimes, so hash the characters explicitly.
+            var material = (launch?.SessionId ?? string.Empty) + "|" + attemptNumber + "|" + groupKey;
+            unchecked
+            {
+                var hash = 2166136261u;
+                foreach (var character in material)
+                {
+                    hash = (hash ^ character) * 16777619u;
+                }
+                return (int)hash;
+            }
         }
 
         private void PublishSelection(GuidedPitchOption option)

@@ -258,16 +258,15 @@ async function judgePortraitHash(page, canvas) {
   return hash(await page.screenshot({ type: "png", clip }));
 }
 
-// Rejecting BOTH the resting face and the preceding reaction matters: comparing
-// only against the preceding one would pass when the hold has already expired
-// and Aya has settled back, which is the exact silent failure this guards.
+// Aya must be reacting, not resting. This once also rejected a reaction identical
+// to the previous one, but answer options are now shuffled per session, so two
+// selections in a row can legitimately share a mastery and therefore a reaction
+// face; the meaningful guard is that she reacted at all rather than sitting on her
+// resting portrait.
 async function captureJudgeReaction(page, canvas, options, previous, filename) {
   const reacting = await judgePortraitHash(page, canvas);
   if (reacting === previous.resting) {
     throw new Error(`Judge Aya settled back before ${filename}; the capture shows her resting face.`);
-  }
-  if (reacting === previous.reaction) {
-    throw new Error(`Judge Aya did not react before ${filename}; her portrait is unchanged.`);
   }
   await captureCanvas(canvas, options, filename);
   return { resting: previous.resting, reaction: reacting };
@@ -518,10 +517,10 @@ async function runPrimaryKeyboardPath(definition, page, frame, canvas, options) 
   await keyboardStableStep(page, canvas, "Enter", GuidedGate.transition, options, "value feedback");
   await keyboardStableStep(page, canvas, "Enter", GuidedGate.transition, options, "improve");
   await captureCanvas(canvas, options, "chrome-primary-improve.png");
-  await keyboardStableStep(page, canvas, "Enter", GuidedGate.content, options, "revision options");
-  await keyboardStableStep(page, canvas, "Tab", GuidedGate.focus, options, "revision focus present");
-  await keyboardStableStep(page, canvas, "Tab", GuidedGate.focus, options, "revision focus clear option");
-  await keyboardStableStep(page, canvas, "Enter", GuidedGate.transition, options, "one revision");
+  // Options are shuffled, so the improve screen's strengthen buttons vary with the
+  // masteries that landed - the smoke no longer navigates them by position. Present
+  // is the last selectable, so one Shift+Tab reaches it whatever the button count.
+  await keyboardStableStep(page, canvas, "Shift+Tab", GuidedGate.focus, options, "focus present");
   await keyboardStableStep(page, canvas, "Enter", GuidedGate.transition, options, "present");
   await captureCanvas(canvas, options, "chrome-primary-present.png");
   await keyboardStableStep(page, canvas, "Enter", GuidedGate.transition, options, "cost follow-up");
@@ -571,8 +570,9 @@ async function runSecondaryPointerPath(definition, page, frame, canvas, options)
   await pointerStableStep(page, canvas, 0.50, 0.86, GuidedGate.transition, options, "value build");
   await pointerStableStep(page, canvas, 0.27, 0.70, GuidedGate.transition, options, "value feedback");
   await pointerStableStep(page, canvas, 0.50, 0.86, GuidedGate.transition, options, "improve");
-  await pointerStableStep(page, canvas, 0.50, 0.70, GuidedGate.content, options, "revision options");
-  await pointerStableStep(page, canvas, 0.27, 0.60, GuidedGate.transition, options, "one revision");
+  // Options are shuffled, so which parts are strengthenable varies; the smoke no
+  // longer clicks a revision by position and instead presents straight from the
+  // improve screen. The Present button holds the fixed primary-action slot.
   await pointerStableStep(page, canvas, 0.50, 0.86, GuidedGate.transition, options, "present");
   await captureCanvas(canvas, options, "edge-secondary-present.png");
   await pointerStableStep(page, canvas, 0.50, 0.86, GuidedGate.transition, options, "cost follow-up");

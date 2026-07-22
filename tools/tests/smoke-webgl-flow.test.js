@@ -19,32 +19,31 @@ const source = fs.readFileSync(path.join(projectRoot, "tools", "smoke-webgl.mjs"
 const primaryLabels = [
   "title start", "briefing continue", "learn", "build", "problem developing option",
   "problem feedback", "evidence build", "evidence feedback", "solution build",
-  "solution feedback", "value build", "value feedback", "improve", "revision options",
-  "revision focus present", "revision focus clear option", "one revision", "present",
+  "solution feedback", "value build", "value feedback", "improve", "focus present", "present",
   "cost follow-up", "cost feedback", "results", "submission failure", "submission success",
   "retry", "fresh mode selection",
 ];
 const secondaryLabels = [
   "title start", "briefing continue", "learn", "build", "problem feedback", "evidence build",
   "evidence feedback", "solution build", "solution feedback", "value build", "value feedback",
-  "improve", "revision options", "one revision", "present", "cost follow-up", "cost feedback",
+  "improve", "present", "cost follow-up", "cost feedback",
   "results", "submission failure", "submission success", "retry", "fresh mode selection",
 ];
-const primaryGates = primaryLabels.map(label => [
-  "problem developing option", "revision focus present", "revision focus clear option",
-].includes(label) ? "focus" : label === "title start" || label.startsWith("submission ")
-  || label === "revision options" ? label.startsWith("submission ") ? "controls" : "content"
-    : "transition");
+const primaryGates = primaryLabels.map(label =>
+  ["problem developing option", "focus present"].includes(label) ? "focus"
+    : label === "title start" ? "content"
+      : label.startsWith("submission ") ? "controls"
+        : "transition");
 const secondaryGates = secondaryLabels.map(label =>
-  label === "title start" || label.startsWith("submission ") || label === "revision options"
-    ? label.startsWith("submission ") ? "controls" : "content" : "transition");
+  label === "title start" ? "content"
+    : label.startsWith("submission ") ? "controls" : "transition");
 const secondaryCoordinates = [
   ["0.50", "0.50"], ["0.50", "0.60"], ["0.70", "0.76"], ["0.50", "0.86"],
   ["0.50", "0.70"], ["0.50", "0.86"], ["0.27", "0.70"], ["0.50", "0.86"],
   ["0.27", "0.70"], ["0.50", "0.86"], ["0.27", "0.70"], ["0.50", "0.86"],
-  ["0.50", "0.70"], ["0.27", "0.60"], ["0.50", "0.86"], ["0.50", "0.86"],
-  ["0.27", "0.70"], ["0.50", "0.86"], ["0.36", "0.82"], ["0.36", "0.82"],
-  ["0.64", "0.82"], ["0.50", "0.60"],
+  ["0.50", "0.86"], ["0.50", "0.86"],
+  ["0.27", "0.70"], ["0.50", "0.86"], ["0.36", "0.86"], ["0.36", "0.86"],
+  ["0.64", "0.86"], ["0.50", "0.60"],
 ];
 
 function assertCallLabels(value, callee, expected) {
@@ -123,9 +122,9 @@ test("Chrome owns one exact Primary keyboard path with no pointer actions", () =
   assert.equal(findCalls(primary, "canvas.hover").length, 0);
   const calls = assertCallLabels(primary, "keyboardStableStep", primaryLabels);
   assert.deepEqual(gateNames(calls), primaryGates);
-  const expectedKeys = primaryLabels.map(label => [
-    "problem developing option", "revision focus present", "revision focus clear option",
-  ].includes(label) ? "Tab" : "Enter");
+  const expectedKeys = primaryLabels.map(label =>
+    label === "problem developing option" ? "Tab"
+      : label === "focus present" ? "Shift+Tab" : "Enter");
   assert.deepEqual(calls.map(call => quotedValues(call.text).at(-2)), expectedKeys);
   assert.deepEqual(calls.map((call, index) => canonicalCode(call.text)),
     primaryLabels.map((label, index) =>
@@ -134,9 +133,9 @@ test("Chrome owns one exact Primary keyboard path with no pointer actions", () =
   assert.match(canonicalCode(calls[4].text),
     /^await keyboardStableStep\(page, canvas, "Tab", GuidedGate\.focus, options, "problem developing option"\)$/);
   assert.equal(calls.some(call => /"ArrowDown"/.test(call.text)), false);
-  for (const call of calls.filter(call => ["revision focus present", "revision focus clear option"].includes(lastQuotedValue(call)))) {
+  for (const call of calls.filter(call => lastQuotedValue(call) === "focus present")) {
     assert.match(canonicalCode(call.text),
-      /^await keyboardStableStep\(page, canvas, "Tab", GuidedGate\.focus, options,/);
+      /^await keyboardStableStep\(page, canvas, "Shift\+Tab", GuidedGate\.focus, options,/);
   }
   assert.deepEqual(findCalls(primary, "setHarnessMode").map(call => canonicalCode(call.text)), [
     'await setHarnessMode(page, "failure")', 'await setHarnessMode(page, "success")',
@@ -314,13 +313,15 @@ test("guided paths own exactly the required executable evidence captures", () =>
       "the resting baseline must be sampled before the first reaction");
   }
   const helper = canonicalCode(extractFunction(source, "captureJudgeReaction"));
-  // Both rejections are load-bearing. Dropping the resting check would let a
-  // settled-back portrait pass whenever it is compared only against the
-  // preceding reaction, which is a silent loss of the whole visual proof.
+  // The resting check is the load-bearing proof: it fails whenever Aya has
+  // settled back to her resting face, so a slow machine cannot silently bank a
+  // picture of the neutral portrait. A reaction-vs-reaction check is deliberately
+  // absent because randomized option order means two consecutive selections can
+  // legitimately share a mastery tier, and therefore an identical reaction face.
   assert.match(helper, /if \(reacting === previous\.resting\) \{ throw new Error/,
     "captureJudgeReaction must throw when Aya has settled back to her resting face");
-  assert.match(helper, /if \(reacting === previous\.reaction\) \{ throw new Error/,
-    "captureJudgeReaction must throw when the portrait did not change at all");
+  assert.doesNotMatch(helper, /reacting === previous\.reaction/,
+    "captureJudgeReaction must not compare two reactions now that option order is randomized");
   assert.equal(findCalls(primary, "setTimeout", { awaited: false }).length, 0);
   assert.equal(findCalls(secondary, "setTimeout", { awaited: false }).length, 0);
   assert.equal(findCalls(primary, "page.locator", { awaited: false }).length, 0);
@@ -330,7 +331,7 @@ test("guided paths own exactly the required executable evidence captures", () =>
     [primary, "keyboardStableStep", [
       ["briefing continue", "chrome-primary-mode.png", "learn"],
       ["build", "chrome-primary-build.png", "problem developing option"],
-      ["improve", "chrome-primary-improve.png", "revision options"],
+      ["improve", "chrome-primary-improve.png", "focus present"],
       ["present", "chrome-primary-present.png", "cost follow-up"],
       ["results", "chrome-primary-results.png", "submission failure"],
     ]],
