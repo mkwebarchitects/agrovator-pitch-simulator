@@ -12,13 +12,21 @@ namespace Agrovator.PitchSimulator.Tests.EditMode.Audio
         private readonly List<AudioClip> clips = new List<AudioClip>();
 
         [Test]
-        public void CueEnum_ContainsExactlyTheNineAuthoredHooks()
+        public void CueEnum_ContainsExactlyTheElevenAuthoredHooks()
         {
+            // Order matters here beyond readability: AudioCueBinding.cue
+            // serializes by this enum's underlying int, and committed scenes
+            // already bind real clips by index (0-8). JudgeReactionImpressed
+            // keeps index 4 (renamed in place from the old single JudgeReaction
+            // cue); the two new reactions are appended after CompletionFailure
+            // rather than grouped with it, so no already-bound cue shifts onto
+            // a different clip.
             Assert.That(Enum.GetNames(typeof(AudioCue)), Is.EqualTo(new[]
             {
                 "MusicLoop", "ButtonPress", "ResponseSelected", "TimerWarning",
-                "JudgeReaction", "FeedbackOpen", "ResultsReveal", "CompletionSuccess",
-                "CompletionFailure",
+                "JudgeReactionImpressed", "FeedbackOpen", "ResultsReveal",
+                "CompletionSuccess", "CompletionFailure",
+                "JudgeReactionInterested", "JudgeReactionConcerned",
             }));
         }
 
@@ -56,7 +64,7 @@ namespace Agrovator.PitchSimulator.Tests.EditMode.Audio
 
             Assert.That(music.Plays, Has.Count.EqualTo(1));
             Assert.That(music.Plays[0].Loop, Is.True);
-            Assert.That(sfx.Plays, Has.Count.EqualTo(8));
+            Assert.That(sfx.Plays, Has.Count.EqualTo(10));
             Assert.That(sfx.Plays.All(play => !play.Loop), Is.True);
         }
 

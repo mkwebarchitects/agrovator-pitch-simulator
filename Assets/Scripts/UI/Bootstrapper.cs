@@ -111,6 +111,15 @@ namespace Agrovator.PitchSimulator.UI
         private void Update()
         {
             controller?.Tick(Time.unscaledDeltaTime);
+            // Browsers block audio playback until a genuine user gesture; that
+            // gesture does not have to be the Start or Settings button
+            // specifically. Any first click or keypress anywhere unlocks audio
+            // and starts the music loop immediately, rather than making the
+            // learner hit one particular button before hearing anything.
+            if (audioService != null && !audioService.IsUnlocked && Input.anyKeyDown)
+            {
+                HandleFirstInteraction();
+            }
         }
 
         private void OnDestroy()
@@ -287,6 +296,13 @@ namespace Agrovator.PitchSimulator.UI
             if (audioService == null) return;
             audioService.UnlockAfterUserGesture();
             audioCueDirector?.HandleUserGesture();
+        }
+
+        private void HandleFirstInteraction()
+        {
+            if (audioService == null) return;
+            audioService.UnlockAfterUserGesture();
+            audioCueDirector?.EnsureUnlockedAndMusicStarted();
         }
 
         private void HandleButtonPress()

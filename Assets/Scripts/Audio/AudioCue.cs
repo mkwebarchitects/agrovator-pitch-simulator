@@ -9,11 +9,24 @@ namespace Agrovator.PitchSimulator.Audio
         ButtonPress,
         ResponseSelected,
         TimerWarning,
-        JudgeReaction,
+        // The single generic judge-reaction cue, renamed in place rather than
+        // removed: Unity serializes AudioCueBinding.cue by its underlying int,
+        // and committed scenes already bind real clips to these positions by
+        // index. Renaming keeps every existing binding (this one included)
+        // pointed at the same clip; the two new reactions below are appended
+        // rather than inserted so nothing already bound silently shifts onto
+        // the wrong cue.
+        JudgeReactionImpressed,
         FeedbackOpen,
         ResultsReveal,
         CompletionSuccess,
         CompletionFailure,
+        // One cue per remaining judge portrait reaction, not one shared cue for
+        // every response, so approval and disapproval sound distinct as well as
+        // look distinct. Appended at the end (see above) rather than grouped
+        // with JudgeReactionImpressed above.
+        JudgeReactionInterested,
+        JudgeReactionConcerned,
     }
 
     [Serializable]

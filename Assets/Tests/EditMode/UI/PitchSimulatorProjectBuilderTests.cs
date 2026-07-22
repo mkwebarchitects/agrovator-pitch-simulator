@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using Agrovator.PitchSimulator.Accessibility;
 using Agrovator.PitchSimulator.Audio;
 using Agrovator.PitchSimulator.Editor;
@@ -44,6 +45,10 @@ namespace Agrovator.PitchSimulator.Tests.EditMode.UI
             DeepNavy.r, DeepNavy.g, DeepNavy.b, 0.82f);
         private static readonly Color Cream = new Color32(0xF4, 0xEA, 0xD5, 0xFF);
         private static readonly Color FocusGold = new Color32(0xFF, 0xD1, 0x66, 0xFF);
+        // Mirrors GuidedPitchSceneBuilder.OutlineOverflow: how far a scrollable
+        // viewport's RectMask2D is expanded so a focus/hover outline on a
+        // control flush against the mask boundary is not clipped.
+        private const float OutlineOverflow = 6f;
         private static readonly string[] PhaseSectionNames =
         {
             "Mode Selection", "Learn", "Sentence Cards", "Feedback",
@@ -204,6 +209,64 @@ namespace Agrovator.PitchSimulator.Tests.EditMode.UI
                 }
                 AssetDatabase.Refresh(
                     ImportAssetOptions.ForceSynchronousImport | ImportAssetOptions.ForceUpdate);
+            }
+        }
+
+        /// <summary>
+        /// BuildBootstrapScene destroys and rebuilds the whole "Generated
+        /// Bootstrap" root whenever it regenerates - the same rebuild the
+        /// AudioCue enum growing from nine to eleven values just forced via
+        /// the array-size contract check. Without preservation, a project
+        /// owner's real audio clips bound in the Inspector would be silently
+        /// discarded the next time anything else in this builder changes.
+        /// This exercises the private preservation helper directly with an
+        /// in-memory clip, avoiding the need for a persisted, importable audio
+        /// asset just to prove the dictionary lookup and array rebuild are
+        /// correct.
+        /// </summary>
+        [Test]
+        public void SetAudioCueBindings_PreservesClipsForCuesThatStillExist_AndDefaultsNewCuesToNull()
+        {
+            var bootstrapObject = new GameObject("Test Bootstrapper");
+            AudioClip clip = null;
+            try
+            {
+                var bootstrapper = bootstrapObject.AddComponent<Bootstrapper>();
+                clip = AudioClip.Create("test-clip", 8, 1, 8000, false);
+                var existing = new Dictionary<AudioCue, AudioClip> { [AudioCue.FeedbackOpen] = clip };
+
+                var method = typeof(PitchSimulatorProjectBuilder).GetMethod(
+                    "SetAudioCueBindings", BindingFlags.NonPublic | BindingFlags.Static);
+                Assert.That(method, Is.Not.Null,
+                    "PitchSimulatorProjectBuilder.SetAudioCueBindings must still exist under that name.");
+                method.Invoke(null, new object[] { bootstrapper, existing });
+
+                var bindings = new SerializedObject(bootstrapper).FindProperty("audioCueBindings");
+                var cues = (AudioCue[])Enum.GetValues(typeof(AudioCue));
+                Assert.That(bindings.arraySize, Is.EqualTo(cues.Length));
+                for (var index = 0; index < cues.Length; index++)
+                {
+                    var binding = bindings.GetArrayElementAtIndex(index);
+                    Assert.That((AudioCue)binding.FindPropertyRelative("cue").enumValueIndex,
+                        Is.EqualTo(cues[index]));
+                    var boundClip = binding.FindPropertyRelative("clip").objectReferenceValue;
+                    if (cues[index] == AudioCue.FeedbackOpen)
+                    {
+                        Assert.That(boundClip, Is.SameAs(clip),
+                            "A cue with an existing clip must keep it when the array is rebuilt.");
+                    }
+                    else
+                    {
+                        Assert.That(boundClip, Is.Null,
+                            cues[index] + " has no prior binding and must default to null rather " +
+                            "than reusing FeedbackOpen's clip.");
+                    }
+                }
+            }
+            finally
+            {
+                if (clip != null) UnityEngine.Object.DestroyImmediate(clip);
+                UnityEngine.Object.DestroyImmediate(bootstrapObject);
             }
         }
 
@@ -504,11 +567,15 @@ namespace Agrovator.PitchSimulator.Tests.EditMode.UI
             Assert.That(failures, Is.Empty, string.Join(Environment.NewLine, failures));
         }
 
-        [TestCase(false, TestName = "GeneratedPresentPitch_PrimaryCopyClearsMaskAndAction")]
-        [TestCase(true, TestName = "GeneratedPresentPitch_SecondaryCopyClearsMaskAndAction")]
+        // Mirrors GuidedPitchSceneBuilder.PresentationMaxHeight.
+        private const float PresentationMaxHeight = 160f;
+
+        [TestCase(LearnerMode.Primary, TestName = "GeneratedPresentPitch_PrimaryWorstCaseClearsMaskAndAction")]
+        [TestCase(LearnerMode.Secondary, TestName = "GeneratedPresentPitch_SecondaryWorstCaseClearsMaskAndAction")]
         public void GeneratedPresentPitch_TallDesktopKeepsAllSentencesInsideVisiblePhaseArea(
-            bool secondary)
+            LearnerMode mode)
         {
+            var fixture = LoadGuidedFixture();
             var physicalSize = new Vector2(1276f, 918f);
             var canvas = OpenGameCanvas(CanvasReferenceSizeForPhysical(physicalSize));
             var guided = RequireChild(canvas, "Guided Pitch");
@@ -518,21 +585,13 @@ namespace Agrovator.PitchSimulator.Tests.EditMode.UI
                 SetPhaseSections(guided, "Present Pitch");
                 var presentation = RequireText(
                     guided, ContentRoot + "/Present Pitch/Presentation");
-                SetActiveText(presentation, secondary
-                    ? string.Join("\n", new[]
-                    {
-                        "Our logs show dry beds after assembly, wet beds after rain, and students carrying watering cans, so the timing is inconsistent.",
-                        "In our two-week bed trial, sensor watering used 18% less water than the fixed schedule, while the plants stayed healthy.",
-                        "The sensor checks soil moisture, the valve waters a dry bed, and students review the plants and readings daily.",
-                        "The garden saves water, teaches students through real sensor data, supplies useful canteen vegetables, and gives the school evidence for improving future beds.",
-                    })
-                    : string.Join("\n", new[]
-                    {
-                        "Our garden beds get too dry because we water them at the wrong times.",
-                        "We saw dry soil on three days and puddles after it rained.",
-                        "A sensor checks the soil, then waters only when the garden is dry.",
-                        "It saves water, helps vegetables grow, and teaches students how sensors work.",
-                    }));
+                // Not two representative samples - the actual worst case a
+                // learner can produce in this mode, picking the longest
+                // authored option (any mastery tier) for every part. A real
+                // combination longer than the two hand-picked strings this
+                // test used to check overflowed the Phase Scroll mask in play
+                // and was clipped there; this is the failure that reproduces.
+                SetActiveText(presentation, fixture.WorstCasePresentationByMode[mode]);
                 var primaryAction = RequireChild(guided, "Content Frame/Primary Action");
                 var continueButton = RequireChild(primaryAction, "Continue Button");
                 continueButton.gameObject.SetActive(true);
@@ -541,14 +600,16 @@ namespace Agrovator.PitchSimulator.Tests.EditMode.UI
                 presentation.cachedTextGenerator.Populate(
                     presentation.text,
                     presentation.GetGenerationSettings(presentation.rectTransform.rect.size));
+                Assert.That(presentation.resizeTextForBestFit, Is.True,
+                    "The presentation copy must shrink to fit rather than rely on a fixed budget " +
+                    "matching whichever content happens to be measured.");
                 Assert.That(presentation.cachedTextGenerator.characterCountVisible,
                     Is.EqualTo(presentation.text.Length),
-                    "All four presentation sentences must generate visible glyphs in the " +
-                    "actual generated Text rectangle.");
+                    "All four presentation sentences must generate visible glyphs in the actual " +
+                    "generated Text rectangle for the " + mode + " worst case, with Best Fit shrinking " +
+                    "the font as far as needed rather than truncating.");
 
                 var frame = RequireChild(guided, "Content Frame").GetComponent<RectTransform>();
-                var presentRoot = RequireChild(guided, ContentRoot + "/Present Pitch")
-                    .GetComponent<RectTransform>();
                 var viewport = RequireChild(guided, "Content Frame/Phase Scroll/Viewport")
                     .GetComponent<RectTransform>();
                 Assert.That(viewport.GetComponent<RectMask2D>(), Is.Not.Null,
@@ -563,26 +624,20 @@ namespace Agrovator.PitchSimulator.Tests.EditMode.UI
                 Assert.That(outline, Is.Not.Null,
                     "The action boundary must include the generated focus outline.");
                 var visibleActionTop = actionBounds.max.y + Mathf.Abs(outline.effectDistance.y);
-                Assert.That(presentRoot.rect.height,
-                    Is.GreaterThanOrEqualTo(presentation.preferredHeight +
-                        (presentation.fontSize * 2f)),
-                    "The Present section must reserve explicit top/bottom breathing room for " +
-                    (secondary ? "Secondary" : "Primary") + " copy.");
-                Assert.That(viewport.rect.height,
-                    Is.GreaterThanOrEqualTo(presentation.preferredHeight +
-                        (presentation.fontSize * 2f)),
-                    "The masked phase viewport must reserve one full text line above and below " +
-                    "the complete " + (secondary ? "Secondary" : "Primary") + " pitch.");
+                Assert.That(presentation.rectTransform.rect.height,
+                    Is.LessThanOrEqualTo(PresentationMaxHeight + 0.5f),
+                    "The presentation row must stay capped at its generated budget regardless of " +
+                    mode + " content length, rather than growing past the Phase Scroll's own height.");
 
                 Assert.That(presentationBounds.max.y,
                     Is.LessThanOrEqualTo(viewportBounds.max.y + 0.5f),
                     "Presentation copy escaped above the actual Phase Scroll mask.");
                 Assert.That(presentationBounds.min.y,
-                    Is.GreaterThanOrEqualTo(viewportBounds.min.y + presentation.fontSize),
-                    "The fourth sentence needs one full text line above the mask edge.");
+                    Is.GreaterThanOrEqualTo(viewportBounds.min.y - 0.5f),
+                    "The presentation copy's capped height must still fit inside the Phase Scroll mask.");
                 Assert.That(presentationBounds.min.y,
-                    Is.GreaterThanOrEqualTo(visibleActionTop + presentation.fontSize),
-                    "The fourth sentence needs one full text line above the focused action boundary.");
+                    Is.GreaterThanOrEqualTo(visibleActionTop),
+                    "The presentation copy must not overlap the focused action boundary.");
             }
         }
 
@@ -730,6 +785,30 @@ namespace Agrovator.PitchSimulator.Tests.EditMode.UI
                 scroll.verticalNormalizedPosition = 0f;
                 ForceGuidedLayout(canvas, guided);
                 AssertContained(scroll.viewport, cards[1].Button.GetComponent<RectTransform>());
+            }
+        }
+
+        [Test]
+        public void GeneratedScrollViewports_PadTheirMaskSoAFlushOutlineIsNotClipped()
+        {
+            // The strengthen buttons are the last row inside the guided Phase
+            // Scroll's content with zero padding against its mask, so a focus
+            // or hover outline on the last one sits flush against the mask
+            // boundary and was clipped there before this fix.
+            var canvas = OpenGameCanvas(WideSize);
+            foreach (var path in new[]
+            {
+                "Guided Pitch/Content Frame/Phase Scroll/Viewport",
+                "Results/Content Frame/Results Scroll/Viewport",
+            })
+            {
+                var viewport = RequireChild(canvas, path);
+                var mask = viewport.GetComponent<RectMask2D>();
+                Assert.That(mask, Is.Not.Null, path + " must own the generated clipping mask.");
+                Assert.That(mask.padding, Is.EqualTo(
+                    new Vector4(-OutlineOverflow, -OutlineOverflow, -OutlineOverflow, -OutlineOverflow)),
+                    path + " must expand its mask so a control's focus/hover outline sitting flush " +
+                    "against the boundary is not clipped.");
             }
         }
 
@@ -1197,6 +1276,7 @@ namespace Agrovator.PitchSimulator.Tests.EditMode.UI
             public string[] LongestFeedbackValues;
             public string ComposedPitch;
             public string LongestEmptyPrompt;
+            public IReadOnlyDictionary<LearnerMode, string> WorstCasePresentationByMode;
 
             public string Resolve(string key)
             {
@@ -1239,6 +1319,19 @@ namespace Agrovator.PitchSimulator.Tests.EditMode.UI
                 catalog.Resolve("en", "guided.follow_up.hint"),
             };
             var longestSentences = sentences.OrderByDescending(value => value.Length).Take(4).ToArray();
+            // The true worst case a learner can actually produce: for each part,
+            // whichever authored option (any mastery tier) has the longest
+            // localized text, joined the same way ComposePresentation renders
+            // them ("\n", not the raw "\n\n" ComposeCurrentSentences returns).
+            // Unlike ComposedPitch above (the four longest sentences anywhere in
+            // the pool, which can double up on one part across two modes and
+            // never actually co-occurs in one session), this is reachable by a
+            // real learner choosing every weakest/longest answer in one mode.
+            var worstCasePresentationByMode = loaded.Content.Modes.ToDictionary(
+                pair => pair.Key,
+                pair => string.Join("\n", pair.Value.Parts
+                    .OrderBy(part => (int)part.Part)
+                    .Select(part => Longest(part.Options.Select(option => catalog.Resolve("en", option.TextKey))))));
             return new GuidedFixtureData
             {
                 Catalog = catalog,
@@ -1259,6 +1352,7 @@ namespace Agrovator.PitchSimulator.Tests.EditMode.UI
                     catalog.Resolve("en", "guided.board.add.solution"),
                     catalog.Resolve("en", "guided.board.add.value"),
                 }),
+                WorstCasePresentationByMode = worstCasePresentationByMode,
             };
         }
 

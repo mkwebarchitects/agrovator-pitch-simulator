@@ -8,7 +8,7 @@ Judge reactions are typed; missing/unknown artwork falls back to Encouraging. Th
 
 ## Audio status
 
-`Assets/Audio/PLACEHOLDERS.md` defines nine cues: MusicLoop, ButtonPress, ResponseSelected, TimerWarning, JudgeReaction, FeedbackOpen, ResultsReveal, CompletionSuccess, and CompletionFailure. `AudioCueDirector` connects them to the first handled user gesture, button gestures, response/reaction events, the once-per-question final-five threshold, feedback/results reveal, and completion callbacks. No final clip is included, licensed, or claimed. Runtime null clips warn once per player instance in development and remain silent.
+`Assets/Audio/PLACEHOLDERS.md` defines eleven cues: MusicLoop, ButtonPress, ResponseSelected, TimerWarning, JudgeReactionImpressed, FeedbackOpen, ResultsReveal, CompletionSuccess, CompletionFailure, JudgeReactionInterested, and JudgeReactionConcerned (the last two appended after the original nine to keep every already-bound cue's serialized index unchanged). `AudioCueDirector` connects them to the first handled user gesture, button gestures, response/reaction events (the judge cue resolved from the same typed mapping the portrait uses, so the sound always matches the face), the once-per-question final-five threshold, feedback/results reveal, and completion callbacks. No final clip is included, licensed, or claimed. Runtime null clips warn once per player instance in development and remain silent.
 
 ## Replacement checklist
 

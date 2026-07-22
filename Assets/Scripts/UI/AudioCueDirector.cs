@@ -16,13 +16,25 @@ namespace Agrovator.PitchSimulator.UI
 
         public void HandleUserGesture()
         {
-            if (!musicStarted)
+            EnsureUnlockedAndMusicStarted();
+            PlayButtonPress();
+        }
+
+        /// <summary>
+        /// Starts the music loop on the first call and is a no-op after that,
+        /// without playing the click cue - for a gesture that only exists to
+        /// satisfy the browser's audio-unlock requirement (any first click or
+        /// keypress anywhere on the page), not an actual button press.
+        /// </summary>
+        public void EnsureUnlockedAndMusicStarted()
+        {
+            if (musicStarted)
             {
-                musicStarted = true;
-                play(AudioCue.MusicLoop);
+                return;
             }
 
-            PlayButtonPress();
+            musicStarted = true;
+            play(AudioCue.MusicLoop);
         }
 
         /// <summary>
@@ -53,7 +65,7 @@ namespace Agrovator.PitchSimulator.UI
             {
                 case GuidedPitchSessionEventType.ResponseSelected:
                     play(AudioCue.ResponseSelected);
-                    play(AudioCue.JudgeReaction);
+                    play(ResolveJudgeReactionCue(sessionEvent.ReactionCue));
                     break;
                 case GuidedPitchSessionEventType.FeedbackReady:
                     play(AudioCue.FeedbackOpen);
@@ -67,6 +79,25 @@ namespace Agrovator.PitchSimulator.UI
                 case GuidedPitchSessionEventType.SubmissionFailed:
                     play(AudioCue.CompletionFailure);
                     break;
+            }
+        }
+
+        /// <summary>
+        /// Reuses the same typed mapping the portrait resolves through, so the
+        /// sound always matches the face - including its Encouraging fallback
+        /// for a cue that fails to parse, which plays the Impressed cue rather
+        /// than nothing.
+        /// </summary>
+        private static AudioCue ResolveJudgeReactionCue(string reactionCue)
+        {
+            switch (JudgeReactionMapper.Parse(reactionCue))
+            {
+                case JudgeReaction.Concerned:
+                    return AudioCue.JudgeReactionConcerned;
+                case JudgeReaction.Interested:
+                    return AudioCue.JudgeReactionInterested;
+                default:
+                    return AudioCue.JudgeReactionImpressed;
             }
         }
     }

@@ -8,11 +8,15 @@ No final audio files are included, licensed, or claimed by this repository. The 
 | `ButtonPress` | `sfx-button-press.wav` | SFX | One shot |
 | `ResponseSelected` | `sfx-response-selected.wav` | SFX | One shot |
 | `TimerWarning` | `sfx-timer-warning.wav` | SFX | One short one shot; do not repeat as an alarm |
-| `JudgeReaction` | `sfx-judge-reaction.wav` | SFX | One shot |
+| `JudgeReactionImpressed` | `sfx-judge-reaction-impressed.wav` | SFX | One shot; pairs with the Impressed portrait (Clear) |
 | `FeedbackOpen` | `sfx-feedback-open.wav` | SFX | One shot |
 | `ResultsReveal` | `sfx-results-reveal.wav` | SFX | One shot |
 | `CompletionSuccess` | `sfx-completion-success.wav` | SFX | One shot |
 | `CompletionFailure` | `sfx-completion-failure.wav` | SFX | One shot; neutral and non-punitive |
+| `JudgeReactionInterested` | `sfx-judge-reaction-interested.wav` | SFX | One shot; pairs with the Interested portrait (Developing) |
+| `JudgeReactionConcerned` | `sfx-judge-reaction-concerned.wav` | SFX | One shot; pairs with the Concerned portrait (Needs Practice); keep gentle, not a failure sting |
+
+Table order matches `AudioCue`'s declared order, not a topical grouping: the single old `JudgeReaction` cue was renamed to `JudgeReactionImpressed` in place, and the two new reactions are appended after `CompletionFailure`, because `AudioCueBinding.cue` serializes by this enum's underlying int and the committed Bootstrap scene already binds real clips to several cues by index - reordering would have silently pointed an existing binding at the wrong clip.
 
 ## Delivery and import requirements
 

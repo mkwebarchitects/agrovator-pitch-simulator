@@ -468,6 +468,15 @@ namespace Agrovator.PitchSimulator.Editor
             var viewport = new GameObject("Viewport", typeof(RectTransform), typeof(RectMask2D));
             viewport.transform.SetParent(root.transform, false);
             Stretch(viewport.GetComponent<RectTransform>());
+            // The focus/hover outline (AddFocusIndicator) draws a few pixels
+            // beyond its control's own rect. The last row in this content
+            // (typically the strengthen buttons) sits with zero padding against
+            // this mask, so that outline edge was clipped exactly at the
+            // boundary. A small negative padding lets the mask itself render a
+            // few pixels wider without changing the content's own layout,
+            // spacing or ContentSizeFitter-driven height.
+            viewport.GetComponent<RectMask2D>().padding = new Vector4(-OutlineOverflow, -OutlineOverflow,
+                -OutlineOverflow, -OutlineOverflow);
 
             var contentObject = new GameObject("Content", typeof(RectTransform),
                 typeof(VerticalLayoutGroup), typeof(ContentSizeFitter));
@@ -689,6 +698,14 @@ namespace Agrovator.PitchSimulator.Editor
             return buttons;
         }
 
+        // The Phase Scroll's own fixed budget (see CreatePhaseScroll) minus this
+        // row's 14px top/bottom padding and a margin for the still-active but
+        // visually collapsed sibling rows (Sentence Cards, Feedback, Improve
+        // Actions, Follow Up), which each still contribute one 8px spacing gap
+        // even at zero height. Kept comfortably under that ceiling so the
+        // composed pitch's own row can never exceed the viewport's mask.
+        private const float PresentationMaxHeight = 160f;
+
         private static Text CreatePresentPitch(Transform content)
         {
             var root = new GameObject("Present Pitch", typeof(RectTransform),
@@ -697,8 +714,20 @@ namespace Agrovator.PitchSimulator.Editor
             var layout = root.GetComponent<VerticalLayoutGroup>();
             ConfigureColumn(layout, 0f, expandWidth: true, expandHeight: false);
             layout.padding = new RectOffset(0, 0, 14, 14);
-            return CreateText("Presentation", root.transform, 14, FontStyle.Normal, LightText,
+            var presentation = CreateText("Presentation", root.transform, 14, FontStyle.Normal, LightText,
                 TextAnchor.UpperLeft);
+            // The composed pitch is four learner-chosen sentences, so its length
+            // varies with which options were picked and can run well past any
+            // single authored line. Capping the row's height and letting the
+            // font shrink to fit removes the ceiling on how long a real
+            // combination can safely be, instead of chasing a fixed pixel
+            // budget for whichever combination happens to render next - the
+            // failure this replaces was exactly that: a real combination longer
+            // than the two representative strings the previous layout was
+            // sized against overflowed the Phase Scroll mask and was clipped.
+            presentation.gameObject.AddComponent<LayoutElement>().preferredHeight = PresentationMaxHeight;
+            SetBestFit(presentation, 10, 14);
+            return presentation;
         }
 
         private static GameObject CreateResultsScreen(
@@ -726,6 +755,12 @@ namespace Agrovator.PitchSimulator.Editor
             var viewport = new GameObject("Viewport", typeof(RectTransform), typeof(RectMask2D));
             viewport.transform.SetParent(scrollObject.transform, false);
             Stretch(viewport.GetComponent<RectTransform>());
+            // See the matching comment in CreatePhaseScroll: keeps a focus/hover
+            // outline on the first or last card from being clipped at the mask
+            // boundary. This content already carries its own 12px padding, so
+            // this is defense in depth rather than a fix for an observed clip.
+            viewport.GetComponent<RectMask2D>().padding = new Vector4(-OutlineOverflow, -OutlineOverflow,
+                -OutlineOverflow, -OutlineOverflow);
 
             var contentObject = new GameObject("Content", typeof(RectTransform),
                 typeof(VerticalLayoutGroup), typeof(ContentSizeFitter));
@@ -1129,6 +1164,12 @@ namespace Agrovator.PitchSimulator.Editor
             labelText.text = label;
             return button;
         }
+
+        // How far AddFocusIndicator's Outline draws beyond its control's own
+        // rect. Scrollable viewports pad their RectMask2D by this much so a
+        // control sitting flush against the mask boundary (commonly the last
+        // row in the list) does not have its outline clipped.
+        private const float OutlineOverflow = 6f;
 
         private static void AddFocusIndicator(Selectable selectable)
         {

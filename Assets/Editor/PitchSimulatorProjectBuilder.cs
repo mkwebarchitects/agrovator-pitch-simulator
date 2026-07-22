@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using Agrovator.PitchSimulator.UI;
 using Agrovator.PitchSimulator.Audio;
@@ -25,7 +26,7 @@ namespace Agrovator.PitchSimulator.Editor
         /// regression did. Treat bumping this as part of changing anything
         /// this class or <see cref="GuidedPitchSceneBuilder"/> generates.
         /// </summary>
-        public const int GeneratorVersion = 24;
+        public const int GeneratorVersion = 25;
 
         private const string BootstrapPath = "Assets/Scenes/Bootstrap.unity";
         private const string GamePath = "Assets/Scenes/Game.unity";
@@ -83,6 +84,14 @@ namespace Agrovator.PitchSimulator.Editor
                     return;
                 }
 
+                // ReplaceOwnedRoot destroys the previous "Generated Bootstrap"
+                // root outright, including whatever real audio clips a project
+                // owner has bound in the Inspector - a builder run (this menu
+                // item, triggered for any other change here or in
+                // GuidedPitchSceneBuilder) must not silently discard that work.
+                // Reading it first and passing it through lets every cue that
+                // still exists keep its clip; only genuinely new cues start null.
+                var existingAudioBindings = ReadExistingAudioCueBindings(scene);
                 var root = ReplaceOwnedRoot(scene, "Generated Bootstrap");
                 var bootstrapObject = new GameObject("Bootstrapper");
                 bootstrapObject.transform.SetParent(root.transform, false);
@@ -97,7 +106,7 @@ namespace Agrovator.PitchSimulator.Editor
                 sfxSource.loop = false;
                 SetReference(bootstrapper, "musicSource", musicSource);
                 SetReference(bootstrapper, "sfxSource", sfxSource);
-                SetAudioCueBindings(bootstrapper);
+                SetAudioCueBindings(bootstrapper, existingAudioBindings);
                 SetReference(bootstrapper, "guidedPitchContentJson",
                     AssetDatabase.LoadAssetAtPath<TextAsset>(GuidedContentPath));
                 SetReference(bootstrapper, "englishCatalogJson",
@@ -110,7 +119,58 @@ namespace Agrovator.PitchSimulator.Editor
             }
         }
 
-        private static void SetAudioCueBindings(Bootstrapper bootstrapper)
+        /// <summary>
+        /// Reads whatever clips are currently bound on the scene's existing
+        /// "Generated Bootstrap" root, keyed by cue, before that root is
+        /// destroyed and rebuilt. Absent, unparsed, or unbound entries are
+        /// simply not in the result, which <see cref="SetAudioCueBindings"/>
+        /// treats the same as a cue that never had a binding.
+        /// </summary>
+        private static Dictionary<AudioCue, AudioClip> ReadExistingAudioCueBindings(Scene scene)
+        {
+            var result = new Dictionary<AudioCue, AudioClip>();
+            foreach (var existing in scene.GetRootGameObjects())
+            {
+                if (!string.Equals(existing.name, "Generated Bootstrap", StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                var existingBootstrapper = existing.GetComponentInChildren<Bootstrapper>(true);
+                if (existingBootstrapper == null)
+                {
+                    continue;
+                }
+
+                var bindings = new SerializedObject(existingBootstrapper).FindProperty("audioCueBindings");
+                if (bindings == null)
+                {
+                    continue;
+                }
+
+                for (var index = 0; index < bindings.arraySize; index++)
+                {
+                    var binding = bindings.GetArrayElementAtIndex(index);
+                    var cueProperty = binding.FindPropertyRelative("cue");
+                    var clipProperty = binding.FindPropertyRelative("clip");
+                    if (cueProperty == null || clipProperty == null || clipProperty.objectReferenceValue == null)
+                    {
+                        continue;
+                    }
+
+                    var cue = (AudioCue)cueProperty.enumValueIndex;
+                    if (Enum.IsDefined(typeof(AudioCue), cue))
+                    {
+                        result[cue] = (AudioClip)clipProperty.objectReferenceValue;
+                    }
+                }
+            }
+
+            return result;
+        }
+
+        private static void SetAudioCueBindings(Bootstrapper bootstrapper,
+            IReadOnlyDictionary<AudioCue, AudioClip> existingBindings)
         {
             var serialized = new SerializedObject(bootstrapper);
             var bindings = serialized.FindProperty("audioCueBindings");
@@ -120,7 +180,8 @@ namespace Agrovator.PitchSimulator.Editor
             {
                 var binding = bindings.GetArrayElementAtIndex(index);
                 binding.FindPropertyRelative("cue").enumValueIndex = (int)cues[index];
-                binding.FindPropertyRelative("clip").objectReferenceValue = null;
+                existingBindings.TryGetValue(cues[index], out var preserved);
+                binding.FindPropertyRelative("clip").objectReferenceValue = preserved;
             }
             serialized.ApplyModifiedPropertiesWithoutUndo();
         }

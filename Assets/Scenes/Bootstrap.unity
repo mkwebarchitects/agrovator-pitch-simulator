@@ -166,7 +166,7 @@ AudioSource:
   m_audioClip: {fileID: 0}
   m_Resource: {fileID: 0}
   m_PlayOnAwake: 0
-  m_Volume: 1
+  m_Volume: 0.75
   m_Pitch: 1
   Loop: 0
   Mute: 0
@@ -372,16 +372,20 @@ MonoBehaviour:
     clip: {fileID: 8300000, guid: 0a24d1d4db0a9134bbb173c2d57a6821, type: 3}
   - cue: 3
     clip: {fileID: 0}
-  - cue: 4
-    clip: {fileID: 0}
   - cue: 5
     clip: {fileID: 8300000, guid: d7ee3349fbc8132478b6add5c09588da, type: 3}
   - cue: 6
     clip: {fileID: 8300000, guid: 870312c65301e0946b287165124003c2, type: 3}
   - cue: 7
-    clip: {fileID: 0}
+    clip: {fileID: 8300000, guid: 2ce73e116fef54445bfe296bd97e5cae, type: 3}
   - cue: 8
-    clip: {fileID: 0}
+    clip: {fileID: 8300000, guid: ff170332a424cbb41b5713599cee4c47, type: 3}
+  - cue: 4
+    clip: {fileID: 8300000, guid: d51e81fb22c185f47a2fee2b269497fc, type: 3}
+  - cue: 9
+    clip: {fileID: 8300000, guid: d51e81fb22c185f47a2fee2b269497fc, type: 3}
+  - cue: 10
+    clip: {fileID: 8300000, guid: 7adf49cf8b829104088b11c5e2ffd6d4, type: 3}
 --- !u!1 &1728792237
 GameObject:
   m_ObjectHideFlags: 0

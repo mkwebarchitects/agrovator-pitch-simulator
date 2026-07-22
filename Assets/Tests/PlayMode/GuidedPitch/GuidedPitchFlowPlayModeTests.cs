@@ -765,7 +765,10 @@ namespace Agrovator.PitchSimulator.Tests.PlayMode
             Assert.That(rig.GuidedPanel.activeSelf, Is.False);
 
             Assert.That(playedCues, Has.Some.EqualTo(AudioCue.ResponseSelected));
-            Assert.That(playedCues, Has.Some.EqualTo(AudioCue.JudgeReaction));
+            Assert.That(playedCues, Has.Some.Matches<AudioCue>(cue =>
+                cue == AudioCue.JudgeReactionImpressed || cue == AudioCue.JudgeReactionInterested ||
+                cue == AudioCue.JudgeReactionConcerned),
+                "At least one of the three portrait-specific reaction cues must play.");
             Assert.That(playedCues, Has.Some.EqualTo(AudioCue.FeedbackOpen));
             Assert.That(playedCues, Has.Some.EqualTo(AudioCue.ResultsReveal));
             Assert.That(playedCues, Has.None.EqualTo(AudioCue.TimerWarning),
