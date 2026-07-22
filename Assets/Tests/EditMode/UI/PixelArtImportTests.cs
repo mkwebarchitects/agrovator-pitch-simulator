@@ -37,6 +37,7 @@ namespace Agrovator.PitchSimulator.Tests.EditMode.UI
         [TestCase("Assets/Art/UI/dialogue-panel.png", 768, 384, 1, FilterMode.Point)]
         [TestCase("Assets/Art/UI/confidence-icons.png", 480, 96, 5, FilterMode.Point)]
         [TestCase("Assets/Art/UI/part-icons.png", 384, 96, 4, FilterMode.Point)]
+        [TestCase("Assets/Art/UI/speech-bubble.png", 64, 64, 1, FilterMode.Bilinear)]
         public void PixelArt_UsesCrispDeterministicImportSettings(
             string path,
             int expectedWidth,
@@ -70,6 +71,7 @@ namespace Agrovator.PitchSimulator.Tests.EditMode.UI
         [TestCase("Assets/Art/UI/dialogue-panel.png")]
         [TestCase("Assets/Art/UI/confidence-icons.png")]
         [TestCase("Assets/Art/UI/part-icons.png")]
+        [TestCase("Assets/Art/UI/speech-bubble.png")]
         public void PixelArt_ShipsUncompressedOnWebGLAndStandalone(string path)
         {
             var importer = (TextureImporter)AssetImporter.GetAtPath(path);
@@ -111,6 +113,15 @@ namespace Agrovator.PitchSimulator.Tests.EditMode.UI
                 "Assets/Art/UI/dialogue-panel.png");
             Assert.That(importer.spriteImportMode, Is.EqualTo(SpriteImportMode.Single));
             Assert.That(importer.spriteBorder, Is.EqualTo(new Vector4(24f, 24f, 24f, 24f)));
+        }
+
+        [Test]
+        public void SpeechBubble_HasNineSliceBorder()
+        {
+            var importer = (TextureImporter)AssetImporter.GetAtPath(
+                "Assets/Art/UI/speech-bubble.png");
+            Assert.That(importer.spriteImportMode, Is.EqualTo(SpriteImportMode.Single));
+            Assert.That(importer.spriteBorder, Is.EqualTo(new Vector4(22f, 22f, 22f, 22f)));
         }
 
         [Test]

@@ -31,6 +31,8 @@ namespace Agrovator.PitchSimulator.Tests.EditMode.UI
             new Vector2(720f, 960f),
         };
         private static readonly Color DeepNavy = new Color32(0x0E, 0x17, 0x1F, 0xFF);
+        // Mirrors GuidedPitchSceneBuilder.CardNavy: the speech bubble's fill.
+        private static readonly Color CardNavy = new Color32(0x16, 0x24, 0x2F, 0xFF);
         // Kept in step with MeterFilled/MeterEmpty. The
         // builder assembly exposes them as internal and there is no
         // InternalsVisibleTo, so a mirror is the only option short of widening
@@ -790,11 +792,22 @@ namespace Agrovator.PitchSimulator.Tests.EditMode.UI
             var contrastFailures = new List<string>();
             var guided = RequireChild(canvas, "Guided Pitch");
             var frameImage = RequireChild(guided, "Content Frame").GetComponent<Image>();
+            // The dialogue bubble is a nine-slice tinted white to show its drawn
+            // navy fill, so its Image.color is not the surface the learner sees.
+            // The fill is CardNavy, so the light text is measured against that.
             var dialogueCard = RequireChild(guided, "Content Frame/Aya Row/Dialogue Card");
-            CheckContrast("dialogue question", RequireText(dialogueCard, "Question"),
-                dialogueCard.GetComponent<Image>(), 4.5f, contrastFailures);
-            CheckContrast("dialogue hint", RequireText(dialogueCard, "Hint"),
-                dialogueCard.GetComponent<Image>(), 4.5f, contrastFailures);
+            var dialogueBubble = dialogueCard.GetComponent<Image>();
+            Assert.That(dialogueBubble.type, Is.EqualTo(Image.Type.Sliced),
+                "Aya's line must sit in the nine-slice speech bubble.");
+            Assert.That(dialogueBubble.sprite.texture.name, Is.EqualTo("speech-bubble"));
+            foreach (var line in new[] { "Question", "Hint" })
+            {
+                var ratio = ContrastRatio(RequireText(dialogueCard, line).color, CardNavy);
+                if (ratio < 4.5f)
+                {
+                    contrastFailures.Add($"dialogue {line} on the bubble was {ratio:F2}:1; expected 4.5:1.");
+                }
+            }
             var boardSlot = RequireChild(guided, "Content Frame/Pitch Board/Problem Slot");
             CheckContrast("board label", RequireText(boardSlot, "Header/Label"),
                 boardSlot.Find("Backing").GetComponent<Image>(), 4.5f, contrastFailures);

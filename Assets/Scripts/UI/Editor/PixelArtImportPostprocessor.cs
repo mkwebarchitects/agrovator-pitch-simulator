@@ -12,6 +12,7 @@ namespace Agrovator.PitchSimulator.UI.Editor
         internal const string DialoguePanelPath = "Assets/Art/UI/dialogue-panel.png";
         internal const string ConfidencePath = "Assets/Art/UI/confidence-icons.png";
         internal const string PartIconPath = "Assets/Art/UI/part-icons.png";
+        internal const string SpeechBubblePath = "Assets/Art/UI/speech-bubble.png";
 
         private static readonly string[] JudgeNames =
         {
@@ -38,7 +39,7 @@ namespace Agrovator.PitchSimulator.UI.Editor
         // guards for generated scenes.
         public override uint GetVersion()
         {
-            return 3;
+            return 4;
         }
 
         private void OnPreprocessTexture()
@@ -51,11 +52,12 @@ namespace Agrovator.PitchSimulator.UI.Editor
             var importer = (TextureImporter)assetImporter;
             importer.textureType = TextureImporterType.Sprite;
             importer.spritePixelsPerUnit = 32f;
-            // pitch-room.png is a 1280x720 illustration displayed at roughly 1:1,
-            // not low-resolution pixel art. Point sampling gains it nothing there
-            // and drops or duplicates source pixels at any non-integer scale. The
-            // genuine sprite sheets keep exact sampling.
-            importer.filterMode = assetPath == EnvironmentPath
+            // pitch-room.png is a 1280x720 illustration at roughly 1:1 and the speech
+            // bubble is a smooth rounded shape - neither is low-resolution pixel art,
+            // so both sample bilinear. Point sampling gains them nothing and chews
+            // their edges at fractional scale. The genuine sprite sheets keep exact
+            // point sampling.
+            importer.filterMode = assetPath == EnvironmentPath || assetPath == SpeechBubblePath
                 ? FilterMode.Bilinear
                 : FilterMode.Point;
             importer.mipmapEnabled = false;
@@ -82,9 +84,18 @@ namespace Agrovator.PitchSimulator.UI.Editor
             else
             {
                 importer.spriteImportMode = SpriteImportMode.Single;
-                importer.spriteBorder = assetPath == DialoguePanelPath
-                    ? new Vector4(24f, 24f, 24f, 24f)
-                    : Vector4.zero;
+                if (assetPath == DialoguePanelPath)
+                {
+                    importer.spriteBorder = new Vector4(24f, 24f, 24f, 24f);
+                }
+                else if (assetPath == SpeechBubblePath)
+                {
+                    importer.spriteBorder = new Vector4(22f, 22f, 22f, 22f);
+                }
+                else
+                {
+                    importer.spriteBorder = Vector4.zero;
+                }
             }
         }
 
@@ -92,6 +103,7 @@ namespace Agrovator.PitchSimulator.UI.Editor
         {
             return path == JudgePath || path == EnvironmentPath ||
                 path == DialoguePanelPath || path == ConfidencePath ||
+                path == SpeechBubblePath ||
                 path == PartIconPath;
         }
 

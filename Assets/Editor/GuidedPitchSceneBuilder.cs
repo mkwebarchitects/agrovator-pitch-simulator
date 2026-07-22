@@ -342,28 +342,30 @@ namespace Agrovator.PitchSimulator.Editor
             judgeView.Configure(judgeImage, spriteSet, JudgeBlinkIntervalSeconds,
                 JudgeBlinkDurationSeconds, JudgeTalkFrameSeconds, JudgeSemanticHoldSeconds);
 
+            // Aya's line sits in a rounded speech bubble rather than a flat panel.
+            // The bubble is a purpose-drawn nine-slice: navy fill and a thin gold
+            // border baked in, tinted white so it shows as drawn. Its fill is
+            // CardNavy, so the light text keeps the same contrast it had on the flat
+            // card; the border carries the speech-bubble read, replacing the old
+            // gold accent bar.
             var card = new GameObject("Dialogue Card", typeof(RectTransform), typeof(Image),
                 typeof(VerticalLayoutGroup), typeof(LayoutElement));
             card.transform.SetParent(row.transform, false);
             var cardImage = card.GetComponent<Image>();
-            cardImage.color = CardNavy;
+            cardImage.sprite = LoadSpeechBubble();
+            cardImage.type = Image.Type.Sliced;
+            cardImage.color = Color.white;
             cardImage.raycastTarget = false;
             var cardLayout = card.GetComponent<VerticalLayoutGroup>();
             ConfigureColumn(cardLayout, 6f, expandWidth: true, expandHeight: false);
+            // The 22px nine-slice border is a slicing boundary, not dead space - the
+            // straight top edge is only the thin gold line - so the same text padding
+            // the flat card used still clears it and keeps the original line room.
             cardLayout.padding = new RectOffset(24, 16, 14, 14);
             cardLayout.childAlignment = TextAnchor.MiddleLeft;
             var cardElement = card.GetComponent<LayoutElement>();
             cardElement.flexibleWidth = 1f;
             cardElement.preferredHeight = 160f;
-
-            var accent = CreateImage("Speaker Accent", card.transform, FocusGold);
-            accent.gameObject.AddComponent<LayoutElement>().ignoreLayout = true;
-            var accentRect = accent.GetComponent<RectTransform>();
-            accentRect.anchorMin = new Vector2(0f, 0f);
-            accentRect.anchorMax = new Vector2(0f, 1f);
-            accentRect.pivot = new Vector2(0f, 0.5f);
-            accentRect.sizeDelta = new Vector2(6f, 0f);
-            accentRect.anchoredPosition = Vector2.zero;
 
             questionText = CreateText("Question", card.transform, 16, FontStyle.Normal, LightText,
                 TextAnchor.MiddleLeft);
@@ -993,6 +995,19 @@ namespace Agrovator.PitchSimulator.Editor
             layout.flexibleWidth = 0f;
             layout.flexibleHeight = 0f;
             return image;
+        }
+
+        private const string SpeechBubblePath = "Assets/Art/UI/speech-bubble.png";
+
+        private static Sprite LoadSpeechBubble()
+        {
+            var sprite = AssetDatabase.LoadAssetAtPath<Sprite>(SpeechBubblePath);
+            if (sprite == null)
+            {
+                throw new InvalidOperationException(
+                    $"The speech bubble sprite is missing at {SpeechBubblePath}.");
+            }
+            return sprite;
         }
 
         private static Sprite ResolvePartIcon(PitchPart part)
