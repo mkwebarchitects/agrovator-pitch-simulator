@@ -948,6 +948,54 @@ namespace Agrovator.PitchSimulator.Tests.PlayMode
         }
 
         [Test]
+        public void ImprovePhase_ResetsStaleSentenceCardScrollAfterARevisionAnswerShowsFeedback()
+        {
+            var fixture = GuidedRigFactory.LoadAuthoredContent();
+            var bridge = new MockLmsBridge(
+                MockLmsBridgeMode.Success, GuidedRigFactory.CreateLaunch(fixture.Content));
+            var controller = GuidedRigFactory.CreateController(fixture, bridge);
+            Assert.That(controller.FinishLaunch(), Is.True);
+            var rig = GuidedRigFactory.CreateRig(roots);
+            rig.Router.Initialize(controller, fixture.Localize);
+            rig.StartButton.onClick.Invoke();
+            rig.BriefingContinueButton.onClick.Invoke();
+            rig.ModeSelection.Cards[0].Button.onClick.Invoke();
+            rig.ContinueButton.onClick.Invoke();
+            ClickCard(rig, fixture.Option(
+                LearnerMode.Primary, PitchPart.Problem, MasteryState.Developing).Id);
+            rig.ContinueButton.onClick.Invoke();
+            foreach (var part in new[] { PitchPart.Evidence, PitchPart.Solution, PitchPart.Value })
+            {
+                ClickCard(rig, fixture.Option(LearnerMode.Primary, part, MasteryState.Clear).Id);
+                rig.ContinueButton.onClick.Invoke();
+            }
+
+            Assert.That(rig.Router.ActivePhase, Is.EqualTo(GuidedPitchPhase.Improve));
+            rig.StrengthenButtons[0].onClick.Invoke();
+            Assert.That(rig.Cards.Cards.Count(card => card.gameObject.activeSelf), Is.EqualTo(3),
+                "The revision list must open with three sentence cards to choose from.");
+
+            // Simulate the learner having scrolled down to read the revision cards,
+            // the same way the Present-phase regression test above simulates a
+            // stale scroll left over from the Build sentence list.
+            rig.CardsScroll.content.anchoredPosition = new Vector2(0f, 96f);
+
+            var stillDeveloping = fixture.Option(
+                LearnerMode.Primary, PitchPart.Problem, MasteryState.NeedsPractice);
+            ClickCard(rig, stillDeveloping.Id);
+
+            Assert.That(rig.Router.ActivePhase, Is.EqualTo(GuidedPitchPhase.Improve),
+                "A revision answer must not leave the Improve phase, so no phase transition fires " +
+                "the existing scroll reset.");
+            Assert.That(rig.Cards.Cards.All(card => !card.gameObject.activeSelf), Is.True,
+                "The revision cards must collapse once feedback for the answer appears.");
+            Assert.That(rig.CardsScroll.content.anchoredPosition.y, Is.EqualTo(0f).Within(0.01f),
+                "The revision list collapsing must not leave a stale scroll offset that pushes the " +
+                "feedback and remaining strengthen buttons out of view.");
+            controller.Dispose();
+        }
+
+        [Test]
         public void Keyboard_RouterTab_CyclesModeCardsWhileTheGuidedPresenterPanelIsInactive()
         {
             var fixture = GuidedRigFactory.LoadAuthoredContent();
@@ -980,6 +1028,70 @@ namespace Agrovator.PitchSimulator.Tests.PlayMode
             Assert.That(eventSystem.currentSelectedGameObject,
                 Is.SameAs(rig.ModeSelection.Cards[1].Button.gameObject),
                 "Shift+Tab must move backward through the mode cards.");
+            controller.Dispose();
+        }
+
+        [Test]
+        public void Keyboard_EnsureSelection_RestoresDefaultAfterSelectionIsClearedByAMouseClick()
+        {
+            var fixture = GuidedRigFactory.LoadAuthoredContent();
+            var bridge = new MockLmsBridge(
+                MockLmsBridgeMode.Success, GuidedRigFactory.CreateLaunch(fixture.Content));
+            var controller = GuidedRigFactory.CreateController(fixture, bridge);
+            Assert.That(controller.FinishLaunch(), Is.True);
+            var rig = GuidedRigFactory.CreateRig(roots);
+            rig.Router.Initialize(controller, fixture.Localize);
+            rig.StartButton.onClick.Invoke();
+            rig.BriefingContinueButton.onClick.Invoke();
+
+            Assert.That(rig.Router.ActivePhase, Is.EqualTo(GuidedPitchPhase.ModeSelection));
+            var eventSystem = EventSystem.current;
+            Assert.That(eventSystem.currentSelectedGameObject,
+                Is.SameAs(rig.ModeSelection.Cards[0].Button.gameObject));
+
+            // A mouse click on empty space (or any non-selectable area) clears
+            // EventSystem selection, the same way Unity's default input module
+            // does. Without EnsureSelection, a subsequent arrow-key press would
+            // have nothing to move focus from and silently do nothing.
+            eventSystem.SetSelectedGameObject(null);
+            Assert.That(eventSystem.currentSelectedGameObject, Is.Null);
+
+            Assert.That(rig.Router.EnsureSelection(), Is.True);
+            Assert.That(eventSystem.currentSelectedGameObject,
+                Is.SameAs(rig.ModeSelection.Cards[0].Button.gameObject),
+                "A directional press with no selection must fall back to the screen's default control.");
+
+            Assert.That(rig.Router.EnsureSelection(), Is.False,
+                "EnsureSelection must be a no-op once a valid selection already exists.");
+            controller.Dispose();
+        }
+
+        [Test]
+        public void Keyboard_EnsureSelection_RestoresSettingsCloseButtonWhileTheOverlayIsOpen()
+        {
+            var fixture = GuidedRigFactory.LoadAuthoredContent();
+            var bridge = new MockLmsBridge(
+                MockLmsBridgeMode.Success, GuidedRigFactory.CreateLaunch(fixture.Content));
+            var controller = GuidedRigFactory.CreateController(fixture, bridge);
+            Assert.That(controller.FinishLaunch(), Is.True);
+            var rig = GuidedRigFactory.CreateRig(roots);
+            rig.Router.Initialize(controller, fixture.Localize);
+            rig.SettingsButton.onClick.Invoke();
+
+            Assert.That(rig.SettingsPanel.activeSelf, Is.True);
+            var eventSystem = EventSystem.current;
+            Assert.That(eventSystem.currentSelectedGameObject,
+                Is.SameAs(rig.SettingsCloseButton.gameObject));
+
+            // CurrentPanel() intentionally skips settingsPanel (it exists to
+            // find the screen underneath Settings for post-close focus
+            // restoration), so EnsureSelection must not rely on it while
+            // Settings itself is the active, open panel.
+            eventSystem.SetSelectedGameObject(null);
+            Assert.That(rig.Router.EnsureSelection(), Is.True);
+            Assert.That(eventSystem.currentSelectedGameObject,
+                Is.SameAs(rig.SettingsCloseButton.gameObject),
+                "A directional press with no selection while Settings is open must land on its Close button.");
             controller.Dispose();
         }
 
@@ -1046,6 +1158,51 @@ namespace Agrovator.PitchSimulator.Tests.PlayMode
             yield return null;
             Assert.That(CardIsFullyVisible(rig.CardsViewport, firstCard), Is.True,
                 "Focusing the first card must scroll back up.");
+            controller.Dispose();
+        }
+
+        [Test]
+        public void ButtonPress_PlaysOnlyForControlsThatHadNoAudioCueBefore()
+        {
+            var fixture = GuidedRigFactory.LoadAuthoredContent();
+            var bridge = new MockLmsBridge(
+                MockLmsBridgeMode.Success, GuidedRigFactory.CreateLaunch(fixture.Content));
+            var controller = GuidedRigFactory.CreateController(fixture, bridge);
+            Assert.That(controller.FinishLaunch(), Is.True);
+            var rig = GuidedRigFactory.CreateRig(roots);
+            var presses = 0;
+            rig.Router.Initialize(controller, fixture.Localize, onButtonPress: () => presses++);
+
+            // Title's Start button plays ButtonPress through the separate
+            // user-gesture path (unlocking WebGL audio), not this callback -
+            // onTitleUserGesture was left null here, so a click must not count.
+            rig.StartButton.onClick.Invoke();
+            Assert.That(presses, Is.EqualTo(0));
+
+            // Briefing Continue previously played nothing.
+            rig.BriefingContinueButton.onClick.Invoke();
+            Assert.That(presses, Is.EqualTo(1));
+
+            // The mode-selection card previously played nothing.
+            rig.ModeSelection.Cards[0].Button.onClick.Invoke();
+            Assert.That(presses, Is.EqualTo(2));
+
+            // Learn's Continue previously played nothing.
+            rig.ContinueButton.onClick.Invoke();
+            Assert.That(rig.Router.ActivePhase, Is.EqualTo(GuidedPitchPhase.Build));
+            Assert.That(presses, Is.EqualTo(3));
+
+            // Sentence cards already play ResponseSelected + JudgeReaction and
+            // must not also play the plain click cue.
+            ClickCard(rig, fixture.Option(LearnerMode.Primary, PitchPart.Problem, MasteryState.Clear).Id);
+            Assert.That(rig.Router.ActivePhase, Is.EqualTo(GuidedPitchPhase.BuildFeedback));
+            Assert.That(presses, Is.EqualTo(3));
+
+            // Continue still gets the plain click cue even where it also
+            // triggers a richer FeedbackOpen cue from the session event.
+            rig.ContinueButton.onClick.Invoke();
+            Assert.That(presses, Is.EqualTo(4));
+
             controller.Dispose();
         }
 

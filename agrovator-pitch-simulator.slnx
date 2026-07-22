@@ -1,0 +1,13 @@
+﻿<Solution>
+  <Project Path="Agrovator.PitchSimulator.EditModeTests.csproj" />
+  <Project Path="Agrovator.PitchSimulator.UI.csproj" />
+  <Project Path="Agrovator.PitchSimulator.PlayModeTests.csproj" />
+  <Project Path="Agrovator.PitchSimulator.Editor.csproj" />
+  <Project Path="Agrovator.PitchSimulator.GuidedPitch.csproj" />
+  <Project Path="Agrovator.PitchSimulator.LMS.csproj" />
+  <Project Path="Agrovator.PitchSimulator.Session.csproj" />
+  <Project Path="Agrovator.PitchSimulator.Core.csproj" />
+  <Project Path="Agrovator.PitchSimulator.UI.Editor.csproj" />
+  <Project Path="Agrovator.PitchSimulator.Accessibility.csproj" />
+  <Project Path="Agrovator.PitchSimulator.Audio.csproj" />
+</Solution>

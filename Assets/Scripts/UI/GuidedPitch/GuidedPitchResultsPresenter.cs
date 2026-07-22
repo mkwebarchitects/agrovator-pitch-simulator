@@ -41,13 +41,14 @@ namespace Agrovator.PitchSimulator.UI
 
         private GuidedPitchSessionController controller;
         private Action changed;
+        private Action buttonPress;
         private Func<string, string> localize;
         private int renderedAttempt = -1;
         private bool hasRenderedResult;
         private bool initialized;
 
         public void Initialize(GuidedPitchSessionController sessionController, Action onChanged,
-            Func<string, string> localizeText)
+            Func<string, string> localizeText, Action onButtonPress = null)
         {
             if (sessionController == null) throw new ArgumentNullException(nameof(sessionController));
             if (localizeText == null) throw new ArgumentNullException(nameof(localizeText));
@@ -60,6 +61,7 @@ namespace Agrovator.PitchSimulator.UI
             retryButton.onClick.RemoveListener(HandleRetry);
             controller = sessionController;
             changed = onChanged;
+            buttonPress = onButtonPress;
             localize = localizeText;
             renderedAttempt = -1;
             hasRenderedResult = false;
@@ -390,6 +392,9 @@ namespace Agrovator.PitchSimulator.UI
             }
         }
 
+        // Submit already carries its own eventual CompletionSuccess/Failure cue
+        // once the LMS responds, so it keeps that instead of also playing the
+        // plain click sound immediately.
         private void HandleSubmit()
         {
             if (!initialized)
@@ -408,6 +413,7 @@ namespace Agrovator.PitchSimulator.UI
                 return;
             }
 
+            buttonPress?.Invoke();
             controller.Retry();
             changed?.Invoke();
         }

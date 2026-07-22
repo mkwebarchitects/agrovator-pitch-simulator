@@ -100,11 +100,13 @@ namespace Agrovator.PitchSimulator.UI
         private readonly UnityAction[] strengthenHandlers = new UnityAction[PartCount];
         private GuidedPitchSessionController controller;
         private Action changed;
+        private Action buttonPress;
         private Func<string, string> localize;
         private GuidedPitchSessionSnapshot lastSnapshot;
         private GameObject lastScrollTarget;
         private bool initialized;
         private bool listening;
+        private bool cardsVisibleLastRender;
 
         public void Configure(
             ModeSelectionView modeSelectionView,
@@ -146,7 +148,7 @@ namespace Agrovator.PitchSimulator.UI
         }
 
         public void Initialize(GuidedPitchSessionController sessionController, Action onChanged,
-            Func<string, string> localizeText)
+            Func<string, string> localizeText, Action onButtonPress = null)
         {
             if (sessionController == null) throw new ArgumentNullException(nameof(sessionController));
             if (localizeText == null) throw new ArgumentNullException(nameof(localizeText));
@@ -159,6 +161,7 @@ namespace Agrovator.PitchSimulator.UI
             controller = sessionController;
             changed = onChanged;
             localize = localizeText;
+            buttonPress = onButtonPress;
             modeSelection.Initialize(HandleModeSelected);
             cards.Initialize(HandleCardSelected);
             continueButton.onClick.AddListener(HandleContinue);
@@ -281,6 +284,15 @@ namespace Agrovator.PitchSimulator.UI
                 cards.Clear();
             }
 
+            // The sentence cards, feedback and strengthen actions share one
+            // scrollable column (see GuidedPitchSceneBuilder). A revision answer
+            // collapses the cards and reveals feedback without changing phase, so
+            // phaseChanged alone misses this resize and leaves a stale scroll
+            // offset that shoves the feedback and remaining strengthen buttons
+            // out of the viewport.
+            var cardVisibilityChanged = showCards != cardsVisibleLastRender;
+            cardsVisibleLastRender = showCards;
+
             if (snapshot.Feedback != null &&
                 (phase == GuidedPitchPhase.BuildFeedback ||
                  phase == GuidedPitchPhase.FollowUpFeedback ||
@@ -329,7 +341,7 @@ namespace Agrovator.PitchSimulator.UI
                 }
             }
 
-            if (phaseChanged)
+            if (phaseChanged || cardVisibilityChanged)
             {
                 ResetPhaseScroll();
             }
@@ -492,10 +504,14 @@ namespace Agrovator.PitchSimulator.UI
                 return;
             }
 
+            buttonPress?.Invoke();
             controller.SelectLearnerMode(mode);
             changed?.Invoke();
         }
 
+        // Sentence cards (Build, Improve revisions, FollowUp) keep only their
+        // existing ResponseSelected cue rather than also layering the plain
+        // click sound on top.
         private void HandleCardSelected(string responseId)
         {
             if (!initialized || lastSnapshot == null)
@@ -528,6 +544,7 @@ namespace Agrovator.PitchSimulator.UI
                 return;
             }
 
+            buttonPress?.Invoke();
             controller.Continue();
             changed?.Invoke();
         }
@@ -539,6 +556,7 @@ namespace Agrovator.PitchSimulator.UI
                 return;
             }
 
+            buttonPress?.Invoke();
             controller.PresentPitch();
             changed?.Invoke();
         }
@@ -550,6 +568,7 @@ namespace Agrovator.PitchSimulator.UI
                 return;
             }
 
+            buttonPress?.Invoke();
             controller.BeginRevision(part);
             changed?.Invoke();
         }

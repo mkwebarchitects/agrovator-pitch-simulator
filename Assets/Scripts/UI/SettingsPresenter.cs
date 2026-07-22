@@ -8,12 +8,14 @@ namespace Agrovator.PitchSimulator.UI
     {
         [SerializeField] private Button closeButton;
         private Action close;
+        private Action buttonPress;
         private bool initialized;
 
-        public void Initialize(Action onClose)
+        public void Initialize(Action onClose, Action onButtonPress = null)
         {
             closeButton.onClick.RemoveListener(Close);
             close = onClose;
+            buttonPress = onButtonPress;
             closeButton.onClick.AddListener(Close);
             initialized = true;
         }
@@ -26,6 +28,7 @@ namespace Agrovator.PitchSimulator.UI
         private void Close()
         {
             if (!initialized) return;
+            buttonPress?.Invoke();
             close?.Invoke();
         }
     }

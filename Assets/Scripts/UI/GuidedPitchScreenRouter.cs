@@ -82,7 +82,7 @@ namespace Agrovator.PitchSimulator.UI
         }
 
         public void Initialize(GuidedPitchSessionController sessionController,
-            Func<string, string> localize, Action onTitleUserGesture = null)
+            Func<string, string> localize, Action onTitleUserGesture = null, Action onButtonPress = null)
         {
             if (sessionController == null) throw new ArgumentNullException(nameof(sessionController));
             if (localize == null) throw new ArgumentNullException(nameof(localize));
@@ -99,10 +99,10 @@ namespace Agrovator.PitchSimulator.UI
             controller = sessionController;
             titlePresenter.Initialize(
                 () => controller.StartScenario(), Refresh, OpenSettings, onTitleUserGesture);
-            briefingPresenter.Initialize(() => controller.Continue(), Refresh, localize);
-            guidedPresenter.Initialize(controller, Refresh, localize);
-            resultsPresenter.Initialize(controller, Refresh, localize);
-            settingsPresenter.Initialize(CloseSettings);
+            briefingPresenter.Initialize(() => controller.Continue(), Refresh, localize, onButtonPress);
+            guidedPresenter.Initialize(controller, Refresh, localize, onButtonPress);
+            resultsPresenter.Initialize(controller, Refresh, localize, onButtonPress);
+            settingsPresenter.Initialize(CloseSettings, onButtonPress);
             controller.EventPublished += HandleSessionEvent;
             IsInitialized = true;
             Refresh();
@@ -209,6 +209,11 @@ namespace Agrovator.PitchSimulator.UI
                 : guidedPresenter.MoveFocus(backward);
         }
 
+        private const float NavigationAxisDeadzone = 0.5f;
+
+        private float previousHorizontalAxis;
+        private float previousVerticalAxis;
+
         private void Update()
         {
             if (!IsInitialized)
@@ -219,7 +224,72 @@ namespace Agrovator.PitchSimulator.UI
             if (Input.GetKeyDown(KeyCode.Tab))
             {
                 MoveFocus(Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift));
+                return;
             }
+
+            if (NavigationInputPressed())
+            {
+                EnsureSelection();
+            }
+        }
+
+        /// <summary>
+        /// Edge-triggers on arrow keys/WASD/gamepad stick (bound to the default
+        /// Horizontal/Vertical axes) so a single directional press is detected
+        /// once, the same way Input.GetButtonDown detects a single key press.
+        /// </summary>
+        private bool NavigationInputPressed()
+        {
+            var horizontal = Input.GetAxisRaw("Horizontal");
+            var vertical = Input.GetAxisRaw("Vertical");
+            var pressed =
+                (Mathf.Abs(horizontal) >= NavigationAxisDeadzone && Mathf.Abs(previousHorizontalAxis) < NavigationAxisDeadzone) ||
+                (Mathf.Abs(vertical) >= NavigationAxisDeadzone && Mathf.Abs(previousVerticalAxis) < NavigationAxisDeadzone);
+            previousHorizontalAxis = horizontal;
+            previousVerticalAxis = vertical;
+            return pressed;
+        }
+
+        /// <summary>
+        /// Restores selection to the active screen's default control when a
+        /// mouse click elsewhere cleared EventSystem selection, so a directional
+        /// press afterward resumes keyboard/gamepad navigation instead of doing
+        /// nothing. Public, like <see cref="MoveFocus"/>, so tests can drive it
+        /// directly without simulating hardware axis input.
+        /// </summary>
+        public bool EnsureSelection()
+        {
+            if (!IsInitialized)
+            {
+                return false;
+            }
+
+            var eventSystem = EventSystem.current;
+            if (eventSystem == null)
+            {
+                return false;
+            }
+
+            var current = eventSystem.currentSelectedGameObject;
+            var currentSelectable = current == null ? null : current.GetComponent<Selectable>();
+            var currentInvalid = current == null || !current.activeInHierarchy ||
+                currentSelectable == null || !currentSelectable.IsInteractable();
+            if (!currentInvalid)
+            {
+                return false;
+            }
+
+            // CurrentPanel() deliberately skips settingsPanel (it exists to find
+            // the screen underneath Settings for post-close focus restoration),
+            // so it must not be used to find Settings' own default while open.
+            var target = GetDefault(settingsOpen ? settingsPanel : CurrentPanel());
+            if (target == null || !target.gameObject.activeInHierarchy)
+            {
+                return false;
+            }
+
+            eventSystem.SetSelectedGameObject(target.gameObject);
+            return true;
         }
 
         /// <summary>

@@ -73,17 +73,17 @@ namespace Agrovator.PitchSimulator.UI
             hovered = false;
             focused = false;
             if (label != null) label.text = string.Empty;
-            if (button != null)
-            {
-                button.interactable = false;
-                var navigation = button.navigation;
-                navigation.mode = Navigation.Mode.Explicit;
-                navigation.selectOnUp = null;
-                navigation.selectOnDown = null;
-                navigation.selectOnLeft = null;
-                navigation.selectOnRight = null;
-                button.navigation = navigation;
-            }
+            //if (button != null)
+            //{
+            //    button.interactable = false;
+            //    var navigation = button.navigation;
+            //    navigation.mode = Navigation.Mode.Explicit;
+            //    navigation.selectOnUp = null;
+            //    navigation.selectOnDown = null;
+            //    navigation.selectOnLeft = null;
+            //    navigation.selectOnRight = null;
+            //    button.navigation = navigation;
+            //}
             if (focusOutline != null) focusOutline.gameObject.SetActive(false);
             gameObject.SetActive(false);
         }

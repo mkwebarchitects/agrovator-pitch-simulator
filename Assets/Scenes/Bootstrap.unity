@@ -365,19 +365,19 @@ MonoBehaviour:
   sfxSource: {fileID: 181429302}
   audioCueBindings:
   - cue: 0
-    clip: {fileID: 0}
+    clip: {fileID: 8300000, guid: 1ebe56ef3f1ba914abc090c6f50a2960, type: 3}
   - cue: 1
-    clip: {fileID: 0}
+    clip: {fileID: 8300000, guid: 0a24d1d4db0a9134bbb173c2d57a6821, type: 3}
   - cue: 2
-    clip: {fileID: 0}
+    clip: {fileID: 8300000, guid: 0a24d1d4db0a9134bbb173c2d57a6821, type: 3}
   - cue: 3
     clip: {fileID: 0}
   - cue: 4
     clip: {fileID: 0}
   - cue: 5
-    clip: {fileID: 0}
+    clip: {fileID: 8300000, guid: d7ee3349fbc8132478b6add5c09588da, type: 3}
   - cue: 6
-    clip: {fileID: 0}
+    clip: {fileID: 8300000, guid: 870312c65301e0946b287165124003c2, type: 3}
   - cue: 7
     clip: {fileID: 0}
   - cue: 8
@@ -392,6 +392,7 @@ GameObject:
   m_Component:
   - component: {fileID: 1728792239}
   - component: {fileID: 1728792238}
+  - component: {fileID: 1728792240}
   m_Layer: 0
   m_Name: Generated Bootstrap
   m_TagString: Untagged
@@ -428,6 +429,14 @@ Transform:
   - {fileID: 181429301}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!81 &1728792240
+AudioListener:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1728792237}
+  m_Enabled: 1
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0

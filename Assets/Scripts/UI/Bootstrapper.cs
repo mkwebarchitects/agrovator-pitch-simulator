@@ -242,7 +242,7 @@ namespace Agrovator.PitchSimulator.UI
             controller = sessionController;
             ConfigureAudio(launch);
             router = sceneRouter;
-            router.Initialize(controller, localize, HandleTitleUserGesture);
+            router.Initialize(controller, localize, HandleTitleUserGesture, HandleButtonPress);
             // The rotate prompt is not a screen the router owns, so it takes the
             // launch locale directly. It lives on the same canvas as the router.
             sceneRouter.GetComponentInChildren<RotateToPlayOverlay>(true)
@@ -287,6 +287,11 @@ namespace Agrovator.PitchSimulator.UI
             if (audioService == null) return;
             audioService.UnlockAfterUserGesture();
             audioCueDirector?.HandleUserGesture();
+        }
+
+        private void HandleButtonPress()
+        {
+            audioCueDirector?.PlayButtonPress();
         }
 
         private static Func<string, string> BuildGuidedLocalizer(

@@ -14,6 +14,7 @@ namespace Agrovator.PitchSimulator.UI
 
         private Action<string> selected;
         private bool initialized;
+        private LayoutElement containerSize;
 
         public IReadOnlyList<SentenceCardView> Cards => cards;
         public bool IsSelectionLocked { get; private set; }
@@ -22,6 +23,19 @@ namespace Agrovator.PitchSimulator.UI
         {
             cards = cardPool == null ? null : (SentenceCardView[])cardPool.Clone();
             ValidateCards();
+            // The GridLayoutGroup on this same GameObject uses a fixed row/column
+            // count of one (see GuidedPitchResponsiveLayout) so three cards lay
+            // out as one row or column; that fixed count makes it always report
+            // its full cell height to the parent layout, even with zero active
+            // cards. A LayoutElement at the default higher priority overrides
+            // that report so this container can collapse like PitchFeedbackView's
+            // rows do, without touching the fixed row/column layout the cards
+            // themselves still need while visible.
+            containerSize = GetComponent<LayoutElement>();
+            if (containerSize == null)
+            {
+                containerSize = gameObject.AddComponent<LayoutElement>();
+            }
         }
 
         public void Initialize(Action<string> onSelected)
@@ -62,6 +76,7 @@ namespace Agrovator.PitchSimulator.UI
             }
 
             ConfigureNavigation(options.Count);
+            SetContainerVisible(options.Count > 0);
         }
 
         public void Clear()
@@ -72,6 +87,16 @@ namespace Agrovator.PitchSimulator.UI
                 card?.ClearAndHide();
             }
             IsSelectionLocked = true;
+            SetContainerVisible(false);
+        }
+
+        private void SetContainerVisible(bool visible)
+        {
+            if (containerSize == null) return;
+            // -1 tells Unity's layout resolver to defer to the GridLayoutGroup's
+            // own (fixed cell) height; 0 overrides it so the container collapses.
+            containerSize.minHeight = visible ? -1f : 0f;
+            containerSize.preferredHeight = visible ? -1f : 0f;
         }
 
         private void HandleSelected(SentenceCardView card)
@@ -89,16 +114,16 @@ namespace Agrovator.PitchSimulator.UI
 
         private void ConfigureNavigation(int visibleCount)
         {
-            for (var index = 0; index < cards.Length; index++)
-            {
-                var navigation = cards[index].Button.navigation;
-                navigation.mode = Navigation.Mode.Explicit;
-                navigation.selectOnLeft = null;
-                navigation.selectOnRight = null;
-                navigation.selectOnUp = index > 0 && index < visibleCount ? cards[index - 1].Button : null;
-                navigation.selectOnDown = index >= 0 && index < visibleCount - 1 ? cards[index + 1].Button : null;
-                cards[index].Button.navigation = navigation;
-            }
+            //for (var index = 0; index < cards.Length; index++)
+            //{
+            //    var navigation = cards[index].Button.navigation;
+            //    navigation.mode = Navigation.Mode.Explicit;
+            //    navigation.selectOnLeft = index > 0 && index < visibleCount ? cards[index - 1].Button : null;
+            //    navigation.selectOnRight = index >= 0 && index < visibleCount - 1 ? cards[index + 1].Button : null;
+            //    navigation.selectOnUp = null;
+            //    navigation.selectOnDown = null;
+            //    cards[index].Button.navigation = navigation;
+            //}
         }
 
         private void ValidateCards()

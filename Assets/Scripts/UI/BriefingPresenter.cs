@@ -16,14 +16,17 @@ namespace Agrovator.PitchSimulator.UI
         [SerializeField] private string[] lineKeys = Array.Empty<string>();
         private Action continueAction;
         private Action changed;
+        private Action buttonPress;
         private bool initialized;
 
-        public void Initialize(Action continueAction, Action changed, Func<string, string> localize)
+        public void Initialize(Action continueAction, Action changed, Func<string, string> localize,
+            Action onButtonPress = null)
         {
             if (continueAction == null) throw new ArgumentNullException(nameof(continueAction));
             continueButton.onClick.RemoveListener(Continue);
             this.continueAction = continueAction;
             this.changed = changed;
+            buttonPress = onButtonPress;
             continueButton.onClick.AddListener(Continue);
             RenderLines(localize);
             initialized = true;
@@ -56,6 +59,7 @@ namespace Agrovator.PitchSimulator.UI
         private void Continue()
         {
             if (!initialized) return;
+            buttonPress?.Invoke();
             continueAction();
             changed?.Invoke();
         }

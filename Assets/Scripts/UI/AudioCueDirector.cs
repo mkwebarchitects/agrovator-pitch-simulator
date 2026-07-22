@@ -22,6 +22,19 @@ namespace Agrovator.PitchSimulator.UI
                 play(AudioCue.MusicLoop);
             }
 
+            PlayButtonPress();
+        }
+
+        /// <summary>
+        /// The plain click cue for controls that carry no richer semantic cue of
+        /// their own (Continue, Present, strengthen, mode-select, Retry,
+        /// Settings-close). Buttons that already trigger a domain event - the
+        /// sentence cards' ResponseSelected, Submit's eventual
+        /// CompletionSuccess/Failure - keep only that cue rather than layering
+        /// this one on top.
+        /// </summary>
+        public void PlayButtonPress()
+        {
             play(AudioCue.ButtonPress);
         }
 
