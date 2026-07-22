@@ -248,7 +248,19 @@ namespace Agrovator.PitchSimulator.Editor
             root.transform.SetParent(frame, false);
             ConfigureRow(root.GetComponent<HorizontalLayoutGroup>(), 8f, expandWidth: true,
                 expandHeight: true);
-            root.GetComponent<LayoutElement>().preferredHeight = 40f;
+            // minHeight, not just preferred: on a short landscape-phone viewport the
+            // frame overflows and the layout squeezes children from preferred toward
+            // their minimum. Without a floor the rail collapsed to zero height and
+            // its part labels vanished, taking the four-part concept with them. The
+            // floor keeps the rail readable; the phase scroll gives up its height
+            // instead.
+            var railLayout = root.GetComponent<LayoutElement>();
+            railLayout.preferredHeight = 40f;
+            // Below where the rail settles on the tall compact phone, so it does not
+            // steal height from the card scroll there, but enough to keep a readable
+            // line box (32 minus 8px padding) when a short landscape phone compresses
+            // the frame hard and would otherwise collapse the rail labels to nothing.
+            railLayout.minHeight = 32f;
 
             var slots = new PitchProgressRailSlot[4];
             foreach (var part in PitchParts.Ordered)

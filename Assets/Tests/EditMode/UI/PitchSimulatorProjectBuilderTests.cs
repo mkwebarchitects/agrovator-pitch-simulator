@@ -1140,15 +1140,13 @@ namespace Agrovator.PitchSimulator.Tests.EditMode.UI
         }
 
         // Presentation item 6. The four-part concept is the whole point of the game
-        // and it vanishes on a landscape phone: every rail label collapses to a
-        // zero-height rect, so the rail reads as coloured bars and icons with no
-        // words. Kept in code as the reproduction so the fix has a failing
-        // assertion to satisfy rather than a screenshot to eyeball. The rect is
-        // asserted rather than the glyphs because generated labels carry no text
-        // until the catalog is applied at runtime.
+        // and it vanished on a landscape phone: every rail label collapsed to a
+        // zero-height rect because the fixed frame overflowed the short viewport and
+        // the layout squeezed the labels out. The rail now holds a minimum height so
+        // its labels always have a line box; the phase scroll absorbs the
+        // compression instead. The rect is asserted rather than the glyphs because
+        // generated labels carry no text until the catalog is applied at runtime.
         [Test]
-        [Ignore("Presentation item 6 is not built. Captured RED 2026-07-21: at 834x329 " +
-            "all four rail labels measured 128.5x0.0px, so no line box exists to draw into.")]
         public void GeneratedRail_KeepsItsPartLabelsReadableOnALandscapePhone()
         {
             var compact = new Vector2(834f, 329f);
