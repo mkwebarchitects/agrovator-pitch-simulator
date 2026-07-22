@@ -295,6 +295,9 @@ namespace Agrovator.PitchSimulator.Tests.PlayMode
             rig.ResultParts = PitchParts.Ordered.Select(part =>
             {
                 var cardRoot = Panel(part + " Result Card", rig.ResultsPanel.transform);
+                // Mirrors the generated scene: the presenter fades each card's
+                // CanvasGroup in as the completion reward.
+                cardRoot.AddComponent<CanvasGroup>();
                 var view = cardRoot.AddComponent<PitchResultPartView>();
                 view.Configure(part,
                     CreateText("Label", cardRoot.transform),

@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Globalization;
 using Agrovator.PitchSimulator.Core;
 using Agrovator.PitchSimulator.GuidedPitch;
@@ -131,6 +132,14 @@ namespace Agrovator.PitchSimulator.UI
                     partViews[(int)part].Render(snapshot.Draft[part], localize);
                 }
 
+                if (isNewResult)
+                {
+                    // Reward completion by revealing the four parts one after another.
+                    // Reduced motion degrades to the same end state - all cards fully
+                    // shown at once - so nothing animates when the learner opts out.
+                    RevealParts(snapshot.ReducedMotion);
+                }
+
                 readinessText.text = string.Format(
                     CultureInfo.InvariantCulture,
                     "{0}: {1}%",
@@ -234,11 +243,116 @@ namespace Agrovator.PitchSimulator.UI
             return PitchPartVisuals.ComposeCurrentSentences(snapshot.Draft, localize);
         }
 
+        private const float PartRevealStagger = 0.14f;
+        private const float PartRevealFade = 0.16f;
+
+        private Coroutine revealRoutine;
+        private bool pendingReveal;
+
+        /// <summary>
+        /// Shows the four result cards. With motion allowed they fade in one after
+        /// another as a reward; under reduced motion they all appear at once. Either
+        /// way the end state is identical: every card fully opaque.
+        ///
+        /// The router refreshes this presenter before it activates the Results panel,
+        /// so the object is usually inactive here and cannot host a coroutine. In
+        /// that case the cards are hidden and the reveal is deferred to
+        /// <see cref="OnEnable"/>, which runs the instant the panel is shown.
+        /// </summary>
+        private void RevealParts(bool reducedMotion)
+        {
+            StopReveal();
+            pendingReveal = false;
+
+            if (reducedMotion)
+            {
+                foreach (var view in partViews)
+                {
+                    SetPartAlpha(view, 1f);
+                }
+                return;
+            }
+
+            foreach (var view in partViews)
+            {
+                SetPartAlpha(view, 0f);
+            }
+            if (isActiveAndEnabled)
+            {
+                revealRoutine = StartCoroutine(RevealSequence());
+            }
+            else
+            {
+                pendingReveal = true;
+            }
+        }
+
+        private void OnEnable()
+        {
+            if (pendingReveal)
+            {
+                pendingReveal = false;
+                revealRoutine = StartCoroutine(RevealSequence());
+            }
+        }
+
+        private void StopReveal()
+        {
+            if (revealRoutine != null)
+            {
+                StopCoroutine(revealRoutine);
+                revealRoutine = null;
+            }
+        }
+
+        private IEnumerator RevealSequence()
+        {
+            for (var index = 0; index < partViews.Length; index++)
+            {
+                var group = PartGroup(partViews[index]);
+                var elapsed = 0f;
+                while (elapsed < PartRevealFade)
+                {
+                    elapsed += Time.unscaledDeltaTime;
+                    if (group != null)
+                    {
+                        group.alpha = Mathf.Clamp01(elapsed / PartRevealFade);
+                    }
+                    yield return null;
+                }
+                if (group != null)
+                {
+                    group.alpha = 1f;
+                }
+                yield return new WaitForSecondsRealtime(PartRevealStagger);
+            }
+
+            revealRoutine = null;
+        }
+
+        private static CanvasGroup PartGroup(PitchResultPartView view)
+        {
+            return view == null ? null : view.GetComponent<CanvasGroup>();
+        }
+
+        private static void SetPartAlpha(PitchResultPartView view, float alpha)
+        {
+            var group = PartGroup(view);
+            if (group != null)
+            {
+                group.alpha = alpha;
+            }
+        }
+
         private void ClearResult()
         {
+            StopReveal();
+            pendingReveal = false;
+
             foreach (var view in partViews)
             {
                 view.Clear();
+                SetPartAlpha(view, 1f);
             }
 
             readinessText.text = string.Empty;

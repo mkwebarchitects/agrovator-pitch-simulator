@@ -812,7 +812,7 @@ namespace Agrovator.PitchSimulator.Editor
         {
             var visual = PitchPartVisuals.Get(part);
             var card = new GameObject(part + " Card", typeof(RectTransform), typeof(Image),
-                typeof(VerticalLayoutGroup), typeof(PitchResultPartView));
+                typeof(VerticalLayoutGroup), typeof(CanvasGroup), typeof(PitchResultPartView));
             card.transform.SetParent(content, false);
             var cardImage = card.GetComponent<Image>();
             cardImage.color = CardNavy;

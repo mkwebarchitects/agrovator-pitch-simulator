@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using Agrovator.PitchSimulator.Core;
@@ -8,6 +9,7 @@ using Agrovator.PitchSimulator.UI;
 using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.EventSystems;
+using UnityEngine.TestTools;
 using UnityEngine.UI;
 
 namespace Agrovator.PitchSimulator.Tests.PlayMode
@@ -336,6 +338,72 @@ namespace Agrovator.PitchSimulator.Tests.PlayMode
                 "Submitting disables both actions, so Tab must be a safe no-op.");
             Assert.That(eventSystem.currentSelectedGameObject, Is.SameAs(selectedWhileSubmitting));
             controller.Dispose();
+        }
+
+        // The completion reward reveals the four cards in sequence. Under reduced
+        // motion it must degrade to the same end state - every card fully shown at
+        // once - with no animation to sit through.
+        [Test]
+        public void Results_ReducedMotion_ShowsEveryPartCardImmediately()
+        {
+            var fixture = GuidedRigFactory.LoadAuthoredContent();
+            var bridge = new MockLmsBridge(
+                MockLmsBridgeMode.Success, GuidedRigFactory.CreateLaunch(fixture.Content));
+            var controller = GuidedRigFactory.CreateController(fixture, bridge, reducedMotion: true);
+            Assert.That(controller.FinishLaunch(), Is.True);
+            var rig = GuidedRigFactory.CreateRig(roots);
+            rig.Router.Initialize(controller, fixture.Localize);
+            ReachResults(rig, fixture, LearnerMode.Primary);
+
+            Assert.That(controller.Snapshot.ReducedMotion, Is.True);
+            Assert.That(rig.ResultParts.All(view => PartAlpha(view) == 1f), Is.True,
+                "Reduced motion must show every result card fully, with no fade-in.");
+        }
+
+        // With motion allowed the cards start hidden and fade in one after another,
+        // and the sequence always finishes with every card fully opaque.
+        [UnityTest]
+        public IEnumerator Results_WithMotion_RevealsPartCardsThenShowsThemAll()
+        {
+            var fixture = GuidedRigFactory.LoadAuthoredContent();
+            var bridge = new MockLmsBridge(
+                MockLmsBridgeMode.Success, GuidedRigFactory.CreateLaunch(fixture.Content));
+            var controller = GuidedRigFactory.CreateController(fixture, bridge, reducedMotion: false);
+            Assert.That(controller.FinishLaunch(), Is.True);
+            var rig = GuidedRigFactory.CreateRig(roots);
+            rig.Router.Initialize(controller, fixture.Localize);
+            ReachResults(rig, fixture, LearnerMode.Primary);
+
+            // The last card reveals last, so right after reaching Results it cannot
+            // already be fully shown - the reveal is genuinely staged, not instant.
+            Assert.That(PartAlpha(rig.ResultParts.Last()), Is.LessThan(1f),
+                "The final card must not be fully shown the instant Results opens.");
+
+            var deadline = Time.realtimeSinceStartup + 3f;
+            while (Time.realtimeSinceStartup < deadline &&
+                rig.ResultParts.Any(view => PartAlpha(view) < 1f))
+            {
+                yield return null;
+            }
+
+            Assert.That(rig.ResultParts.All(view => PartAlpha(view) == 1f), Is.True,
+                "The reveal must finish with every result card fully opaque.");
+        }
+
+        private static float PartAlpha(PitchResultPartView view)
+        {
+            var group = view.GetComponent<CanvasGroup>();
+            return group == null ? 1f : group.alpha;
+        }
+
+        private static void ReachResults(GuidedRig rig, GuidedContentFixture fixture, LearnerMode mode)
+        {
+            EnterBuild(rig, mode);
+            CompleteBuild(rig, fixture, mode,
+                MasteryState.Clear, MasteryState.Clear, MasteryState.Clear, MasteryState.Clear);
+            PresentAndAnswerFollowUp(rig, fixture, mode, MasteryState.Clear);
+            Assert.That(rig.Router.ActivePhase, Is.EqualTo(GuidedPitchPhase.Results),
+                "The reveal tests must run on the Results screen.");
         }
 
         private static void EnterBuild(GuidedRig rig, LearnerMode mode)
