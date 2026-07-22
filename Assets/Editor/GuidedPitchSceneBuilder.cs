@@ -123,7 +123,7 @@ namespace Agrovator.PitchSimulator.Editor
             var panel = CreateScreen("Title", canvas);
             var presenter = panel.AddComponent<TitlePresenter>();
             var frame = CreateFrame(panel.transform, 760f, 500f, 24, 20, 16f);
-            var heading = CreateText("Heading", frame.transform, 40, FontStyle.Bold, LightText);
+            var heading = CreateText("Heading", frame.transform, 40, FontStyle.Bold, LightText, display: true);
             var subtitle = CreateText("Subtitle", frame.transform, 20, FontStyle.Normal, LightText);
             heading.text = "Pitch Simulator";
             subtitle.text = "Build a clear, confident Smart School Garden pitch.";
@@ -270,7 +270,7 @@ namespace Agrovator.PitchSimulator.Editor
                 var iconLayout = icon.gameObject.AddComponent<LayoutElement>();
                 iconLayout.preferredWidth = 18f;
                 var label = CreateText("Label", slot.transform, 14, FontStyle.Bold, LightText,
-                    TextAnchor.MiddleLeft);
+                    TextAnchor.MiddleLeft, display: true);
                 SetBestFit(label, 10, 14);
                 var labelLayout = label.gameObject.AddComponent<LayoutElement>();
                 labelLayout.flexibleWidth = 1f;
@@ -421,7 +421,7 @@ namespace Agrovator.PitchSimulator.Editor
                 var iconLayout = icon.gameObject.AddComponent<LayoutElement>();
                 iconLayout.preferredWidth = 16f;
                 var label = CreateText("Label", header.transform, 13, FontStyle.Bold, LightText,
-                    TextAnchor.MiddleLeft);
+                    TextAnchor.MiddleLeft, display: true);
                 SetBestFit(label, 9, 13);
                 label.gameObject.AddComponent<LayoutElement>().flexibleWidth = 1f;
 
@@ -505,7 +505,7 @@ namespace Agrovator.PitchSimulator.Editor
                 Stretch(backing.GetComponent<RectTransform>());
 
                 var title = CreateText("Title", card.transform, 20, FontStyle.Bold, Ink,
-                    TextAnchor.MiddleLeft);
+                    TextAnchor.MiddleLeft, display: true);
                 SetBestFit(title, 15, 20);
                 title.gameObject.AddComponent<LayoutElement>().preferredHeight = 30f;
                 var description = CreateText("Description", card.transform, 16, FontStyle.Normal, Ink,
@@ -569,6 +569,8 @@ namespace Agrovator.PitchSimulator.Editor
                 backing.gameObject.AddComponent<LayoutElement>().ignoreLayout = true;
                 Stretch(backing.GetComponent<RectTransform>());
 
+                // The composed pitch sentence is body text, so it keeps the legible
+                // built-in font rather than the decorative display face.
                 var label = CreateText("Label", card.transform, 15, FontStyle.Normal, Ink,
                     TextAnchor.MiddleLeft);
                 SetBestFit(label, 10, 15);
@@ -608,7 +610,7 @@ namespace Agrovator.PitchSimulator.Editor
                 rowLayout.childAlignment = TextAnchor.UpperLeft;
 
                 var label = CreateText("Label", row.transform, 13, FontStyle.Bold, FocusGold,
-                    TextAnchor.UpperLeft);
+                    TextAnchor.UpperLeft, display: true);
                 var labelLayout = label.gameObject.AddComponent<LayoutElement>();
                 labelLayout.minWidth = 140f;
                 labelLayout.preferredWidth = 140f;
@@ -650,14 +652,14 @@ namespace Agrovator.PitchSimulator.Editor
                 element.minHeight = 64f;
                 element.preferredHeight = 64f;
 
-                var chip = CreateImage("Chip", buttonObject.transform, visual.Colour);
-                var chipLayout = chip.gameObject.AddComponent<LayoutElement>();
-                chipLayout.preferredWidth = 28f;
-                chipLayout.preferredHeight = 28f;
-                var icon = CreatePartIcon(chip.transform, visual.Part, 24f);
+                // The icon goes straight into the button's layout row. Nesting it in
+                // a plain Image chip left CreatePartIcon's LayoutElement with no
+                // layout group to honour, so the icon rendered at its default rect
+                // and ballooned to the full button height.
+                var icon = CreatePartIcon(buttonObject.transform, visual.Part, 26f);
 
                 var label = CreateText("Label", buttonObject.transform, 15, FontStyle.Bold, LightText,
-                    TextAnchor.MiddleLeft);
+                    TextAnchor.MiddleLeft, display: true);
                 SetBestFit(label, 11, 15);
                 label.gameObject.AddComponent<LayoutElement>().flexibleWidth = 1f;
                 buttons[(int)part] = button;
@@ -695,7 +697,7 @@ namespace Agrovator.PitchSimulator.Editor
             // the height the row needs has to come out of the frame itself.
             var frame = CreateFrame(panel.transform, FrameWidth, FrameHeight, 16, 4, 8f);
 
-            var heading = CreateText("Heading", frame.transform, 26, FontStyle.Bold, LightText);
+            var heading = CreateText("Heading", frame.transform, 26, FontStyle.Bold, LightText, display: true);
             heading.gameObject.AddComponent<LayoutElement>().preferredHeight = 36f;
 
             var scrollObject = new GameObject("Results Scroll", typeof(RectTransform),
@@ -747,10 +749,13 @@ namespace Agrovator.PitchSimulator.Editor
             // which GeneratedResults_SecondaryPitchClearsMaskAndFixedActions caught.
             var readinessRow = CreateRow("Readiness Row", contentObject.transform, 12f, 34f);
             var readiness = CreateText("Readiness", readinessRow.transform, 24, FontStyle.Bold,
-                FocusGold, TextAnchor.MiddleLeft);
+                FocusGold, TextAnchor.MiddleLeft, display: true);
             var readinessLayout = readiness.gameObject.AddComponent<LayoutElement>();
             readinessLayout.preferredWidth = 330f;
             readinessLayout.flexibleWidth = 0f;
+            // The display face is wider than the built-in font, so best-fit keeps the
+            // readiness line inside its box rather than clipping "Pitch Readiness: 100%".
+            SetBestFit(readiness, 16, 24);
             var meterSegments = CreateReadinessMeter(readinessRow.transform);
             var improvement = CreateText("Improvement", contentObject.transform, 13,
                 FontStyle.Normal, LightText, TextAnchor.MiddleLeft);
@@ -816,10 +821,10 @@ namespace Agrovator.PitchSimulator.Editor
             var icon = CreatePartIcon(header.transform, visual.Part, 20f);
             icon.gameObject.AddComponent<LayoutElement>().preferredWidth = 18f;
             var label = CreateText("Label", header.transform, 14, FontStyle.Bold, LightText,
-                TextAnchor.MiddleLeft);
+                TextAnchor.MiddleLeft, display: true);
             label.gameObject.AddComponent<LayoutElement>().flexibleWidth = 1f;
             var statusText = CreateText("Status", header.transform, 13, FontStyle.Bold, FocusGold,
-                TextAnchor.MiddleRight);
+                TextAnchor.MiddleRight, display: true);
             statusText.gameObject.AddComponent<LayoutElement>().preferredWidth = 130f;
 
             var sentence = CreateText("Sentence", card.transform, 13, FontStyle.Normal, LightText,
@@ -839,7 +844,7 @@ namespace Agrovator.PitchSimulator.Editor
             var panel = CreateScreen("Settings", canvas);
             var presenter = panel.AddComponent<SettingsPresenter>();
             var frame = CreateFrame(panel.transform, 720f, 420f, 20, 16, 12f);
-            var heading = CreateText("Heading", frame.transform, 30, FontStyle.Bold, LightText);
+            var heading = CreateText("Heading", frame.transform, 30, FontStyle.Bold, LightText, display: true);
             heading.text = "Settings";
             var note = CreateText("Foundation Note", frame.transform, 16, FontStyle.Normal, LightText);
             note.text = "Timer, motion, audio and language controls arrive with the LMS launch settings.";
@@ -902,7 +907,7 @@ namespace Agrovator.PitchSimulator.Editor
 
             // This is the only thing on screen and is read at arm's length while the
             // learner turns the device, so it is sized as a headline, not a caption.
-            var title = CreateText("Title", frame.transform, 44, FontStyle.Bold, FocusGold);
+            var title = CreateText("Title", frame.transform, 44, FontStyle.Bold, FocusGold, display: true);
             title.alignment = TextAnchor.MiddleCenter;
             title.gameObject.AddComponent<LayoutElement>().preferredHeight = 56f;
 
@@ -1089,8 +1094,11 @@ namespace Agrovator.PitchSimulator.Editor
             layout.preferredHeight = 64f;
             layout.preferredWidth = width;
 
-            var labelText = CreateText("Label", buttonObject.transform, 18, FontStyle.Bold, LightText);
+            var labelText = CreateText("Label", buttonObject.transform, 18, FontStyle.Bold, LightText, display: true);
             Stretch(labelText.GetComponent<RectTransform>());
+            // Best-fit keeps the wider display face inside the button on longer
+            // labels like "Present my pitch".
+            SetBestFit(labelText, 12, 18);
             labelText.text = label;
             return button;
         }
@@ -1106,14 +1114,38 @@ namespace Agrovator.PitchSimulator.Editor
                 .Configure(selectable, outline);
         }
 
+        // A warm, playful display face for the game's headings and short labels. Body
+        // text keeps the legible built-in font: this face is decorative and would
+        // slow reading of the pitch sentences and feedback. OFL-licensed, recorded in
+        // docs/16-ASSET-MANIFEST.md.
+        internal const string DisplayFontPath = "Assets/Art/Fonts/MysteryQuest-Regular.ttf";
+
+        private static Font cachedDisplayFont;
+
+        private static Font DisplayFont()
+        {
+            if (cachedDisplayFont == null)
+            {
+                cachedDisplayFont = AssetDatabase.LoadAssetAtPath<Font>(DisplayFontPath);
+                if (cachedDisplayFont == null)
+                {
+                    throw new InvalidOperationException(
+                        $"The display font is missing at {DisplayFontPath}.");
+                }
+            }
+            return cachedDisplayFont;
+        }
+
         private static Text CreateText(
             string name, Transform parent, int fontSize, FontStyle style, Color color,
-            TextAnchor alignment = TextAnchor.MiddleCenter)
+            TextAnchor alignment = TextAnchor.MiddleCenter, bool display = false)
         {
             var textObject = new GameObject(name, typeof(RectTransform), typeof(Text));
             textObject.transform.SetParent(parent, false);
             var text = textObject.GetComponent<Text>();
-            text.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            text.font = display
+                ? DisplayFont()
+                : Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
             text.fontSize = fontSize;
             text.fontStyle = style;
             text.color = color;
